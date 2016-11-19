@@ -74,7 +74,6 @@ var QuickStatements = {
 			persistent:0,
 		} , function ( d ) {
 			// TODO status/error check
-			console.log ( d ) ;
 			me.data = d.data ;
 			me.setupTableFromCommands() ;
 		} , 'json' ) ;
