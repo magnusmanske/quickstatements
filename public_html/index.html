@@ -11,7 +11,7 @@
 <script src='//tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/4.0.0-alpha.2/js/bootstrap.min.js'></script>
 <script src='//tools-static.wmflabs.org/cdnjs/ajax/libs/datatables/1.10.12/js/jquery.dataTables.min.js'></script>
 <script src='//tools-static.wmflabs.org/cdnjs/ajax/libs/datatables/1.10.12/js/dataTables.bootstrap4.min.js'></script>
-<!--<script src="//tools-static.wmflabs.org/magnustools/resources/js/common.js"></script>-->
+<script src="//tools-static.wmflabs.org/magnustools/resources/js/widar.js"></script>
 <script src="//tools-static.wmflabs.org/tooltranslate/tt.js"></script>
 <script src="./quickstatements.js"></script>
 
@@ -41,9 +41,19 @@
     <li class="nav-item dropdown">
       <a class="nav-link dropdown-toggle" href="http://example.com" id="supportedContentDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Import commands</a>
       <div class="dropdown-menu" aria-labelledby="supportedContentDropdown">
-        <a id="link_import_qs1" class="dropdown-item" href="#">Version 1 commands</a>
+        <a id="link_import_qs1" class="dropdown-item" href="#">Version 1 format</a>
 <!--        <a class="dropdown-item" href="#">Another action</a>-->
       </div>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="https://phabricator.wikimedia.org/diffusion/2010/">Git</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="https://www.wikidata.org/wiki/User:Magnus_Manske/quick_statements2">Brainstorming</a>
+    </li>
+
+    <li class="nav-item">
+	  <span class="nav-link" id='userinfo'><small style='color:#DDD'>Checking user info...</small></span>
     </li>
   </ul>
 <!--  <form class="form-inline float-xs-right">
@@ -74,6 +84,30 @@
 </div>
 
 </div>
+
+
+
+<!-- V1 import dialog -->
+<div id='import_v1_dialog' class="modal fade hidden">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+        <h4 class="modal-title">Import commands in V1 format</h4>
+      </div>
+      <div class="modal-body">
+      	<textarea id='v1_commands' style='width:100%' rows='20'></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id='v1_import'>Import commands</button>
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
 
 </body>
 </html>

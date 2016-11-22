@@ -18,6 +18,6 @@ if ( $action == 'import' ) {
 	$out = $qs->importData ( $data , $format , $persistent ) ;
 }
 
-print json_encode ( $out ) ;
+print json_encode ( $out , JSON_PRETTY_PRINT ) ; // FIXME
 
 ?>
