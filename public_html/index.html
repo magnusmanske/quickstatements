@@ -2,7 +2,7 @@
 <html><head>
 <META NAME="ROBOTS" CONTENT="NOINDEX, NOFOLLOW">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<link rel="stylesheet" href="//tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/4.0.0-alpha.2/css/bootstrap.min.css">
+<link rel="stylesheet" href="//tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/4.0.0-alpha.3/css/bootstrap.min.css">
 <link rel="stylesheet" href="//tools-static.wmflabs.org/cdnjs/ajax/libs/tether/1.3.3/css/tether.min.css">
 <link rel="stylesheet" href="//tools-static.wmflabs.org/cdnjs/ajax/libs/datatables/1.10.12/css/dataTables.bootstrap4.min.css">
 <!--<link rel="stylesheet" type="text/css" href="//tools-static.wmflabs.org/magnustools/resources/css/common.css">-->
@@ -16,9 +16,30 @@
 <script src="./quickstatements.js"></script>
 
 <style type="text/css">
+#logged_in_actions {
+	display:none;
+	text-align:center;
+}
 #table_container {
 	margin-top:20px;
 	margin-bottom:10px;
+}
+div.pq_container {
+	white-space:nowrap;
+}
+div.pq_value {
+	display:inline;
+}
+div.pq_button {
+	display:inline;
+	margin-left:5px;
+	cursor:pointer;
+}
+div.pq_form {
+	display:none;
+}
+a.red {
+	color:red;
 }
 </style>
 
@@ -70,6 +91,7 @@
 <div id='table_container'>
 <table id='main_table' class='table table-condensed table-striped'>
 <thead>
+<th>Status</th>
 <th>Command</th>
 <th>Item</th>
 <th>Property</th>
@@ -81,6 +103,11 @@
 </table>
 </div>
 </div>
+</div>
+
+<div class='row' id='logged_in_actions'>
+<button class='btn btn-lg btn-primary' id='run'>Run</button>
+<button class='btn btn-lg btn-outline-primary' id='run_background'>Run in background</button>
 </div>
 
 </div>
@@ -98,6 +125,12 @@
         <h4 class="modal-title">Import commands in V1 format</h4>
       </div>
       <div class="modal-body">
+      	<div>
+      	<small>Paste a tab/newline-delimited command sequence from the original QuickStatements here.<br/>
+      	You can pass such commands as URL parameters by appending "#v1=COMMANDS" to the URL.<br/>
+      	For convenience, you can replace tabs by "|" and newlines by "||"
+      	</small>
+      	</div>
       	<textarea id='v1_commands' style='width:100%' rows='20'></textarea>
       </div>
       <div class="modal-footer">

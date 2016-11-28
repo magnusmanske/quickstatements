@@ -6,9 +6,20 @@ var QuickStatements = {
 	params : {} ,
 	data : {} ,
 	widar : {} ,
+	sites : {
+		wikidata : {
+			server: 'www.wikidata.org' ,
+			types : {
+				P : { type:'property' , ns:120 , ns_prefix:'Property:' } ,
+				Q : { type:'item' , ns:0 , ns_prefix:'' }
+			}
+		}
+	} ,
+	types : {} ,
 
 	init : function () {
 		var me = this ;
+		me.setSite ( 'wikidata' ) ;
 		me.widar = new WiDaR ( function () { me.updateUserInfo() } ) ;
 		me.params = me.getUrlVars() ;
 		
@@ -21,10 +32,36 @@ var QuickStatements = {
 		} );
 	
 		$('#link_import_qs1').click ( me.onClickImportV1 ) ;
+		$('#run').click ( function () { me.run ( false ) ; return false } ) ;
+		$('#run_background').click ( function () { me.run ( true ) ; return false } ) ;
 		
 		if ( typeof me.params.v1 != 'undefined' ) me.importFromV1 ( me.params.v1 ) ;
 
 		me.updateUnlabeledItems() ;
+	} ,
+
+	setSite : function ( site ) {
+		var me = this ;
+		me.site = site ;
+		me.types = me.sites[me.site].types ;
+	} ,
+
+	getSiteAPI : function () {
+		var me = this ;
+		return 'https://' + me.sites[me.site].server + '/w/api.php' ;
+	} ,
+	
+	getSitePageURL : function ( page ) {
+		var me = this ;
+		return '//' + me.sites[me.site].server + '/wiki/' + encodeURIComponent ( page.replace(/ /g,'_') ) ;
+	} ,
+	
+	lang : function () {
+		return 'en' ; // FIXME current language
+	} ,
+	
+	run : function ( in_background ) {
+		
 	} ,
 	
 	updateUserInfo : function () {
@@ -32,6 +69,7 @@ var QuickStatements = {
 		var h = '' ;
 		if ( me.widar.isLoggedIn() ) {
 			h = "Welcome, " + me.widar.getUserName() ;
+			$('#logged_in_actions').show() ;
 		} else {
 			h += "<a href='/widar' target='_blank'>Log in</a> to use this tool" ;
 		}
@@ -72,9 +110,19 @@ var QuickStatements = {
 			if ( to_update.length >= 50 ) return false ; // Max
 		} ) ;
 		
+		$('a.pq_edit_unlinked').each ( function () {
+			var a = $(this) ;
+			a.removeClass('pq_edit_unlinked') ;
+			a.click ( function() { me.onClickEditPQ($(a.parents('div.pq_container').get(0))) ; return false } ) ;
+		} ) ;
+		
 		if ( to_update.length > 0 ) {
-			$.getJSON ( 'https://www.wikidata.org/w/api.php?action=wbgetentities&ids='+to_update.join('|')+"&format=json&callback=?" , function ( d ) {
+			$.getJSON ( me.getSiteAPI()+'?action=wbgetentities&ids='+to_update.join('|')+"&format=json&callback=?" , function ( d ) {
 				$.each ( d.entities , function ( pq , v ) {
+					if ( typeof v.missing != 'undefined' ) {
+						$('a.wd_pq[pq="'+pq+'"]').addClass('red') ;
+						return ;
+					}
 					var label ;
 					if ( typeof v.labels != 'undefined' ) {
 						if ( typeof v.labels['en'] != 'undefined' ) {
@@ -82,12 +130,120 @@ var QuickStatements = {
 						}
 					}
 					if ( typeof label == 'undefined' ) return ;
-					$('a.wd_pq[pq="'+pq+'"]').text(label) ;
+					$('a.wd_pq[pq="'+pq+'"]').removeClass('red').text(label) ;
 				} ) ;
 			} ) ;
 		}
 		
 		setTimeout ( function () { me.updateUnlabeledItems() } , 500 ) ;
+	} ,
+	
+	onClickEditPQ : function ( container ) {
+		var me = this ;
+		$('button.cancel').click() ; // close all other open edit forms
+		var pq = container.attr ( 'pq' ) ;
+		container.find('div.pq_value').hide() ;
+		container.find('div.pq_button').hide() ;
+		var title = $(container.find('div.pq_value a')).text() ;
+		var form = $(container.find('div.pq_form')) ;
+		var type = me.types[pq.substr(0,1).toUpperCase()].type ;
+		var h = '' ;
+		h += "<div class='pq_typeahead' type='"+type+"' style='width:340px'>" ;
+		h += "<div>" ;
+		h += "<form class='form form-inline'>" ;
+		h += "<input type='text' class='typeahead_input' style='width:250px' value='"+me.htmlSafe(title)+"' pq='"+pq+"'/>" ;
+		h += "<input type='submit' value='Set' class='btn btn-primary' />" ;
+		h += "<button class='cancel btn btn-default'>X</button>" ;
+		h += "</form>" ;
+		h += "</div>" ;
+		h += "<div><ul style='width:100%;overflow:auto;max-height:200px' class='pq_dropdown'></ul></div>" ;
+		h += "</div>" ;
+		form.html(h).show() ;
+		
+		me.addTypeahead ( $(container.find('div.pq_typeahead')) ) ;
+		$(container.find('form')).submit ( function () { me.onSubmitPQ ( container , true ) ; return false } ) ;
+		$(container.find('button.cancel')).click ( function () { me.onSubmitPQ ( container , false ) ; return false } ) ;
+	} ,
+	
+	updateRef : function ( json_string , value ) {
+		var me = this ;
+		if ( typeof json_string == 'undefined' ) return ;
+		if ( json_string == '' ) return ;
+		var j = JSON.parse ( json_string ) ;
+		if ( typeof j == 'undefined' ) return ;
+		if ( typeof j.cmdnum != 'undefined' ) {
+			var i = me.data.commands[j.cmdnum] ;
+			while ( ( m = j.attr.match ( /^(.+?)\.(.+)$/ ) ) != null ) {
+				i = i[m[1]] ;
+				j.attr = m[2] ;
+			}
+			i[j.attr] = value ;
+		} else {
+			console.log ( "COUND NOT STORE REF" , j , value ) ;
+		}
+	} ,
+	
+	onSubmitPQ : function ( container , do_store ) {
+		var me = this ;
+		var ta = $(container.find('div.pq_typeahead')) ;
+		var input = $(container.find('input.typeahead_input')) ;
+		var pq = input.attr('pq') ;
+		var title = input.val() ;
+		var pqv = container.find('div.pq_value') ;
+		if ( do_store && pq != '' ) {
+//			console.log ( "Storing " + pq + ' : ' + title ) ;
+			me.updateRef ( container.attr('ref') , pq ) ; // store in data structure
+			pqv.html ( me.renderPQvalue ( pq ) ) ;
+			container.attr ( { pq:pq } ) ;
+		}
+		ta.html('').hide() ;
+		pqv.show() ;
+		container.find('div.pq_button').show() ;
+	} ,
+	
+	addTypeahead : function ( o ) {
+		var me = this ;
+		me.lastTypeahead = '' ;
+		var input = $(o.find('input.typeahead_input')) ;
+		var select = $(o.find('ul.pq_dropdown')) ;
+		input.keyup ( function () {
+			me.typeAhead ( o , input , select ) ;
+		} ) ;
+		input.focus() ;
+		me.typeAhead ( o , input , select ) ;
+	} ,
+	
+	typeAhead : function ( o , input , select ) {
+		var me = this ;
+		var type = o.attr('type') ;
+		var l = me.lang() ;
+		var s = input.val() ;
+		if ( s == me.lastTypeahead ) return ;
+		me.lastTypeahead = s ;
+		select.html ( '' ) ;
+		$.getJSON ( me.getSiteAPI()+"?callback=?" , {
+			action:'wbsearchentities',
+			search:s,
+			language:l,
+			type:type,
+			format:'json'
+		} , function ( d ) {
+			var h = '' ;
+			$.each ( d.search , function ( k , v ) {
+				h += "<li style='cursor:pointer' pq='" + v.title + "'>" ;
+				h += "<div><b>" + me.htmlSafe(v.label) + "</b> <small>(" + v.title + ")</small></div>" ;
+				h += "<div><small>" + me.htmlSafe(v.description||'') + "</small></div>" ;
+				h += "</li>" ;
+			} ) ;
+			select.html ( h ) ;
+			select.find('li').click ( function () {
+				var a = $(this) ;
+				var pq = a.attr('pq').replace(/^.+:/,'') ;
+				var container = $(input.parents('div.pq_container').get(0)) ;
+				input.attr ( { pq:pq } ) ;
+				me.onSubmitPQ ( container , true ) ;
+			} ) ;
+		} ) ;
 	} ,
 
 	importFromV1 : function ( v1 ) {
@@ -105,30 +261,76 @@ var QuickStatements = {
 		} , 'json' ) ;
 	} ,
 	
-	renderPQ : function ( i ) {
+	renderPQvalue : function ( i ) {
+		var me = this ;
+		var html = '???' ;
 		if ( i == 'LAST' ) {
-			return '<i>LAST ITEM</i>' ;
-		} else if ( i.match ( /^Q\d+$/ ) ) { // Q
-			return "<a class='wd_unlabeled' pq='"+i+"' href='//www.wikidata.org/wiki/" + i + "' target='_blank'>" + i + "</a>" ;
-		} else if ( i.match ( /^P\d+$/ ) ) { // P
-			return "<a class='wd_unlabeled' pq='"+i+"' href='//www.wikidata.org/wiki/Property:" + i + "' target='_blank'>" + i + "</a>" ;
-		} else { // P
-			return me.renderString ( i ) ;
+			html = '<i>LAST ITEM</i>' ;
+		} else if ( i.match ( /^[PQ]\d+$/i ) ) { // PQ
+			
+			var letter = i.substr(0,1).toUpperCase() ;
+			html = "<a class='wd_unlabeled' pq='"+i+"' href='" + me.getSitePageURL(me.types[letter].ns_prefix+i) + "' target='_blank'>" + i + "</a> <small>[" + i + "]</small>"
+
+		} else { // DUNNO
+			html = me.htmlSafe ( i ) ;
 		}
+		return html ;
 	} ,
 	
-	renderString : function ( s ) {
+	renderPQ : function ( i , ref ) {
+		var me = this ;
+		html = "<div class='pq_container' pq='"+me.htmlSafe(i)+"'" ;
+		if ( typeof ref != 'undefined' ) html += " ref='" + me.htmlSafe(JSON.stringify(ref)) + "'" ;
+		html += "><div class='pq_value'>" + me.renderPQvalue(i) + "</div>" ;
+		html += "<div class='pq_button'><a class='pq_edit_unlinked'><img src='https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/PICOL_Edit.svg/16px-PICOL_Edit.svg.png' border=0 /></a></div>" ;
+		html += "<div class='pq_form'>FORM</div>" ;
+		html += "</div>" ;
+		return html ;
+	} ,
+	
+	htmlSafe : function ( s ) {
 		if ( typeof s == 'undefined' ) return '' ;
-		return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;').replace(/\//g,'&#x2F;') ;
+		var html_safe = s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;').replace(/\//g,'&#x2F;') ;
+		return html_safe ;
 	} ,
 	
-	renderValue : function ( v ) {
+	renderString : function ( s , ref ) {
+		var h = '' ;
+		h += "<div class='string_container'" ;
+		if ( typeof ref != 'undefined' ) h += " ref='" + me.htmlSafe(JSON.stringify(ref)) + "'" ;
+		h += ">" ;
+		h += me.htmlSafe ( s ) ;
+		h += "</div>" ;
+		return h ;
+	} ,
+	
+	renderTime : function ( v , ref ) {
+		var h = '' ;
+		h += "<div class='time_container'" ;
+		if ( typeof ref != 'undefined' ) h += " ref='" + me.htmlSafe(JSON.stringify(ref)) + "'" ;
+		h += ">" ;
+		h += v.time + "/" + v.precision ; // TODO
+		h += "</div>" ;
+		return h ;
+	} ,
+	
+	renderCoordinate : function ( v , ref ) {
+		var h = '' ;
+		h += "<div class='coordinate_container'" ;
+		if ( typeof ref != 'undefined' ) h += " ref='" + me.htmlSafe(JSON.stringify(ref)) + "'" ;
+		h += ">" ;
+		h += v.latitude + '/' + v.longitude  ; // TODO
+		h += "</div>" ;
+		return h ;
+	} ,
+	
+	renderValue : function ( v , ref ) {
 		var me = this ;
 		if ( typeof v.type == 'undefined' ) return "<i>" + JSON.stringify(v) + "</i>" ;
-		if ( v.type == 'item' || v.type == 'property' ) return me.renderPQ ( v.value ) ;
-		if ( v.type == 'string' ) return me.renderString ( v.value ) ;
-		if ( v.type == 'time' ) return v.value.time + '/' + v.value.precision  ;
-		if ( v.type == 'globecoordinate' ) return v.value.latitude + '/' + v.value.longitude  ;
+		if ( v.type == 'item' || v.type == 'property' ) return me.renderPQ ( v.value , ref ) ;
+		if ( v.type == 'string' ) return me.renderString ( v.value , ref ) ;
+		if ( v.type == 'time' ) return me.renderTime ( v.value ) ;
+		if ( v.type == 'globecoordinate' ) return me.renderCoordinate ( v.value ) ;
 		return "<i>" + JSON.stringify(v) + "</i>" ;
 	} ,
 	
@@ -139,37 +341,51 @@ var QuickStatements = {
 	} ,
 	
 	renderQualifier : function ( qualifier ) {
-		return "<i>QUALIFIER</i>" ;
+		var me = this ;
+		var h = '' ;
+		h += "<div>" + me.renderPQ ( qualifier.prop ) + "</div>" ;
+		h += "<div>" + me.renderValue ( qualifier.value ) + "</div>" ;
+/*		h += '<dl class="row">' ;
+		h += "<dt>" + me.renderPQ ( qualifier.prop ) + "</dt>" ;
+		h += "<dd>" + me.renderValue ( qualifier.value ) + "</dd>" ;
+		h += "</dl>" ;*/
+		return h ;
 	} ,
 	
 	renderSources : function ( sources ) {
-		return "<i>SOURCES</i>" ;
+		return "<i>SOURCES</i>" ; // TODO
+	} ,
+	
+	renderStatus : function ( command ) { // TODO
+		if ( typeof command.status == 'undefined' || command.status == '' ) return "<i>pending</i>" ;
+		return this.htmlSafe(command.status) ;
 	} ,
 	
 	addCommandToTable : function ( cmdnum , cmd , dt ) {
 		var me = this ;
-		var tabs = [ 'Unknown command' , '' , '' , '' , '' ] ;
+		var tabs = [ '' , 'Unknown command' , '' , '' , '' , '' ] ;
+		tabs[0] = me.renderStatus ( cmd ) ;
 		if ( cmd.action == 'add' && ( cmd.what=='statement' || cmd.what=='qualifier' || cmd.what=='sources' ) ) {
-			tabs[0] = me.renderAction ( cmd ) ;
-			tabs[1] = me.renderPQ ( cmd.item ) ;
-			tabs[2] = me.renderPQ ( cmd.property ) ;
-			tabs[3] = me.renderValue ( cmd.datavalue ) ;
-			if ( cmd.what == 'qualifier' ) tabs[4] = me.renderQualifier ( cmd.qualifier ) ;
-			if ( cmd.what == 'sources' ) tabs[4] = me.renderSources ( cmd.sources ) ;
+			tabs[1] = me.renderAction ( cmd ) ;
+			tabs[2] = me.renderPQ ( cmd.item , {cmdnum:cmdnum,attr:'item'} ) ;
+			tabs[3] = me.renderPQ ( cmd.property , {cmdnum:cmdnum,attr:'property'} ) ;
+			tabs[4] = me.renderValue ( cmd.datavalue , {cmdnum:cmdnum,attr:'datavalue.value'} ) ;
+			if ( cmd.what == 'qualifier' ) tabs[5] = me.renderQualifier ( cmd.qualifier ) ;
+			if ( cmd.what == 'sources' ) tabs[5] = me.renderSources ( cmd.sources ) ;
 		} else if ( cmd.action == 'add' && ( cmd.what=='label' || cmd.what=='description' || cmd.what=='alias' || cmd.what=='sitelink' ) ) {
-			tabs[0] = me.renderAction ( cmd ) ;
-			tabs[1] = me.renderPQ ( cmd.item ) ;
+			tabs[1] = me.renderAction ( cmd ) ;
+			tabs[2] = me.renderPQ ( cmd.item , {cmdnum:cmdnum,attr:'item'} ) ;
 			if ( cmd.what == 'sitelink' ) {
-				tabs[2] = me.renderString ( cmd.site ) ;
+				tabs[3] = me.renderString ( cmd.site , {cmdnum:cmdnum,attr:'site'} ) ;
 			} else {
-				tabs[2] = me.renderString ( cmd.language ) ;
+				tabs[3] = me.renderString ( cmd.language , {cmdnum:cmdnum,attr:'language'} ) ;
 			}
-			tabs[3] = me.renderString ( cmd.value ) ;
+			tabs[4] = me.renderString ( cmd.value , {cmdnum:cmdnum,attr:'value'} ) ;
 		} else if ( cmd.action == 'create' ) {
-			tabs[0] = me.renderAction ( cmd.action ) ;
-			tabs[1] = cmd.type ;
+			tabs[1] = me.renderAction ( cmd.action ) ;
+			tabs[2] = cmd.type ;
 		} else { // Unknown
-			tabs[4] = JSON.stringify(cmd) ;
+			tabs[5] = JSON.stringify(cmd) ;
 		}
 		
 		dt.row.add ( tabs ) ;

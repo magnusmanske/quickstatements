@@ -21,6 +21,8 @@ class QuickStatements {
 	
 	protected function importDataFromV1 ( $data , &$ret ) {
 		$ret['data']['commands'] = array() ;
+		if ( strpos ( $data , "\n" ) === false ) $data = str_replace ( '||' , "\n" , $data ) ;
+		if ( strpos ( $data , "\t" ) === false ) $data = str_replace ( '|' , "\t" , $data ) ;
 		$rows = explode ( "\n" , $data ) ;
 		foreach ( $rows as $row ) {
 			$row = trim ( $row ) ;
@@ -50,8 +52,9 @@ class QuickStatements {
 						$cmd = array ( 'action'=>'add' , 'item'=>$first , 'property'=>$prop , 'what'=>$what , 'datavalue'=>$last_command['datavalue'] ) ;
 						$dummy = array() ;
 						$this->parseValueV1 ( $value , $dummy ) ; // TODO transfer error message
-						if ( $what == 'sources' ) $cmd[$what] = array($dummy['datavalue']) ;
-						else $cmd[$what] = $dummy['datavalue'] ;
+						$dv = array ( 'prop' => 'P'.$num , 'value' => $dummy['datavalue'] ) ;
+						if ( $what == 'sources' ) $cmd[$what] = array($dv) ;
+						else $cmd[$what] = $dv ;
 						if ( $what == 'sources' and $last_command['what'] == $what ) {
 							$last_command[$what][] = $cmd[$what][0] ;
 						}
