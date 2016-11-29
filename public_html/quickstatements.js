@@ -84,7 +84,7 @@ var QuickStatements = {
 		me.run_state = {
 			running : true ,
 			last_item : '' ,
-			commands : {}
+			commands : { pending:0 , done:0 }
 		}
 		$('#run_status').text ( '' ) ;
 		$.each ( me.data.commands , function ( num , cmd ) {
@@ -163,8 +163,12 @@ var QuickStatements = {
 //			console.log ( d ) ;
 			me.data.commands[cmdnum] = d.command ;
 			if ( typeof d.command.item != 'undefined' ) me.run_state.last_item = d.command.item ;
+			me.run_state.commands.pending-- ;
 			if ( d.status == 'OK' ) {
+				me.run_state.commands.done++ ;
 			} else {
+				if ( typeof me.run_state.commands[d.status] == 'undefined' ) me.run_state.commands[d.status] = 0 ;
+				me.run_state.commands[d.status]++ ;
 			}
 			me.updateRunStatus() ;
 			me.updateCommandRow ( cmdnum ) ;

@@ -218,11 +218,36 @@ class QuickStatements {
 	}
 	
 	protected function commandAddAlias ( $command , $i ) {
-		// TODO
+		// Paranoia TODO
+		
+		// Execute!
+		$this->runAction ( array (
+			'action' => 'wbsetaliases' ,
+			'id' => $this->getPrefixedID ( $command->item ) ,
+			'language' => $command->language ,
+			'add' => $command->value ,
+			'summary' => '' ,
+			'baserevid' => $i->j->lastrevid
+		) , $command ) ;
+		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
+		return $command ;
 	}
 	
 	protected function commandSetDescription ( $command , $i ) {
-		// TODO
+		// Paranoia
+		if ( $i->getDesc ( $command->language , true ) == $command->value ) return commandDone ( $command , 'Already has that description for {$command->language}' ) ;
+		
+		// Execute!
+		$this->runAction ( array (
+			'action' => 'wbsetdescription' ,
+			'id' => $this->getPrefixedID ( $command->item ) ,
+			'language' => $command->language ,
+			'value' => $command->value ,
+			'summary' => '' ,
+			'baserevid' => $i->j->lastrevid
+		) , $command ) ;
+		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
+		return $command ;
 	}
 	
 	protected function commandSetSitelink ( $command , $i ) {
