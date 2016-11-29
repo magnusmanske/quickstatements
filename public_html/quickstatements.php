@@ -1,12 +1,33 @@
 <?PHP
 
 require_once ( 'php/common.php' ) ;
+require_once ( 'php/wikidata.php' ) ;
+require_once ( 'php/oauth.php' ) ;
 
 // QuickStatements class
 
 class QuickStatements {
 
+	public $last_item = '' ;
+	public $wd ;
+	public $oa ;
+
 	protected $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
+	
+	public function QuickStatements () {
+		$this->wd = new WikidataItemList () ;
+	}
+	
+	protected function isBatchRun () {
+		return false ; // TODO FIXME
+	}
+	
+	public function getOA() {
+		if ( !isset($this->oa) ) {
+			$this->oa = new MW_OAuth ( 'quickstatements' , 'wikidata' , 'wikidata' ) ;
+		}
+		return $this->oa ;
+	}
 	
 	public function importData ( $data , $format , $persistent ) {
 		$ret = array ( "status" => "OK" ) ;
@@ -17,6 +38,249 @@ class QuickStatements {
 	}
 	
 	
+	protected function createNewItem ( $command ) {
+		// TODO
+		return $command ;
+	}
+	
+	protected function isProperty ( $p ) {
+		if ( !isset($p) ) return false ;
+		if ( !preg_match ( '/^[P]\d+$/i' , $p ) ) return false ;
+		return true ;
+	}
+	
+	protected function getStatementID ( $command ) {
+		if ( !$this->isProperty ( $command->property ) ) return ;
+		if ( !isset($command->datavalue) ) return ;
+		$q = $command->item ;
+		$this->wd->loadItem ( $q ) ;
+		if ( !$this->wd->hasItem($q) ) return ;
+		$i = $this->wd->getItem ( $q ) ;
+		$claims = $i->getClaims ( $command->property ) ;
+		foreach ( $claims AS $c ) {
+			if ( $this->compareDatavalue ( $c->mainsnak->datavalue , $command->datavalue ) ) return $c->id ;
+		}
+	}
+	
+	// Return true if both datavalues are the same (for any given value of same...), or false otherwise
+	protected function compareDatavalue ( $d1 , $d2 ) {
+		if ( $d1->type != $d2->type ) return false ;
+		if ( $d1->type == 'string' ) return $d1->value == $d2->value ;
+		if ( $d1->type == 'quantity' ) return $d1->value->amount*1 == $d2->value->amount*1 ;
+		if ( $d1->type == 'time' ) return $d1->value->time == $d2->value->time and $d1->value->calendarmodel == $d2->value->calendarmodel and $d1->value->precision == $d2->value->precision ;
+		if ( $d1->type == 'globecoordinate' ) return $d1->value->latitude == $d2->value->latitude and $d1->value->longitude == $d2->value->longitude and $d1->value->globe == $d2->value->globe ;
+		if ( $d1->type == 'monolingualtext' ) return $d1->value->text == $d2->value->text and $d1->value->language == $d2->value->language ;
+
+		$et = 'entity-type' ;
+		$nid = 'numeric-id' ;
+		if ( $d1->type == 'wikibase-entityid' ) {
+			if ( $d1->value->$et != $d2->value->$et ) return false ;
+			if ( isset($d1->value->$nid) and isset($d2->value->$nid) AND $d1->value->$nid==$d2->value->$nid ) return true ;
+			if ( isset($d1->value->id) and isset($d2->value->id) AND $d1->value->id==$d2->value->id ) return true ;
+			return false ;
+		}
+		
+		return false ; // Can't determine type
+	}
+	
+	protected function runAction ( $params , &$command ) {
+		$params = (object) $params ;
+		$summary = '#quickstatements' ;
+		if ( isset($params->summary) and $params->summary != '' ) $summary .= '; ' . $params->summary ;
+		$params->summary = $summary ;
+		$params->bot = 1 ;
+		
+		// TODO use either OA or bot
+		$oa = $this->getOA() ;
+		$status = $oa->genericAction ( $params ) ;
+		
+		$command->run = $params ; // DEBUGGING INFO
+		if ( $status ) {
+			$command->status = 'done' ;
+		} else {
+			$command->status = 'error' ;
+			if ( isset($oa->last_res->error) and isset($oa->last_res->error->info) ) $command->message = $oa->last_res->error->info ;
+			else $command->message = json_encode ( $oa->last_res ) ;
+		}
+	}
+	
+	protected function getDatatypeForProperty ( $property ) {
+		$this->wd->loadItem ( $property ) ;
+		if ( !$this->wd->hasItem($property) ) return ;
+		$i = $this->wd->getItem ( $property ) ;
+		return $i->j->datatype ;
+	}
+	
+	protected function commandError ( $command , $message ) {
+		$command->status = 'error' ;
+		if ( isset($message) and $message != '' ) $command->message = $message ;
+		return $command ;
+	}
+	
+	protected function commandDone ( $command , $message ) {
+		$command->status = 'done' ;
+		if ( isset($message) and $message != '' ) $command->message = $message ;
+		return $command ;
+	}
+	
+	protected function getSnakType ( $datavalue ) {
+		return 'value' ; // TODO novalue/somevalue
+	}
+	
+	protected function getPrefixedID ( $q ) {
+		$q = trim ( strtoupper ( $q ) ) ;
+		// TODO generic
+		if ( preg_match ( '/^P\d+$/' , $q ) ) return "Property:$q" ;
+		return $q ;
+	}
+	
+	protected function commandAddStatement ( $command , $i , $statement_id ) {
+		// Paranoia
+		if ( isset($statement_id) ) return commandDone ( $command , "Statement already exists as $statement_id" ) ;
+
+		// Execute!
+		$this->runAction ( array (
+			'action' => 'wbcreateclaim' ,
+			'entity' => $command->item ,
+			'snaktype' => $this->getSnakType ( $command->datavalue ) ,
+			'property' => $command->property ,
+			'value' => json_encode ( $command->datavalue->value ) ,
+			'summary' => '' ,
+			'baserevid' => $i->j->lastrevid
+		) , $command ) ;
+		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
+		return $command ;
+	}
+	
+	protected function commandAddQualifier ( $command , $i , $statement_id ) {
+		// Paranoia
+		if ( !isset($command->qualifier) ) return $this->commandError ( $command , "Incomplete command parameters" ) ;
+		if ( !isset($command->qualifier->prop) ) return $this->commandError ( $command , "Incomplete command parameters" ) ;
+		if ( !preg_match ( '/^P\d+$/' , $command->qualifier->prop ) ) return $this->commandError ( $command , "Invalid qualifier property {$command->qualifier->prop}" ) ;
+
+		// Execute!
+		$this->runAction ( array (
+			'action' => 'wbsetqualifier' ,
+			'claim' => $statement_id ,
+			'property' => $command->qualifier->prop ,
+			'value' => json_encode ( $command->qualifier->value->value ) ,
+			'snaktype' => $this->getSnakType ( $command->qualifier->value ) ,
+			'summary' => '' ,
+			'baserevid' => $i->j->lastrevid
+		) , $command ) ;
+		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
+		return $command ;
+	}
+	
+	protected function commandAddSources ( $command , $i , $statement_id ) {
+		// Paranoia
+		if ( !isset($command->sources) ) return $this->commandError ( $command , "Incomplete command parameters" ) ;
+		if ( count($command->sources) == 0 ) return $this->commandError ( $command , "No sources to add" ) ;
+		
+		// Prep
+		$snaks = array() ;
+		foreach ( $command->sources AS $source ) {
+			$s = array(
+				'snaktype' => $this->getSnakType ( $source->value ) ,
+				'property' => $source->prop ,
+				'datavalue' => $source->value
+			) ;
+			$snaks[$source->prop][] = $s ;
+		}
+
+		// Execute!
+		$this->runAction ( array (
+			'action' => 'wbsetreference' ,
+			'statement' => $statement_id ,
+			'snaks' => json_encode ( $snaks ) ,
+			'summary' => '' ,
+			'baserevid' => $i->j->lastrevid
+		) , $command ) ;
+		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
+		return $command ;
+	}
+	
+	protected function commandSetLabel ( $command , $i ) {
+		// Paranoia
+		if ( $i->getLabel ( $command->language , true ) == $command->value ) return commandDone ( $command , 'Already has that label for {$command->language}' ) ;
+		
+		// Execute!
+		$this->runAction ( array (
+			'action' => 'wbsetlabel' ,
+			'id' => $this->getPrefixedID ( $command->item ) ,
+			'language' => $command->language ,
+			'value' => $command->value ,
+			'summary' => '' ,
+			'baserevid' => $i->j->lastrevid
+		) , $command ) ;
+		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
+		return $command ;
+	}
+	
+	protected function commandAddAlias ( $command , $i ) {
+		// TODO
+	}
+	
+	protected function commandSetDescription ( $command , $i ) {
+		// TODO
+	}
+	
+	protected function commandSetSitelink ( $command , $i ) {
+		// Paranoia
+		$sl = $i->getSitelink ( $command->site ) ;
+		if ( isset($sl) and str_replace(' ','_',$sl) == str_replace(' ','_',$command->value) ) return commandDone ( $command , 'Already has that sitelink for {$command->site}' ) ;
+		
+		// Execute!
+		$this->runAction ( array (
+			'action' => 'wbsetsitelink' ,
+			'id' => $this->getPrefixedID ( $command->item ) ,
+			'linksite' => $command->site ,
+			'linktitle' => $command->value ,
+			'summary' => '' ,
+			'baserevid' => $i->j->lastrevid
+		) , $command ) ;
+		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
+		return $command ;
+	}
+	
+	public function runSingleCommand ( $command ) {
+		$command->status = 'working' ;
+		if ( isset($command->error) ) unset ( $command->error ) ;
+		if ( $command->action == 'create' ) {
+			return $this->createNewItem ( $command ) ;
+		} else {
+			$q = trim($command->item) ;
+			if ( strtolower($q) == 'last' ) $q = $this->last_item ;
+			if ( $q == '' ) return $this->commandError ( $command , 'No last item available' ) ;
+			$command->item = $q ;
+			$to_load = array ( $q ) ;
+			if ( isset($command->property) and $this->isProperty($command->property) ) $to_load[] = $command->property ;
+			$this->wd->loadItems ( $to_load ) ;
+			if ( !$this->wd->hasItem($q) ) return $this->commandError ( $command , "Item $q is not available" ) ;
+			$i = $this->wd->getItem ( $q ) ;
+			
+			if ( $command->action == 'add' ) {
+			
+				if ( $command->what == 'label' ) return $this->commandSetLabel ( $command , $i ) ;
+				if ( $command->what == 'alias' ) return $this->commandAddAlias ( $command , $i ) ;
+				if ( $command->what == 'description' ) return $this->commandSetDescription ( $command , $i ) ;
+				if ( $command->what == 'sitelink' ) return $this->commandSetSitelink ( $command , $i ) ;
+
+				$statement_id = $this->getStatementID ( $command ) ;
+				if ( $command->what == 'statement' ) return $this->commandAddStatement ( $command , $i , $statement_id ) ;
+
+				// THE FOLLOWING DEPEND ON AN EXISTING STATEMENT
+				if ( !isset($statement_id) ) return $this->commandError ( $command , "Base statement not found" ) ;
+				if ( $command->what == 'qualifier' ) return $this->commandAddQualifier ( $command , $i , $statement_id ) ;
+				if ( $command->what == 'sources' ) return $this->commandAddSources ( $command , $i , $statement_id ) ;
+				
+			}
+			
+		}
+		$command->status = 'error' ;
+		$command->message = 'Incomplete or unknown command' ;
+		return $command ;
+	}
 	
 	
 	protected function importDataFromV1 ( $data , &$ret ) {
@@ -79,22 +343,28 @@ class QuickStatements {
 	}
 	
 	
+	protected function getEntityType ( $q ) {
+		$q = strtoupper ( trim ( $q ) ) ;
+		if ( preg_match ( '/^Q\d+$/' , $q ) ) return 'item' ;
+		if ( preg_match ( '/^P\d+$/' , $q ) ) return 'property' ;
+		return 'unknown' ;
+	}
 	
 	protected function parseValueV1 ( $v , &$cmd ) {
 		$v = trim ( $v ) ;
 		
-		if ( preg_match ( '/^Q\d+$/i' , $v ) ) { // ITEM
-			$cmd['datavalue'] = array ( "type"=>"item" , "value"=>strtoupper($v) ) ;
-			return true ;
-		}
-		
-		if ( preg_match ( '/^P\d+$/i' , $v ) ) { // PROPERTY
-			$cmd['datavalue'] = array ( "type"=>"property" , "value"=>strtoupper($v) ) ;
+		if ( preg_match ( '/^[PQ]\d+$/i' , $v ) ) { // ITEM/PROPERTY TODO generic
+			$cmd['datavalue'] = array ( "type"=>"wikibase-entityid" , "value"=>array("entity-type"=>$this->getEntityType($v),"id"=>strtoupper($v)) ) ;
 			return true ;
 		}
 		
 		if ( preg_match ( '/^"(.*)"$/i' , $v , $m ) ) { // STRING
 			$cmd['datavalue'] = array ( "type"=>"string" , "value"=>trim($m[1]) ) ;
+			return true ;
+		}
+
+		if ( preg_match ( '/^([a-z_-]+):"(.*)"$/i' , $v , $m ) ) { // MONOLINGUALTEXT
+			$cmd['datavalue'] = array ( "type"=>"monolingualtext" , "value"=>array("language"=>$m[1],"text"=>trim($m[2])) ) ;
 			return true ;
 		}
 
@@ -114,14 +384,21 @@ class QuickStatements {
 		
 		if ( preg_match ( '/^\@\s*([+-]{0,1}[0-9.]+)\s*\/\s*([+-]{0,1}[0-9.]+)$/i' , $v , $m ) ) { // GPS
 			$cmd['datavalue'] = array ( "type"=>"globecoordinate" , "value"=>array(
-				'latitude' => $m[1] ,
-				'longitude' => $m[2] ,
-//				'precision' =>  ,
+				'latitude' => $m[1]*1 ,
+				'longitude' => $m[2]*1 ,
+				'precision' => 0.0001 ,
 				'globe' => 'http://www.wikidata.org/entity/Q2'
 			) ) ;
 			return true ;
 		}
 		
+		if ( preg_match ( '/^[\+\-]{0,1}\d+(\.\d+){0,1}$/' , $v ) ) { // Quantity
+			$cmd['datavalue'] = array ( "type"=>"quantity" , "value"=>array(
+				"amount" => $v*1 ,
+				"unit" => "1"
+			) ) ;
+			return true ;
+		}
 		
 		
 		$cmd['datavalue'] = array ( "type"=>"unknown" , "text"=>$v ) ;

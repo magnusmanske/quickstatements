@@ -5,7 +5,7 @@ var QuickStatements = {
 	api : './api.php' ,
 	params : {} ,
 	data : {} ,
-	widar : {} ,
+	oauth : {} ,
 	sites : {
 		wikidata : {
 			server: 'www.wikidata.org' ,
@@ -16,11 +16,21 @@ var QuickStatements = {
 		}
 	} ,
 	types : {} ,
+	run_state : { running:false } ,
 
 	init : function () {
 		var me = this ;
+		me.tt = new ToolTranslation ( { tool:'quickstatements' , language:me.lang() , fallback:'en' } ) ;
+		me.tt.addILdropdown ( $('#interface_language_wrapper') ) ;
+		
 		me.setSite ( 'wikidata' ) ;
-		me.widar = new WiDaR ( function () { me.updateUserInfo() } ) ;
+		me.oauth = { is_logged_in:false } ;
+		$.post ( me.api , {
+			action:'is_logged_in'
+		} , function ( d ) {
+			me.oauth = d.data ;
+			me.updateUserInfo() ;
+		} , 'json' ) ;
 		me.params = me.getUrlVars() ;
 		
 		$('#import_v1_dialog').on('shown.bs.modal', function () { $('#v1_commands').val('').focus() })
@@ -34,6 +44,7 @@ var QuickStatements = {
 		$('#link_import_qs1').click ( me.onClickImportV1 ) ;
 		$('#run').click ( function () { me.run ( false ) ; return false } ) ;
 		$('#run_background').click ( function () { me.run ( true ) ; return false } ) ;
+		$('#stop').click ( function () { me.stop() ; return false } ) ;
 		
 		if ( typeof me.params.v1 != 'undefined' ) me.importFromV1 ( me.params.v1 ) ;
 
@@ -60,20 +71,119 @@ var QuickStatements = {
 		return 'en' ; // FIXME current language
 	} ,
 	
+	stop : function () {
+		var me = this ;
+		me.running = false ;
+		$('#stop_buttons button').prop ( 'disabled' , true ) ;
+		$('#run_buttons button').prop ( 'disabled' , false ) ;
+		$('#stop_buttons').hide() ;
+	} ,
+	
 	run : function ( in_background ) {
-		
+		var me = this ;
+		me.run_state = {
+			running : true ,
+			last_item : '' ,
+			commands : {}
+		}
+		$('#run_status').text ( '' ) ;
+		$.each ( me.data.commands , function ( num , cmd ) {
+			var s = cmd.status ;
+			if ( typeof s == 'undefined' || s == '' ) s = 'pending' ;
+			else {
+				if ( s != 'done' ) { // Reset previous errors
+					cmd.status = '' ;
+					cmd.message = '' ;
+//					var tabs = me.getCommandRowTabs ( cmdnum , cmd , dt ) ; // TODO visual update
+//					dt.row(cmdnum).data(tabs).draw() ;
+				}
+			}
+			if ( typeof me.run_state.commands[s] == 'undefined' ) me.run_state.commands[s] = 0 ;
+			me.run_state.commands[s]++ ;
+		} ) ;
+		$('#stop_buttons button').prop ( 'disabled' , false ) ;
+		$('#run_buttons button').prop ( 'disabled' , true ) ;
+		$('#stop_buttons').show() ;
+		if ( in_background ) {
+			alert ( "Not implemented yet" ) ;
+		} else {
+			me.runNextCommand() ;
+		}
+	} ,
+	
+	runNextCommand : function () {
+		var me = this ;
+		var cmdnum ;
+		$.each ( me.data.commands , function ( num , cmd ) {
+			if ( typeof cmd.status != 'undefined' && cmd.status != '' ) return ;
+			cmdnum = num ;
+			return false ;
+		} ) ;
+		if ( typeof cmdnum == 'undefined' ) return me.stop() ;
+		me.runSingleCommand ( cmdnum ) ;
+	} ,
+	
+	setCommandStatus : function ( cmdnum , status ) {
+		var me = this ;
+		var cmd = me.data.commands[cmdnum] ;
+		cmd.status = 'running' ;
+		me.updateCommandRow ( cmdnum ) ;
+	} ,
+	
+	updateCommandRow : function ( cmdnum ) {
+		var me = this ;
+		var dt = $('#main_table').DataTable() ;
+		var cmd = me.data.commands[cmdnum] ;
+		var tabs = me.getCommandRowTabs ( cmdnum , cmd , dt ) ;
+		dt.row(cmdnum).data(tabs).draw() ;
+		me.tt.updateInterface ( dt ) ;
+	} ,
+	
+	updateRunStatus : function () {
+		var me = this ;
+		var out = [] ;
+		$.each ( me.run_state.commands , function ( status , count ) {
+			out.push ( status+':'+count ) ;
+		} ) ;
+		var h = out.join('; ') ;
+		$('#run_status').text ( h ) ;
+	} ,
+	
+	runSingleCommand : function ( cmdnum ) {
+		var me = this ;
+		var cmd = me.data.commands[cmdnum] ;
+//		console.log ( cmdnum , cmd ) ;
+		me.setCommandStatus ( cmdnum , 'running' ) ;
+		me.updateRunStatus() ;
+		$.post ( me.api , {
+			action:'run_single_command',
+			command : JSON.stringify(cmd) ,
+			last_item : me.run_state.last_item
+		} , function ( d ) {
+//			console.log ( d ) ;
+			me.data.commands[cmdnum] = d.command ;
+			if ( typeof d.command.item != 'undefined' ) me.run_state.last_item = d.command.item ;
+			if ( d.status == 'OK' ) {
+			} else {
+			}
+			me.updateRunStatus() ;
+			me.updateCommandRow ( cmdnum ) ;
+			me.runNextCommand() ;
+		} , 'json' ) ;
 	} ,
 	
 	updateUserInfo : function () {
 		var me = this ;
 		var h = '' ;
-		if ( me.widar.isLoggedIn() ) {
-			h = "Welcome, " + me.widar.getUserName() ;
+		if ( me.oauth.is_logged_in ) {
+			var username = me.oauth.query.userinfo.name ;
+			h = "<span tt='welcome' tt1='" + me.htmlSafe(username) + "'></span>" ;
 			$('#logged_in_actions').show() ;
 		} else {
-			h += "<a href='/widar' target='_blank'>Log in</a> to use this tool" ;
+			h += "<a href='"+me.api+"?action=oauth_redirect' target='_blank' tt='login'></a> <span tt='login2'></span>" ;
 		}
 		$('#userinfo').html ( h ) ;
+		me.tt.updateInterface($('#userinfo')) ;
 	} ,
 	
 	getUrlVars : function () {
@@ -152,13 +262,14 @@ var QuickStatements = {
 		h += "<div>" ;
 		h += "<form class='form form-inline'>" ;
 		h += "<input type='text' class='typeahead_input' style='width:250px' value='"+me.htmlSafe(title)+"' pq='"+pq+"'/>" ;
-		h += "<input type='submit' value='Set' class='btn btn-primary' />" ;
-		h += "<button class='cancel btn btn-default'>X</button>" ;
+		h += "<input type='submit' tt_value='set' class='btn btn-primary' />" ;
+		h += "<button class='cancel btn btn-default' tt='cancel_short'></button>" ;
 		h += "</form>" ;
 		h += "</div>" ;
 		h += "<div><ul style='width:100%;overflow:auto;max-height:200px' class='pq_dropdown'></ul></div>" ;
 		h += "</div>" ;
 		form.html(h).show() ;
+		me.tt.updateInterface(form) ;
 		
 		me.addTypeahead ( $(container.find('div.pq_typeahead')) ) ;
 		$(container.find('form')).submit ( function () { me.onSubmitPQ ( container , true ) ; return false } ) ;
@@ -281,6 +392,7 @@ var QuickStatements = {
 		var me = this ;
 		html = "<div class='pq_container' pq='"+me.htmlSafe(i)+"'" ;
 		if ( typeof ref != 'undefined' ) html += " ref='" + me.htmlSafe(JSON.stringify(ref)) + "'" ;
+		else console.log ( "NO PQ REF" , i ) ;
 		html += "><div class='pq_value'>" + me.renderPQvalue(i) + "</div>" ;
 		html += "<div class='pq_button'><a class='pq_edit_unlinked'><img src='https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/PICOL_Edit.svg/16px-PICOL_Edit.svg.png' border=0 /></a></div>" ;
 		html += "<div class='pq_form'>FORM</div>" ;
@@ -289,12 +401,14 @@ var QuickStatements = {
 	} ,
 	
 	htmlSafe : function ( s ) {
+		var me = this ;
 		if ( typeof s == 'undefined' ) return '' ;
-		var html_safe = s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;').replace(/\//g,'&#x2F;') ;
+		var html_safe = (''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;').replace(/\//g,'&#x2F;') ;
 		return html_safe ;
 	} ,
 	
 	renderString : function ( s , ref ) {
+		var me = this ;
 		var h = '' ;
 		h += "<div class='string_container'" ;
 		if ( typeof ref != 'undefined' ) h += " ref='" + me.htmlSafe(JSON.stringify(ref)) + "'" ;
@@ -305,6 +419,7 @@ var QuickStatements = {
 	} ,
 	
 	renderTime : function ( v , ref ) {
+		var me = this ;
 		var h = '' ;
 		h += "<div class='time_container'" ;
 		if ( typeof ref != 'undefined' ) h += " ref='" + me.htmlSafe(JSON.stringify(ref)) + "'" ;
@@ -315,6 +430,7 @@ var QuickStatements = {
 	} ,
 	
 	renderCoordinate : function ( v , ref ) {
+		var me = this ;
 		var h = '' ;
 		h += "<div class='coordinate_container'" ;
 		if ( typeof ref != 'undefined' ) h += " ref='" + me.htmlSafe(JSON.stringify(ref)) + "'" ;
@@ -324,13 +440,40 @@ var QuickStatements = {
 		return h ;
 	} ,
 	
+	renderQuantity : function ( v , ref ) {
+		var me = this ;
+		var h = '' ;
+		h += "<div class='quantity_container'" ;
+		if ( typeof ref != 'undefined' ) h += " ref='" + me.htmlSafe(JSON.stringify(ref)) + "'" ;
+		h += ">" ;
+		h += me.htmlSafe(v.amount) ; // TODO
+		h += "</div>" ;
+		return h ;
+	} ,
+	
+	renderMonolingualtext : function ( v , ref ) {
+		var me = this ;
+		var h = '' ;
+		h += "<div class='monolingualtext_container'" ;
+		if ( typeof ref != 'undefined' ) h += " ref='" + me.htmlSafe(JSON.stringify(ref)) + "'" ;
+		h += ">" ;
+		h += me.htmlSafe(v.language) + ": " + me.htmlSafe(v.text) ;
+		h += "</div>" ;
+		return h ;
+	} ,
+	
 	renderValue : function ( v , ref ) {
 		var me = this ;
 		if ( typeof v.type == 'undefined' ) return "<i>" + JSON.stringify(v) + "</i>" ;
-		if ( v.type == 'item' || v.type == 'property' ) return me.renderPQ ( v.value , ref ) ;
+		if ( v.type == 'wikibase-entityid' ) {
+			ref.attr += '.value.id' ;
+			return me.renderPQ ( v.value.id , ref ) ;
+		}
 		if ( v.type == 'string' ) return me.renderString ( v.value , ref ) ;
-		if ( v.type == 'time' ) return me.renderTime ( v.value ) ;
-		if ( v.type == 'globecoordinate' ) return me.renderCoordinate ( v.value ) ;
+		if ( v.type == 'time' ) return me.renderTime ( v.value , ref ) ;
+		if ( v.type == 'globecoordinate' ) return me.renderCoordinate ( v.value , ref ) ;
+		if ( v.type == 'quantity' ) return me.renderQuantity ( v.value , ref ) ;
+		if ( v.type == 'monolingualtext' ) return me.renderMonolingualtext ( v.value , ref ) ;
 		return "<i>" + JSON.stringify(v) + "</i>" ;
 	} ,
 	
@@ -340,38 +483,65 @@ var QuickStatements = {
 		return ret ;
 	} ,
 	
-	renderQualifier : function ( qualifier ) {
+	renderQualifier : function ( qualifier , ref ) {
 		var me = this ;
 		var h = '' ;
-		h += "<div>" + me.renderPQ ( qualifier.prop ) + "</div>" ;
-		h += "<div>" + me.renderValue ( qualifier.value ) + "</div>" ;
-/*		h += '<dl class="row">' ;
-		h += "<dt>" + me.renderPQ ( qualifier.prop ) + "</dt>" ;
-		h += "<dd>" + me.renderValue ( qualifier.value ) + "</dd>" ;
-		h += "</dl>" ;*/
+		ref.attr = 'qualifier.prop' ;
+		h += "<div>" + me.renderPQ ( qualifier.prop , ref ) + "</div>" ;
+		ref.attr = 'qualifier.value' ;
+		h += "<div>" + me.renderValue ( qualifier.value , ref ) + "</div>" ;
 		return h ;
 	} ,
 	
-	renderSources : function ( sources ) {
-		return "<i>SOURCES</i>" ; // TODO
-	} ,
-	
-	renderStatus : function ( command ) { // TODO
-		if ( typeof command.status == 'undefined' || command.status == '' ) return "<i>pending</i>" ;
-		return this.htmlSafe(command.status) ;
-	} ,
-	
-	addCommandToTable : function ( cmdnum , cmd , dt ) {
+	renderSources : function ( sources , ref ) {
 		var me = this ;
-		var tabs = [ '' , 'Unknown command' , '' , '' , '' , '' ] ;
+		var h = '' ;
+		$.each ( sources , function ( k , v ) {
+			if ( k > 0 ) h += "<hr/>" ;
+			ref.attr = 'sources.'+k+'.prop' ;
+			h += "<div>" + me.renderPQ ( v.prop , ref ) + "</div>" ;
+			ref.attr = 'sources.'+k+'.value' ;
+			h += "<div>" + me.renderValue ( v.value , ref ) + "</div>" ;
+		} ) ;
+		return h ;
+	} ,
+	
+	wrapStatusAlert : function ( s , key , msg ) {
+		var me = this ;
+		var ret = '<div class="alert alert-'+key+'" style="padding:2px;margin:0px" role="alert"' ;
+		if ( typeof msg != 'undefined' && msg != '' ) {
+			ret += ' title="'+me.htmlSafe(msg)+'"' ;
+			s += ' <sup>*</sup>' ;
+		}
+		ret += '>'+s+'</div>' ;
+		return ret ;
+	} ,
+	
+	renderStatus : function ( command ) {
+		var me = this ;
+		if ( typeof command.status == 'undefined' || command.status == '' ) return me.wrapStatusAlert ( "<span tt='pending'></span>" , 'info' , command.message ) ;
+		var s = me.htmlSafe(command.status) ;
+		if ( s == 'done' ) {
+			s = me.wrapStatusAlert ( s , 'success' , command.message ) ;
+		} else if ( s == 'error' ) {
+			s = me.wrapStatusAlert ( s , 'danger' , command.message ) ;
+		} else {
+			s = me.wrapStatusAlert ( s , 'warning' , command.message ) ;
+		}
+		return s ;
+	} ,
+	
+	getCommandRowTabs : function ( cmdnum , cmd , dt ) {
+		var me = this ;
+		var tabs = [ '' , '<span tt="unknown_command"></span>' , '' , '' , '' , '' ] ;
 		tabs[0] = me.renderStatus ( cmd ) ;
 		if ( cmd.action == 'add' && ( cmd.what=='statement' || cmd.what=='qualifier' || cmd.what=='sources' ) ) {
 			tabs[1] = me.renderAction ( cmd ) ;
 			tabs[2] = me.renderPQ ( cmd.item , {cmdnum:cmdnum,attr:'item'} ) ;
 			tabs[3] = me.renderPQ ( cmd.property , {cmdnum:cmdnum,attr:'property'} ) ;
-			tabs[4] = me.renderValue ( cmd.datavalue , {cmdnum:cmdnum,attr:'datavalue.value'} ) ;
-			if ( cmd.what == 'qualifier' ) tabs[5] = me.renderQualifier ( cmd.qualifier ) ;
-			if ( cmd.what == 'sources' ) tabs[5] = me.renderSources ( cmd.sources ) ;
+			tabs[4] = me.renderValue ( cmd.datavalue , {cmdnum:cmdnum,attr:'datavalue'} ) ;
+			if ( cmd.what == 'qualifier' ) tabs[5] = me.renderQualifier ( cmd.qualifier , {cmdnum:cmdnum} ) ;
+			if ( cmd.what == 'sources' ) tabs[5] = me.renderSources ( cmd.sources , {cmdnum:cmdnum} ) ;
 		} else if ( cmd.action == 'add' && ( cmd.what=='label' || cmd.what=='description' || cmd.what=='alias' || cmd.what=='sitelink' ) ) {
 			tabs[1] = me.renderAction ( cmd ) ;
 			tabs[2] = me.renderPQ ( cmd.item , {cmdnum:cmdnum,attr:'item'} ) ;
@@ -387,7 +557,12 @@ var QuickStatements = {
 		} else { // Unknown
 			tabs[5] = JSON.stringify(cmd) ;
 		}
-		
+		return tabs ;
+	} ,
+	
+	addCommandToTable : function ( cmdnum , cmd , dt ) {
+		var me = this ;
+		var tabs = me.getCommandRowTabs ( cmdnum , cmd , dt ) ;
 		dt.row.add ( tabs ) ;
 	} ,
 	
@@ -398,6 +573,7 @@ var QuickStatements = {
 			me.addCommandToTable ( cmdnum , cmd , dt ) ;
 		} ) ;
 		dt.draw(false) ;
+		me.tt.updateInterface ( dt ) ;
 	} ,
 
 	fin:''
