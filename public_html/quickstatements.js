@@ -556,7 +556,7 @@ var QuickStatements = {
 			}
 			tabs[4] = me.renderString ( cmd.value , {cmdnum:cmdnum,attr:'value'} ) ;
 		} else if ( cmd.action == 'create' ) {
-			tabs[1] = me.renderAction ( cmd.action ) ;
+			tabs[1] = me.renderAction ( cmd ) ;
 			tabs[2] = cmd.type ;
 		} else { // Unknown
 			tabs[5] = JSON.stringify(cmd) ;

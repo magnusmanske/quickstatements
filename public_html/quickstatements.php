@@ -39,7 +39,14 @@ class QuickStatements {
 	
 	
 	protected function createNewItem ( $command ) {
-		// TODO
+		$this->runAction ( array (
+			'action' => 'wbeditentity' ,
+			'new' => $command->type ,
+			'data' => '{}' , //json_encode ( (object) array() ) ,
+			'summary' => ''
+		) , $command ) ;
+		if ( $command->status != 'done' ) return $command ;
+		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
 		return $command ;
 	}
 	
@@ -97,6 +104,10 @@ class QuickStatements {
 		$command->run = $params ; // DEBUGGING INFO
 		if ( $status ) {
 			$command->status = 'done' ;
+			$new = 'new' ;
+			if ( $params->action == 'wbeditentity' and isset($params->$new) ) {
+				$command->item = $oa->last_res->entity->id ; // "Last item"
+			}
 		} else {
 			$command->status = 'error' ;
 			if ( isset($oa->last_res->error) and isset($oa->last_res->error->info) ) $command->message = $oa->last_res->error->info ;
