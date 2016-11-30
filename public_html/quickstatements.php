@@ -385,14 +385,18 @@ class QuickStatements {
 			$cols = explode ( "\t" , $row ) ;
 			$first = strtoupper(trim($cols[0])) ;
 			$cmd = array() ;
+			$skip_add_command = false ;
 			if ( count ( $cols ) >= 3 and ( preg_match ( '/^[PQ]\d+$/' , $first ) or $first == 'LAST' ) and preg_match ( '/^([P])(\d+)$/' , $cols[1] ) ) {
 				$prop = strtoupper(trim($cols[1])) ;
 				$cmd = array ( 'action'=>'add' , 'item'=>$first , 'property'=>$prop , 'what'=>'statement' ) ;
 				$this->parseValueV1 ( $cols[2] , $cmd ) ;
 
+				// Remove base statement
 				array_shift ( $cols ) ;
 				array_shift ( $cols ) ;
 				array_shift ( $cols ) ;
+				
+				// Add qualifiers and sources
 				while ( count($cols) >= 2 ) {
 					$key = array_shift ( $cols ) ;
 					$key = strtoupper ( trim ( $key ) ) ;
@@ -402,7 +406,8 @@ class QuickStatements {
 						$num = $m[2] ;
 						
 						// Store previous one, and reset
-						$ret['data']['commands'][] = $cmd ;
+						if ( !$skip_add_command ) $ret['data']['commands'][] = $cmd ;
+						$skip_add_command = false ;
 						$last_command = $ret['data']['commands'][count($ret['data']['commands'])-1] ;
 						
 						$cmd = array ( 'action'=>'add' , 'item'=>$first , 'property'=>$prop , 'what'=>$what , 'datavalue'=>$last_command['datavalue'] ) ;
@@ -411,8 +416,11 @@ class QuickStatements {
 						$dv = array ( 'prop' => 'P'.$num , 'value' => $dummy['datavalue'] ) ;
 						if ( $what == 'sources' ) $cmd[$what] = array($dv) ;
 						else $cmd[$what] = $dv ;
+//$ret['debug'][] = array ( $what , $last_command['what'] ) ;
 						if ( $what == 'sources' and $last_command['what'] == $what ) {
-							$last_command[$what][] = $cmd[$what][0] ;
+							$ret['data']['commands'][count($ret['data']['commands'])-1][$what][] = $cmd[$what][0] ;
+							$skip_add_command = true ;
+//							$last_command[$what][] = $cmd[$what][0] ;
 						}
 					}
 				}
@@ -430,7 +438,7 @@ class QuickStatements {
 				$cmd = array ( 'action'=>'create' , 'type'=>'item' ) ;
 			}
 
-			if ( isset($cmd['action']) ) $ret['data']['commands'][] = $cmd ;
+			if ( isset($cmd['action']) && !$skip_add_command ) $ret['data']['commands'][] = $cmd ;
 		}
 	}
 	
