@@ -73,7 +73,7 @@ var QuickStatements = {
 	
 	stop : function () {
 		var me = this ;
-		me.running = false ;
+		me.run_state.running = false ;
 		$('#stop_buttons button').prop ( 'disabled' , true ) ;
 		$('#run_buttons button').prop ( 'disabled' , false ) ;
 		$('#stop_buttons').hide() ;
@@ -87,6 +87,7 @@ var QuickStatements = {
 			commands : { pending:0 , done:0 }
 		}
 		$('#run_status').text ( '' ) ;
+		$('#run_status_wrapper').show() ;
 		$.each ( me.data.commands , function ( num , cmd ) {
 			var s = cmd.status ;
 			if ( typeof s == 'undefined' || s == '' ) s = 'pending' ;
@@ -113,13 +114,14 @@ var QuickStatements = {
 	
 	runNextCommand : function () {
 		var me = this ;
+		if ( !me.run_state.running ) return ; // Stopped
 		var cmdnum ;
 		$.each ( me.data.commands , function ( num , cmd ) {
 			if ( typeof cmd.status != 'undefined' && cmd.status != '' ) return ;
 			cmdnum = num ;
 			return false ;
 		} ) ;
-		if ( typeof cmdnum == 'undefined' ) return me.stop() ;
+		if ( typeof cmdnum == 'undefined' ) return me.stop() ; // All done
 		me.runSingleCommand ( cmdnum ) ;
 	} ,
 	
