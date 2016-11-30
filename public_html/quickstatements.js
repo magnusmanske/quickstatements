@@ -6,15 +6,7 @@ var QuickStatements = {
 	params : {} ,
 	data : {} ,
 	oauth : {} ,
-	sites : {
-		wikidata : {
-			server: 'www.wikidata.org' ,
-			types : {
-				P : { type:'property' , ns:120 , ns_prefix:'Property:' } ,
-				Q : { type:'item' , ns:0 , ns_prefix:'' }
-			}
-		}
-	} ,
+	sites : {} , // Loaded from sites.json
 	types : {} ,
 	run_state : { running:false } ,
 
@@ -23,32 +15,38 @@ var QuickStatements = {
 		me.tt = new ToolTranslation ( { tool:'quickstatements' , language:me.lang() , fallback:'en' } ) ;
 		me.tt.addILdropdown ( $('#interface_language_wrapper') ) ;
 		
-		me.setSite ( 'wikidata' ) ;
-		me.oauth = { is_logged_in:false } ;
-		$.post ( me.api , {
-			action:'is_logged_in'
-		} , function ( d ) {
-			me.oauth = d.data ;
-			me.updateUserInfo() ;
-		} , 'json' ) ;
-		me.params = me.getUrlVars() ;
-		
-		$('#import_v1_dialog').on('shown.bs.modal', function () { $('#v1_commands').val('').focus() })
-		$('#v1_import').click ( function(){me.onImportV1(); $('#import_v1_dialog').modal('hide') } ) ;
-		
-		$('#main_table').DataTable ( {
-			ordering:false,
-			info:false
-		} );
-	
-		$('#link_import_qs1').click ( me.onClickImportV1 ) ;
-		$('#run').click ( function () { me.run ( false ) ; return false } ) ;
-		$('#run_background').click ( function () { me.run ( true ) ; return false } ) ;
-		$('#stop').click ( function () { me.stop() ; return false } ) ;
-		
-		if ( typeof me.params.v1 != 'undefined' ) me.importFromV1 ( me.params.v1 ) ;
+		$.get ( 'sites.json' , function ( d ) {
+			me.sites = d ;
 
-		me.updateUnlabeledItems() ;
+			me.setSite ( 'wikidata' ) ;
+			me.oauth = { is_logged_in:false } ;
+			$.post ( me.api , {
+				action:'is_logged_in'
+			} , function ( d ) {
+				me.oauth = d.data ;
+				me.updateUserInfo() ;
+			} , 'json' ) ;
+			me.params = me.getUrlVars() ;
+		
+			$('#import_v1_dialog').on('shown.bs.modal', function () { $('#v1_commands').val('').focus() })
+			$('#v1_import').click ( function(){me.onImportV1(); $('#import_v1_dialog').modal('hide') } ) ;
+		
+			$('#main_table').DataTable ( {
+				ordering:false,
+				info:false
+			} );
+	
+			$('#link_import_qs1').click ( me.onClickImportV1 ) ;
+			$('#run').click ( function () { me.run ( false ) ; return false } ) ;
+			$('#run_background').click ( function () { me.run ( true ) ; return false } ) ;
+			$('#stop').click ( function () { me.stop() ; return false } ) ;
+		
+			if ( typeof me.params.v1 != 'undefined' ) me.importFromV1 ( me.params.v1 ) ;
+
+			me.updateUnlabeledItems() ;
+
+
+		} , 'json' ) ;
 	} ,
 
 	setSite : function ( site ) {
@@ -81,6 +79,10 @@ var QuickStatements = {
 	
 	run : function ( in_background ) {
 		var me = this ;
+		if ( in_background ) {
+			alert ( "Not implemented yet" ) ;
+			return ;
+		}
 		me.run_state = {
 			running : true ,
 			last_item : '' ,
@@ -106,7 +108,7 @@ var QuickStatements = {
 		$('#run_buttons button').prop ( 'disabled' , true ) ;
 		$('#stop_buttons').show() ;
 		if ( in_background ) {
-			alert ( "Not implemented yet" ) ;
+//			alert ( "Not implemented yet" ) ;
 		} else {
 			me.runNextCommand() ;
 		}
@@ -365,7 +367,7 @@ var QuickStatements = {
 
 	importFromV1 : function ( v1 ) {
 		var me = this ;
-		location.hash = 'v1='+v1 ;
+		if ( v1.length < 1000 ) location.hash = 'v1='+v1 ;
 		$.get ( me.api , {
 			action:'import',
 			data:v1,

@@ -3,6 +3,7 @@
 require_once ( 'php/common.php' ) ;
 require_once ( 'php/wikidata.php' ) ;
 require_once ( 'php/oauth.php' ) ;
+require_once ( '/data/project/quickstatements/vendor/autoload.php' ) ;
 
 // QuickStatements class
 
@@ -11,10 +12,15 @@ class QuickStatements {
 	public $last_item = '' ;
 	public $wd ;
 	public $oa ;
+	public $use_oauth = true ;
 
+	protected $bot_config_file = '/data/project/quickstatements/bot.ini' ;
 	protected $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
+	protected $site = 'wikidata' ;
+	protected $sites ;
 	
 	public function QuickStatements () {
+		$this->sites = json_decode ( file_get_contents ( 'https://tools.wmflabs.org/quickstatements/sites.json' ) ) ;
 		$this->wd = new WikidataItemList () ;
 	}
 	
@@ -90,6 +96,49 @@ class QuickStatements {
 		return false ; // Can't determine type
 	}
 	
+	protected function getSite () {
+		$site = $this->site ;
+		return $this->sites->$site ;
+	}
+	
+	protected function getBotAPI () {
+		if ( isset($this->bot_api) and $this->bot_api->isLoggedIn() ) return $this->bot_api ;
+
+		$api_url = 'https://' . $this->getSite()->server . '/w/api.php' ;
+		$config = parse_ini_file ( $this->bot_config_file ) ;
+		$api = new \Mediawiki\Api\MediawikiApi( $api_url );
+		if ( !$api->isLoggedin() ) {
+			$x = $api->login( new \Mediawiki\Api\ApiUser( $config['user'], $config['pass'] ) );
+			if ( !$x ) return false ;
+		}
+		return $api ;
+		
+	}
+	
+	protected function runBotAction ( $params_orig ) {
+		$params = array() ;
+		foreach ( $params_orig AS $k => $v ) $params[$k] = $v ; // Copy to array, and for safekeeping original
+		$this->last_result = (object) array() ;
+		if ( !isset($params['action']) ) return false ;
+		$action = $params['action'] ;
+		unset ( $params['action'] ) ;
+
+		$api = $this->getBotAPI() ;
+		$params['token'] = $api->getToken() ;
+
+		try {
+			$x = $api->postRequest( new \Mediawiki\Api\SimpleRequest( $action, $params ) );
+			if ( isset($x) ) {
+				$this->last_result = json_decode ( json_encode ( $x ) ) ; // Casting to object
+			}
+//			} else return false ; // TODO is that correct?
+		} catch (Exception $e) {
+			$this->last_result->error = (object) array ( 'info' => $e->getMessage() ) ;
+			return false ;
+		}
+		return true ;
+	}
+	
 	protected function runAction ( $params , &$command ) {
 		$params = (object) $params ;
 		$summary = '#quickstatements' ;
@@ -97,21 +146,28 @@ class QuickStatements {
 		$params->summary = $summary ;
 		$params->bot = 1 ;
 		
-		// TODO use either OA or bot
-		$oa = $this->getOA() ;
-		$status = $oa->genericAction ( $params ) ;
+		$result = (object) array() ;
+		$status = false ;
+		if ( $this->use_oauth ) {
+			$oa = $this->getOA() ;
+			$status = $oa->genericAction ( $params ) ;
+			if ( isset($oa->last_res) ) $result = $oa->last_res ;
+		} else {
+			$status = $this->runBotAction ( $params ) ;
+			if ( isset($this->last_result) ) $result = $this->last_result ;
+		}
 		
 		$command->run = $params ; // DEBUGGING INFO
 		if ( $status ) {
 			$command->status = 'done' ;
 			$new = 'new' ;
 			if ( $params->action == 'wbeditentity' and isset($params->$new) ) {
-				$command->item = $oa->last_res->entity->id ; // "Last item"
+				$command->item = $result->entity->id ; // "Last item"
 			}
 		} else {
 			$command->status = 'error' ;
-			if ( isset($oa->last_res->error) and isset($oa->last_res->error->info) ) $command->message = $oa->last_res->error->info ;
-			else $command->message = json_encode ( $oa->last_res ) ;
+			if ( isset($result->error) and isset($result->error->info) ) $command->message = $result->error->info ;
+			else $command->message = json_encode ( $result ) ;
 		}
 	}
 	
@@ -147,7 +203,7 @@ class QuickStatements {
 	
 	protected function commandAddStatement ( $command , $i , $statement_id ) {
 		// Paranoia
-		if ( isset($statement_id) ) return commandDone ( $command , "Statement already exists as $statement_id" ) ;
+		if ( isset($statement_id) ) return $this->commandDone ( $command , "Statement already exists as $statement_id" ) ;
 
 		// Execute!
 		$this->runAction ( array (
@@ -213,7 +269,7 @@ class QuickStatements {
 	
 	protected function commandSetLabel ( $command , $i ) {
 		// Paranoia
-		if ( $i->getLabel ( $command->language , true ) == $command->value ) return commandDone ( $command , 'Already has that label for {$command->language}' ) ;
+		if ( $i->getLabel ( $command->language , true ) == $command->value ) return $this->commandDone ( $command , 'Already has that label for {$command->language}' ) ;
 		
 		// Execute!
 		$this->runAction ( array (
@@ -246,7 +302,7 @@ class QuickStatements {
 	
 	protected function commandSetDescription ( $command , $i ) {
 		// Paranoia
-		if ( $i->getDesc ( $command->language , true ) == $command->value ) return commandDone ( $command , 'Already has that description for {$command->language}' ) ;
+		if ( $i->getDesc ( $command->language , true ) == $command->value ) return $this->commandDone ( $command , 'Already has that description for {$command->language}' ) ;
 		
 		// Execute!
 		$this->runAction ( array (
@@ -264,7 +320,7 @@ class QuickStatements {
 	protected function commandSetSitelink ( $command , $i ) {
 		// Paranoia
 		$sl = $i->getSitelink ( $command->site ) ;
-		if ( isset($sl) and str_replace(' ','_',$sl) == str_replace(' ','_',$command->value) ) return commandDone ( $command , 'Already has that sitelink for {$command->site}' ) ;
+		if ( isset($sl) and str_replace(' ','_',$sl) == str_replace(' ','_',$command->value) ) return $this->commandDone ( $command , 'Already has that sitelink for {$command->site}' ) ;
 		
 		// Execute!
 		$this->runAction ( array (
@@ -422,7 +478,7 @@ class QuickStatements {
 			$cmd['datavalue'] = array ( "type"=>"globecoordinate" , "value"=>array(
 				'latitude' => $m[1]*1 ,
 				'longitude' => $m[2]*1 ,
-				'precision' => 0.0001 ,
+				'precision' => 0.000001 ,
 				'globe' => 'http://www.wikidata.org/entity/Q2'
 			) ) ;
 			return true ;

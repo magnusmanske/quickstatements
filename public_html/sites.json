@@ -1,0 +1,10 @@
+{
+	"wikidata" : {
+		"oauth" : { "language":"wikidata" , "project":"wikidata" } ,
+		"server" : "www.wikidata.org" ,
+		"types" : {
+			"P" : { "type":"property" , "ns":120 , "ns_prefix":"Property:" } ,
+			"Q" : { "type":"item" , "ns":0 , "ns_prefix":"" }
+		}
+	}
+}
