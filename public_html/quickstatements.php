@@ -1,8 +1,8 @@
 <?PHP
 
-require_once ( 'php/common.php' ) ;
-require_once ( 'php/wikidata.php' ) ;
-require_once ( 'php/oauth.php' ) ;
+require_once ( '/data/project/magnustools/public_html/php/common.php' ) ;
+require_once ( '/data/project/magnustools/public_html/php/wikidata.php' ) ;
+require_once ( '/data/project/quickstatements/public_html/php/oauth.php' ) ;
 require_once ( '/data/project/quickstatements/vendor/autoload.php' ) ;
 
 // QuickStatements class
@@ -13,14 +13,14 @@ class QuickStatements {
 	public $wd ;
 	public $oa ;
 	public $use_oauth = true ;
-
-	protected $bot_config_file = '/data/project/quickstatements/bot.ini' ;
+	public $bot_config_file = '/data/project/quickstatements/bot.ini' ;
+	
 	protected $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
 	protected $site = 'wikidata' ;
 	protected $sites ;
 	
 	public function QuickStatements () {
-		$this->sites = json_decode ( file_get_contents ( 'https://tools.wmflabs.org/quickstatements/sites.json' ) ) ;
+		$this->sites = json_decode ( file_get_contents ( '/data/project/quickstatements/public_html/sites.json' ) ) ;
 		$this->wd = new WikidataItemList () ;
 	}
 	
@@ -35,7 +35,7 @@ class QuickStatements {
 		return $this->oa ;
 	}
 	
-	public function importData ( $data , $format , $persistent ) {
+	public function importData ( $data , $format , $persistent = false ) {
 		$ret = array ( "status" => "OK" ) ;
 		// TODO persistent
 		if ( $format == 'v1' ) $this->importDataFromV1 ( $data , $ret ) ;
@@ -108,7 +108,12 @@ class QuickStatements {
 		$config = parse_ini_file ( $this->bot_config_file ) ;
 		$api = new \Mediawiki\Api\MediawikiApi( $api_url );
 		if ( !$api->isLoggedin() ) {
-			$x = $api->login( new \Mediawiki\Api\ApiUser( $config['user'], $config['pass'] ) );
+			if ( isset($config['user']) ) $username = $config['user'] ;
+			if ( isset($config['username']) ) $username = $config['username'] ;
+			if ( isset($config['pass']) ) $password = $config['pass'] ;
+			if ( isset($config['password']) ) $password = $config['password'] ;
+			if ( !isset($username) or !isset($password) ) return false ;
+			$x = $api->login( new \Mediawiki\Api\ApiUser( $username, $password ) );
 			if ( !$x ) return false ;
 		}
 		return $api ;

@@ -12,20 +12,15 @@ var QuickStatements = {
 
 	init : function () {
 		var me = this ;
-		me.tt = new ToolTranslation ( { tool:'quickstatements' , language:me.lang() , fallback:'en' } ) ;
-		me.tt.addILdropdown ( $('#interface_language_wrapper') ) ;
 		
-		$.get ( 'sites.json' , function ( d ) {
-			me.sites = d ;
+		var running = 3 ;
+		function fin () {
+			running-- ;
+			if ( running > 0 ) return ;
 
+			me.tt.addILdropdown ( $('#interface_language_wrapper') ) ;
 			me.setSite ( 'wikidata' ) ;
-			me.oauth = { is_logged_in:false } ;
-			$.post ( me.api , {
-				action:'is_logged_in'
-			} , function ( d ) {
-				me.oauth = d.data ;
-				me.updateUserInfo() ;
-			} , 'json' ) ;
+			me.updateUserInfo() ;
 			me.params = me.getUrlVars() ;
 		
 			$('#import_v1_dialog').on('shown.bs.modal', function () { $('#v1_commands').val('').focus() })
@@ -44,8 +39,21 @@ var QuickStatements = {
 			if ( typeof me.params.v1 != 'undefined' ) me.importFromV1 ( me.params.v1 ) ;
 
 			me.updateUnlabeledItems() ;
+		}
+		
+		me.tt = new ToolTranslation ( { tool:'quickstatements' , language:me.lang() , fallback:'en' , callback : function () { fin() } } ) ;
+		
+		$.get ( 'sites.json' , function ( d ) {
+			me.sites = d ;
+			fin() ;
+		} , 'json' ) ;
 
-
+		me.oauth = { is_logged_in:false } ;
+		$.post ( me.api , {
+			action:'is_logged_in'
+		} , function ( d ) {
+			me.oauth = d.data ;
+			fin() ;
 		} , 'json' ) ;
 	} ,
 
@@ -219,6 +227,12 @@ var QuickStatements = {
 	updateUnlabeledItems : function () {
 		var me = this ;
 		var to_update = [] ;
+		$('span.update_label').each ( function () {
+			var o = $(this) ;
+			if ( o.text() != '' ) return ;
+			var t = o.attr('tt') ;
+			o.text ( me.tt.t(t) ) ;
+		} ) ;
 		$('a.wd_unlabeled').each ( function () {
 			var a = $(this) ;
 			var pq = a.attr('pq') ;
@@ -527,7 +541,7 @@ var QuickStatements = {
 	
 	renderStatus : function ( command ) {
 		var me = this ;
-		if ( typeof command.status == 'undefined' || command.status == '' ) return me.wrapStatusAlert ( "<span tt='pending'></span>" , 'info' , command.message ) ;
+		if ( typeof command.status == 'undefined' || command.status == '' ) return me.wrapStatusAlert ( "<span tt='pending' class='update_label'></span>" , 'info' , command.message ) ;
 		var s = me.htmlSafe(command.status) ;
 		if ( s == 'done' ) {
 			s = me.wrapStatusAlert ( s , 'success' , command.message ) ;
