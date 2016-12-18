@@ -18,6 +18,7 @@ class QuickStatements {
 	protected $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
 	protected $site = 'wikidata' ;
 	protected $sites ;
+	protected $is_batch_run = false ;
 	
 	public function QuickStatements () {
 		$this->sites = json_decode ( file_get_contents ( '/data/project/quickstatements/public_html/sites.json' ) ) ;
@@ -25,7 +26,7 @@ class QuickStatements {
 	}
 	
 	protected function isBatchRun () {
-		return false ; // TODO FIXME
+		return $this->is_batch_run ;
 	}
 	
 	public function getOA() {
@@ -37,6 +38,7 @@ class QuickStatements {
 	
 	public function importData ( $data , $format , $persistent = false ) {
 		$ret = array ( "status" => "OK" ) ;
+		$format = trim ( strtolower ( $format ) ) ;
 		// TODO persistent
 		if ( $format == 'v1' ) $this->importDataFromV1 ( $data , $ret ) ;
 		else $ret['status'] = "ERROR: Unknown format $format" ;
@@ -66,6 +68,7 @@ class QuickStatements {
 		if ( !$this->isProperty ( $command->property ) ) return ;
 		if ( !isset($command->datavalue) ) return ;
 		$q = $command->item ;
+
 		$this->wd->loadItem ( $q ) ;
 		if ( !$this->wd->hasItem($q) ) return ;
 		$i = $this->wd->getItem ( $q ) ;
@@ -340,12 +343,49 @@ class QuickStatements {
 		return $command ;
 	}
 	
+	protected function commandRemoveStatement ( $command , $i ) {
+		$id = $command->id ;
+		
+		// Execute!
+		$this->runAction ( array (
+			'action' => 'wbremoveclaims' ,
+			'claim' => $id ,
+			'summary' => '' ,
+			'baserevid' => $i->j->lastrevid
+		) , $command ) ;
+		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
+		return $command ;
+	}
+	
+	public function array2object ( $a ) {
+		return json_decode ( json_encode ( $a ) ) ;
+	}
+	
+	public function runCommandArray ( $commands ) {
+		// TODO auto-grouping, e.g. for CREATE
+		$this->is_batch_run = true ;
+		foreach ( $commands AS $command ) {
+			$command = $this->array2object ( $command ) ;
+			$command = $this->runSingleCommand ( $command ) ;
+			if ( isset($command->item) ) $this->last_item = $command->item ;
+			if ( $command->status != 'done' ) {
+				print "<pre>" ; print_r ( $command ) ; print "</pre>" ;
+			}
+			// TODO proper error handling
+			if ( isset($command->item) ) $this->wd->updateItem ( $command->item ) ;
+		}
+		$this->is_batch_run = false ;
+	}
+	
 	public function runSingleCommand ( $command ) {
 		$command->status = 'working' ;
 		if ( isset($command->error) ) unset ( $command->error ) ;
 		if ( $command->action == 'create' ) {
 			return $this->createNewItem ( $command ) ;
 		} else {
+
+			// Prepare
+			if ( !isset($command->item) and isset($command->id) and $command->what == 'statement' ) $command->item = strtoupper ( preg_replace ( '/\$.+$/' , '' , $command->id ) ) ;
 			$q = trim($command->item) ;
 			if ( strtolower($q) == 'last' ) $q = $this->last_item ;
 			if ( $q == '' ) return $this->commandError ( $command , 'No last item available' ) ;
@@ -357,7 +397,8 @@ class QuickStatements {
 			$i = $this->wd->getItem ( $q ) ;
 			
 			if ( $command->action == 'add' ) {
-			
+
+				// Do it
 				if ( $command->what == 'label' ) return $this->commandSetLabel ( $command , $i ) ;
 				if ( $command->what == 'alias' ) return $this->commandAddAlias ( $command , $i ) ;
 				if ( $command->what == 'description' ) return $this->commandSetDescription ( $command , $i ) ;
@@ -371,6 +412,15 @@ class QuickStatements {
 				if ( $command->what == 'qualifier' ) return $this->commandAddQualifier ( $command , $i , $statement_id ) ;
 				if ( $command->what == 'sources' ) return $this->commandAddSources ( $command , $i , $statement_id ) ;
 				
+			} else if ( $command->action == 'remove' ) {
+			
+				if ( $command->what == 'statement' ) {
+					if ( !isset($command->id) ) $command->id = $this->getStatementID ( $command ) ;
+					if ( !isset($command->id) or $command->id == '' ) return $this->commandError ( $command , "Base statement not found" ) ;
+					return $this->commandRemoveStatement ( $command , $i ) ;
+				}
+				
+			
 			}
 			
 		}
@@ -388,12 +438,17 @@ class QuickStatements {
 		foreach ( $rows as $row ) {
 			$row = trim ( $row ) ;
 			$cols = explode ( "\t" , $row ) ;
-			$first = strtoupper(trim($cols[0])) ;
 			$cmd = array() ;
 			$skip_add_command = false ;
+			$action = 'add' ;
+			if ( count($cols)>0 and preg_match('/^-(.+)$/',$cols[0],$m) ) {
+				$action = 'remove' ;
+				$cols[0] = $m[1] ;
+			}
+			$first = strtoupper(trim($cols[0])) ;
 			if ( count ( $cols ) >= 3 and ( preg_match ( '/^[PQ]\d+$/' , $first ) or $first == 'LAST' ) and preg_match ( '/^([P])(\d+)$/' , $cols[1] ) ) {
 				$prop = strtoupper(trim($cols[1])) ;
-				$cmd = array ( 'action'=>'add' , 'item'=>$first , 'property'=>$prop , 'what'=>'statement' ) ;
+				$cmd = array ( 'action'=>$action , 'item'=>$first , 'property'=>$prop , 'what'=>'statement' ) ;
 				$this->parseValueV1 ( $cols[2] , $cmd ) ;
 
 				// Remove base statement
@@ -415,7 +470,7 @@ class QuickStatements {
 						$skip_add_command = false ;
 						$last_command = $ret['data']['commands'][count($ret['data']['commands'])-1] ;
 						
-						$cmd = array ( 'action'=>'add' , 'item'=>$first , 'property'=>$prop , 'what'=>$what , 'datavalue'=>$last_command['datavalue'] ) ;
+						$cmd = array ( 'action'=>$action , 'item'=>$first , 'property'=>$prop , 'what'=>$what , 'datavalue'=>$last_command['datavalue'] ) ;
 						$dummy = array() ;
 						$this->parseValueV1 ( $value , $dummy ) ; // TODO transfer error message
 						$dv = array ( 'prop' => 'P'.$num , 'value' => $dummy['datavalue'] ) ;
@@ -433,7 +488,7 @@ class QuickStatements {
 			} else if ( count ( $cols ) === 3 and ( preg_match ( '/^([PQ])(\d+)$/' , $first ) or $first == 'LAST' ) and preg_match ( '/^([LADS])([a-z_-]+)$/i' , $cols[1] , $m ) ) {
 				$code = strtoupper ( $m[1] ) ;
 				$lang = strtolower ( trim ( $m[2] ) ) ;
-				$cmd = array ( 'action'=>'add' , 'what'=>$this->actions_v1[$code] , 'item'=>$first ) ;
+				$cmd = array ( 'action'=>$action , 'what'=>$this->actions_v1[$code] , 'item'=>$first ) ;
 				if ( $code == 'S' ) $cmd['site'] = $lang ;
 				else $cmd['language'] = $lang ;
 				$this->parseValueV1 ( $cols[2] , $cmd ) ;
@@ -441,6 +496,9 @@ class QuickStatements {
 				unset ( $cmd['datavalue'] ) ;
 			} else if ( $first == 'CREATE' ) {
 				$cmd = array ( 'action'=>'create' , 'type'=>'item' ) ;
+			} else if ( $first == '-STATEMENT' and count($cols) == 2 ) {
+				$id = trim ( $cols[1] ) ;
+				$cmd = array ( 'action'=>'remove' , 'what'=>'statement' , 'id'=>$id ) ;
 			}
 
 			if ( isset($cmd['action']) && !$skip_add_command ) $ret['data']['commands'][] = $cmd ;

@@ -382,7 +382,7 @@ var QuickStatements = {
 	importFromV1 : function ( v1 ) {
 		var me = this ;
 		if ( v1.length < 1000 ) location.hash = 'v1='+v1 ;
-		$.get ( me.api , {
+		$.post ( me.api , {
 			action:'import',
 			data:v1,
 			format:'v1',
@@ -557,14 +557,14 @@ var QuickStatements = {
 		var me = this ;
 		var tabs = [ '' , '<span tt="unknown_command"></span>' , '' , '' , '' , '' ] ;
 		tabs[0] = me.renderStatus ( cmd ) ;
-		if ( cmd.action == 'add' && ( cmd.what=='statement' || cmd.what=='qualifier' || cmd.what=='sources' ) ) {
+		if ( (cmd.action=='add'||cmd.action=='remove') && ( cmd.what=='statement' || cmd.what=='qualifier' || cmd.what=='sources' ) ) {
 			tabs[1] = me.renderAction ( cmd ) ;
 			tabs[2] = me.renderPQ ( cmd.item , {cmdnum:cmdnum,attr:'item'} ) ;
 			tabs[3] = me.renderPQ ( cmd.property , {cmdnum:cmdnum,attr:'property'} ) ;
 			tabs[4] = me.renderValue ( cmd.datavalue , {cmdnum:cmdnum,attr:'datavalue'} ) ;
 			if ( cmd.what == 'qualifier' ) tabs[5] = me.renderQualifier ( cmd.qualifier , {cmdnum:cmdnum} ) ;
 			if ( cmd.what == 'sources' ) tabs[5] = me.renderSources ( cmd.sources , {cmdnum:cmdnum} ) ;
-		} else if ( cmd.action == 'add' && ( cmd.what=='label' || cmd.what=='description' || cmd.what=='alias' || cmd.what=='sitelink' ) ) {
+		} else if ( (cmd.action=='add'||cmd.action=='remove') && ( cmd.what=='label' || cmd.what=='description' || cmd.what=='alias' || cmd.what=='sitelink' ) ) {
 			tabs[1] = me.renderAction ( cmd ) ;
 			tabs[2] = me.renderPQ ( cmd.item , {cmdnum:cmdnum,attr:'item'} ) ;
 			if ( cmd.what == 'sitelink' ) {
