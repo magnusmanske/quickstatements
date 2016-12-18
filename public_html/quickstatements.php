@@ -243,6 +243,7 @@ class QuickStatements {
 			'summary' => '' ,
 			'baserevid' => $i->j->lastrevid
 		) , $command ) ;
+		if ( $command->status == 'error' and preg_match ( '/The statement has already a qualifier/' , $command->message ) ) $command->status = 'done' ;
 		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
 		return $command ;
 	}
@@ -343,8 +344,10 @@ class QuickStatements {
 		return $command ;
 	}
 	
-	protected function commandRemoveStatement ( $command , $i ) {
+	protected function commandRemoveStatement ( $command ) {
 		$id = $command->id ;
+		$q = strtoupper ( preg_replace ( '/\$.*$/' , '' , $id ) ) ;
+		$i = $this->wd->getItem ( $q ) ;
 		
 		// Execute!
 		$this->runAction ( array (
@@ -417,7 +420,7 @@ class QuickStatements {
 				if ( $command->what == 'statement' ) {
 					if ( !isset($command->id) ) $command->id = $this->getStatementID ( $command ) ;
 					if ( !isset($command->id) or $command->id == '' ) return $this->commandError ( $command , "Base statement not found" ) ;
-					return $this->commandRemoveStatement ( $command , $i ) ;
+					return $this->commandRemoveStatement ( $command ) ;
 				}
 				
 			
@@ -496,9 +499,9 @@ class QuickStatements {
 				unset ( $cmd['datavalue'] ) ;
 			} else if ( $first == 'CREATE' ) {
 				$cmd = array ( 'action'=>'create' , 'type'=>'item' ) ;
-			} else if ( $first == '-STATEMENT' and count($cols) == 2 ) {
+			} else if ( $first == 'STATEMENT' and count($cols) == 2 ) {
 				$id = trim ( $cols[1] ) ;
-				$cmd = array ( 'action'=>'remove' , 'what'=>'statement' , 'id'=>$id ) ;
+				$cmd = array ( 'action'=>$action , 'what'=>'statement' , 'id'=>$id ) ;
 			}
 
 			if ( isset($cmd['action']) && !$skip_add_command ) $ret['data']['commands'][] = $cmd ;
