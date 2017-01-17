@@ -50,6 +50,36 @@ if ( $action == 'import' ) {
 		$out['data'] = $qs->getBatchStatus ( array($batch) ) ;
 	}
 
+} else if ( $action == 'get_batches_info' ) {
+
+	$out['debug'] = $_REQUEST ;
+	
+	$user = get_request ( 'user' , '' ) ;
+	$limit = get_request ( 'limit' , '20' ) * 1 ;
+	$offset = get_request ( 'offset' , '0' ) * 1 ;
+	
+	$db = $qs->getDB() ;
+	$sql = "SELECT DISTINCT batch.id AS id FROM batch" ;
+	if ( $user != '' ) $sql .= ",user" ;
+
+	$conditions = array() ;
+	if ( $user != '' ) $conditions[] = "user.id=batch.user AND user.name='" . $db->real_escape_string($user) . "'" ;
+	if ( count($conditions) > 0 ) $sql .= ' WHERE ' . implode ( ' AND ' , $conditions ) ;
+
+	$sql .= " ORDER BY ts_last_change DESC" ;
+	$sql .= " LIMIT $limit" ;
+	if ( $offset != 0 ) $sql .= " OFFSET $offset" ;
+
+//$out['sql'] = $sql ;
+	
+	if(!$result = $db->query($sql)) {
+		$out['status'] = $db->error ;
+	} else {
+		$batches = array() ;
+		while ( $o = $result->fetch_object() ) $batches[] = $o->id ;
+		$out['data'] = $qs->getBatchStatus ( $batches ) ;
+	}
+
 } else if ( $action == 'run_single_command' ) {
 
 	$qs->last_item = get_request ( 'last_item' , '' ) ;

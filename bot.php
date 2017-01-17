@@ -6,6 +6,7 @@ error_reporting(E_ERROR|E_CORE_ERROR|E_ALL|E_COMPILE_ERROR);
 require_once ( '/data/project/quickstatements/public_html/quickstatements.php' ) ;
 
 function iterate() {
+	$ret = 0 ;
 	$qs = new QuickStatements ;
 	$db = $qs->getDB() ;
 	$sql = "SELECT id,status FROM batch WHERE status IN ('INIT','RUN')" ;
@@ -19,12 +20,15 @@ function iterate() {
 			}
 		}
 		if ( !$qs2->runNextCommandInBatch ( $o->id ) ) print $qs2->last_error_message."\n" ;
+		else $ret++ ;
 	}
+	return $ret ;
 }
 
 while ( 1 ) {
-	iterate() ;
-	sleep ( 1 ) ;
+	$worked = iterate() ;
+	if ( $worked > 0 ) sleep ( 0.5 ) ;
+	else sleep ( 5 ) ;
 }
 
 ?>

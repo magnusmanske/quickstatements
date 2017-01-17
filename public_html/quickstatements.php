@@ -103,18 +103,18 @@ class QuickStatements {
 		$this->last_item = $o->last_item ;
 		$this->user_id = $o->user_id ;
 		$this->user_name = $o->user_name ;
-		
+		$ts = $this->getCurrentTimestamp() ;
+
 		$sql = "SELECT * FROM command WHERE batch_id=$batch_id AND status IN ('INIT') ORDER BY num LIMIT 1" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		$o = $result->fetch_object() ;
 		if ( $o == NULL ) { // Nothing more to do
-			$sql = "UPDATE batch SET status='DONE',last_item='',message='' WHERE id=$batch_id" ;
+			$sql = "UPDATE batch SET status='DONE',last_item='',message='',ts_last_change='$ts' WHERE id=$batch_id" ;
 			if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 			return true ;
 		}
 
 		// Update status
-		$ts = $this->getCurrentTimestamp() ;
 		$sql = "UPDATE command SET status='RUN',ts_change='$ts',message='' WHERE id={$o->id}" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 
@@ -173,6 +173,7 @@ class QuickStatements {
 //			if ( !isset($ret->$batch_id->commands) ) $ret->$batch_id->commands = (object) array() ;
 			$ret["$batch_id"]['commands'][$status] = $o->cnt ;
 		}
+		
 		return $ret ;
 	}
 

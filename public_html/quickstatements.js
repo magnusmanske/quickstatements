@@ -42,6 +42,10 @@ var QuickStatements = {
 			me.updateUnlabeledItems() ;
 			
 			if ( me.params.mode == 'batch' ) me.run_state.batch_id = me.params.batch ;
+			if ( me.params.mode == 'batches' ) {
+				me.run_state.filters = {} ;
+				if ( typeof me.params.user != 'undefined' ) me.run_state.filters.user = me.params.user ;
+			}
 			me.switchMode ( me.params.mode ) ;
 		}
 		
@@ -107,6 +111,30 @@ var QuickStatements = {
 		return ret ;
 	} ,
 	
+	safeHTML : function ( h ) {
+		return h.replace(/</,'&lt').replace(/>/,'&gt').replace(/&/,'&amp;')
+	} ,
+	
+	getBatchButtons : function ( d2 ) {
+		var me = this ;
+		var h = '' ;
+		var batch_id = d2.batch.id ;
+		if ( me.canUserStopBatch(d2.batch.user_name) ) {
+			h += "<div>" ;
+
+			h += "<button batch='"+batch_id+"' class='stop-batch btn btn-danger btn-lg'" ;
+			if ( d2.batch.status != 'RUN' ) h += " style='display:none'" ;
+			h += ">STOP THIS BATCH RUN NOW!</button>" ;
+
+			h += "<button batch='"+batch_id+"' class='start-batch btn btn-success btn-lg'" ;
+			if ( d2.batch.status != 'STOP' ) h += " style='display:none'" ;
+			h += ">(Re-)start this batch</button>" ;
+
+			h += "</div>" ;
+		}
+		return h ;
+	} ,
+	
 	updateBatchStatus : function () {
 		var me = this ;
 		if ( typeof me.run_state.batch_id == 'undefined' ) return ;
@@ -119,9 +147,11 @@ var QuickStatements = {
 			$('#single_batch_busy').hide() ;
 			var d2 = d.data[batch_id] ;
 			var h = '' ;
-			if ( d2.name != '' ) h += "<h2>" + d2.batch.name.replace(/</,'&lt').replace(/>/,'&gt').replace(/&/,'&amp;') + "</h2>" ;
-			h += "<p>User:<a href='https://www.wikidata.org/wiki/User:" + encodeURIComponent(d2.batch.user_name) + "' target='_blank'>" + d2.batch.user_name + "</a></p>" ;
-			h += "<p>Status: <b>" + d2.batch.status + "</b> <small>" + d2.batch.message + "</small></p>" ;
+			if ( d2.name != '' ) h += "<h2>" + me.safeHTML(d2.batch.name) + "</h2>" ;
+			h += "<p>User: <a href='https://www.wikidata.org/wiki/User:" + encodeURIComponent(d2.batch.user_name) + "' target='_blank'>" + me.safeHTML(d2.batch.user_name) + "</a>" ;
+			h += " <small>(<a href='/quickstatements/#mode=batches&user="+encodeURIComponent(d2.batch.user_name)+"' onclick='QuickStatements.batchesByUser(\""+encodeURIComponent(d2.batch.user_name)+"\");return false'>batches by this user</a>)</small>" ;
+			h += "</p>" ;
+			h += "<p>Status: <b>" + d2.batch.status + "</b> <small>" + me.safeHTML(d2.batch.message) + "</small></p>" ;
 			h += "<p>Created: " + me.ts2string(d2.batch.ts_created) + "</p>" ;
 			h += "<p>Last change: " + me.ts2string(d2.batch.ts_last_change) + "</p>" ;
 			h += "<table class='table table-condensed table-striped'>" ;
@@ -131,19 +161,7 @@ var QuickStatements = {
 			} ) ;
 			h += "</tbody></table>" ;
 			
-			if ( me.canUserStopBatch(d2.batch.user_name) ) {
-				h += "<div>" ;
-
-				h += "<button batch='"+batch_id+"' class='stop-batch btn btn-danger btn-lg'" ;
-				if ( d2.batch.status != 'RUN' ) h += " style='display:none'" ;
-				h += ">STOP THIS BATCH RUN NOW!</button>" ;
-
-				h += "<button batch='"+batch_id+"' class='start-batch btn btn-success btn-lg'" ;
-				if ( d2.batch.status != 'STOP' ) h += " style='display:none'" ;
-				h += ">(Re-)start this batch</button>" ;
-
-				h += "</div>" ;
-			}
+			h += me.getBatchButtons ( d2 ) ;
 			
 			$('#single_batch_status').html ( h ) ;
 			
@@ -176,12 +194,59 @@ var QuickStatements = {
 		} ) ;
 	} ,
 	
+	showBatches : function () {
+		var me = this ;
+
+		var p = [ 'mode=batches' ] ;
+		$.each ( me.run_state.filters , function ( k , v ) { p.push ( k+'='+encodeURIComponent(v) ) ; } ) ;
+		location.hash = p.join('&') ;
+
+		var params = { action:'get_batches_info' } ;
+		$.each ( me.run_state.filters , function ( k , v ) { params[k] = v ; } ) ;
+		$.post ( me.api , params , function ( d ) {
+			var tmp = [] ;
+			$.each ( d.data , function ( batch_id , d2 ) {
+				tmp.push ( d2 ) ;
+			} ) ;
+			tmp.sort ( function ( a , b ) {
+				return b.batch.ts_last_change*1 - a.batch.ts_last_change*1 ;
+			} ) ;
+			var h = "<table class='table table-condensed table-striped'>" ;
+			h += "<thead><tr><th>#</th><th>User</th><th>Name</th><th>Status</th><th>Last change</th><th>Actions</th></tr></thead>" ;
+			h += "<tbody>" ;
+			$.each ( tmp , function ( row , d2 ) {
+				var batch_id = d2.batch.id ;
+				h += "<tr>" ;
+				h += "<td><a href='#mode=batch&batch="+batch_id+"'>"+batch_id+"</td>" ;
+				h += "<td nowrap><a href='https://www.wikidata.org/wiki/User:" + encodeURIComponent(d2.batch.user_name) + "' target='_blank'>" + me.safeHTML(d2.batch.user_name) + "</a></td>" ;
+				h += "<td>" + me.safeHTML(d2.batch.name) + "</td>" ;
+				h += "<td>" ;
+				h += "<div>" + me.safeHTML(d2.batch.status) + " <small>" + me.safeHTML(d2.batch.message) + "</small></div>" ;
+				var stati = [] ;
+				$.each ( d2.commands , function ( k , v ) {
+					stati.push ( k+':'+v ) ;
+				} ) ;
+				h += "<div style='font-size:9pt'>" + stati.sort().join(' | ') + "</div>" ;
+				h += "</td>" ;
+				h += "<td nowrap>" + me.ts2string(d2.batch.ts_last_change) + "</td>" ;
+				h += "<td>" + me.getBatchButtons(d2) + "</td>" ;
+				h += "</tr>" ;
+			} ) ;
+			h += "</tbody></table>" ;
+			$('#multi_batch_status').html(h) ;
+		} ) ;
+	} ,
+	
+	batchesByUser : function ( user_name_encoded ) {
+		var me = this ;
+		me.run_state.filters = { user:decodeURIComponent(user_name_encoded) } ;
+		me.switchMode ( 'batches' ) ;
+	} ,
+	
 	showBatch : function () {
 		var me = this ;
 		location.hash = 'mode=batch&batch=' + me.run_state.batch_id ;
 		$('#single_batch_number').text ( me.run_state.batch_id ) ;
-
-		if ( typeof me.run_state.batch_watcher != 'undefined' ) clearInterval ( me.run_state.batch_watcher ) ;
 		me.run_state.batch_watcher = setInterval ( function () { me.updateBatchStatus() ; } , me.batch_update_interval ) ;
 		me.updateBatchStatus()
 	} ,
@@ -192,7 +257,9 @@ var QuickStatements = {
 		me.mode = new_mode ;
 		$('div.mode').hide() ;
 		$('#mode_'+new_mode).show() ;
+		if ( typeof me.run_state.batch_watcher != 'undefined' ) clearInterval ( me.run_state.batch_watcher ) ;
 		if ( new_mode == 'batch' ) me.showBatch () ;
+		if ( new_mode == 'batches' ) me.showBatches () ;
 	} ,
 	
 	runInBackground : function () {
@@ -354,6 +421,8 @@ var QuickStatements = {
 	} ,
 	
 	onClickImportV1 : function () {
+		var me = QuickStatements ;
+		me.switchMode ( 'commands' ) ;
 		$('#import_v1_dialog').modal('show') ;
 	} ,
 	
