@@ -87,6 +87,18 @@ a.red {
     <li class="nav-item">
       <a id="link_import_qs1" class="nav-link" href="#">Import version 1 commands</a>
     </li>-->
+
+    <li class="nav-item dropdown">
+      <a class="nav-link dropdown-toggle" href="#" id="supportedContentDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" tt='show_modes'></a>
+      <div class="dropdown-menu" aria-labelledby="supportedContentDropdown">
+        <a class="dropdown-item" href="#" tt='show_command_interface' onclick='QuickStatements.switchMode("commands");return false'></a>
+        <a class="dropdown-item" href="#" tt='show_last_batches' onclick='QuickStatements.showLastBatches();return false'></a>
+        <a class="dropdown-item" href="#" tt='show_your_last_batches' style='display:none'></a>
+<!--        <a class="dropdown-item" href="#">Another action</a>-->
+      </div>
+    </li>
+
+
     <li class="nav-item dropdown">
       <a class="nav-link dropdown-toggle" href="#" id="supportedContentDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" tt='import_commands'></a>
       <div class="dropdown-menu" aria-labelledby="supportedContentDropdown">

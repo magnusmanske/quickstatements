@@ -402,11 +402,22 @@ var QuickStatements = {
 			var username = me.oauth.query.userinfo.name ;
 			h = "<span tt='welcome' tt1='" + me.htmlSafe(username) + "'></span>" ;
 			$('#logged_in_actions').show() ;
+			$('a[tt="show_your_last_batches"]').show().click ( function () {
+				me.run_state.filters = { user:username } ;
+				me.switchMode ( 'batches' ) ;
+				return false ;
+			} ) ;
 		} else {
 			h += "<a href='"+me.api+"?action=oauth_redirect' target='_blank' tt='login'></a> <span tt='login2'></span>" ;
 		}
 		$('#userinfo').html ( h ) ;
 		me.tt.updateInterface($('#userinfo')) ;
+	} ,
+	
+	showLastBatches : function () {
+		var me = QuickStatements ;
+		me.run_state.filters = {} ;
+		me.switchMode ( 'batches' ) ;
 	} ,
 	
 	getUrlVars : function () {
