@@ -62,6 +62,19 @@ if ( $action == 'import' ) {
 		$out['last_item'] = $qs->last_item ;
 	}
 
+
+} else if ( $action == 'start_batch' or $action == 'stop_batch' ) {
+
+	$batch_id = get_request ( 'batch' , 0 ) * 1 ;
+	
+	$res = false ;
+	if ( $action == 'start_batch' ) $res = $qs->userChangeBatchStatus ( $batch_id , 'RUN' ) ;
+	if ( $action == 'stop_batch' )  $res = $qs->userChangeBatchStatus ( $batch_id , 'STOP' ) ;
+	
+	if ( !$res ) {
+		$out['status'] = $qs->last_error_message ;
+	}
+
 } else if ( $action == 'run_batch' ) {
 
 	$user_id = $qs->getCurrentUserID() ;

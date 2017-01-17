@@ -22,6 +22,7 @@ class QuickStatements {
 	protected $is_batch_run = false ;
 	protected $user_name = '' ;
 	protected $user_id = 0 ;
+	protected $user_groups = array() ;
 	protected $db ;
 	
 	public function QuickStatements () {
@@ -58,6 +59,7 @@ class QuickStatements {
 		}
 		$this->user_name = $cr->query->userinfo->name ;
 		$this->user_id = $cr->query->userinfo->id ;
+		$this->user_groups = $cr->query->userinfo->groups ;
 		if ( !$this->ensureCurrentUserInDB() ) return false ;
 		return $this->user_id ;
 	}
@@ -66,7 +68,7 @@ class QuickStatements {
 		if ( count($commands) == 0 ) return $this->setErrorMessage ( 'No commands' ) ;
 		$db = $this->getDB() ;
 		$ts = $this->getCurrentTimestamp() ;
-		$sql = "INSERT INTO batch (name,user,ts_created,ts_last_change,status) VALUES (".$db->real_escape_string($name)."$user_id,'$ts','$ts','INIT')" ;
+		$sql = "INSERT INTO batch (name,user,ts_created,ts_last_change,status) VALUES ('".$db->real_escape_string($name)."',$user_id,'$ts','$ts','INIT')" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		$batch_id = $db->insert_id ;
 		foreach ( $commands AS $k => $c ) {
@@ -95,14 +97,21 @@ class QuickStatements {
 	public function runNextCommandInBatch ( $batch_id ) {
 		$db = $this->getDB() ;
 		
-		$sql = "SELECT last_item FROM batch WHERE id=$batch_id" ;
+		$sql = "SELECT last_item,user.id AS user_id,user.name AS user_name FROM batch,user WHERE batch.id=$batch_id AND user.id=batch.user" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		$o = $result->fetch_object() ;
 		$this->last_item = $o->last_item ;
+		$this->user_id = $o->user_id ;
+		$this->user_name = $o->user_name ;
 		
 		$sql = "SELECT * FROM command WHERE batch_id=$batch_id AND status IN ('INIT') ORDER BY num LIMIT 1" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		$o = $result->fetch_object() ;
+		if ( $o == NULL ) { // Nothing more to do
+			$sql = "UPDATE batch SET status='DONE',last_item='',message='' WHERE id=$batch_id" ;
+			if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+			return true ;
+		}
 
 		// Update status
 		$ts = $this->getCurrentTimestamp() ;
@@ -110,7 +119,7 @@ class QuickStatements {
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 
 		// Run command
-		$summary = "command #{$o->num} of batch #{$batch_id}" ;
+		$summary = "[https://tools.wmflabs.org/quickstatements/#mode=batch&batch={$batch_id} batch #{$batch_id}] by [[User:{$this->user_name}|]]" ;
 		$cmd = json_decode ( $o->json ) ;
 		if ( !isset($cmd->summary) ) $cmd->summary = $summary ;
 		else $cmd->summary .= '; ' . $summary ;
@@ -166,9 +175,34 @@ class QuickStatements {
 		}
 		return $ret ;
 	}
+
+	public function userChangeBatchStatus ( $batch_id , $new_status ) {
+		if ( !$this->canCurrentUserChangeBatchStatus ( $batch_id ) ) return false ;
+		$db = $this->getDB() ;
+		$sql = "UPDATE batch SET status='" . $db->real_escape_string($new_status) . "',message='Status set by User:" . $db->real_escape_string($this->user_name) . "' WHERE id=$batch_id" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		return true ;
+	}
 	
+	
+	
+	
+	protected function canCurrentUserChangeBatchStatus ( $batch_id ) {
+		if ( false === $this->getCurrentUserID() ) return $this->setErrorMessage ( "Not logged in" ) ;
 
-
+		$db = $this->getDB() ;
+		$sql = "SELECT * FROM batch WHERE id=$batch_id" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		$batch = $result->fetch_object() ;
+		
+		if ( $batch->user == $this->user_id ) return true ; // User who submitted the batch
+		
+		foreach ( $this->user_groups AS $k => $v ) {
+			if ( $v == 'administrator' ) return true ;
+		}
+		
+		return false ;
+	}
 	
 	protected function getCurrentTimestamp () {
 		return date ( 'YmdHis' ) ;

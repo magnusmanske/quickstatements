@@ -94,6 +94,19 @@ var QuickStatements = {
 		return ts.substr(0,4) + '-' + ts.substr(4,2) + '-' + ts.substr(6,2) + ' ' + ts.substr(8,2) + ':' + ts.substr(10,2) + ':' + ts.substr(12,2) ;
 	} ,
 	
+	canUserStopBatch : function ( batch_user_name ) {
+		var me = this ;
+		if ( typeof me.oauth.query == 'undefined' ) return false ;
+		if ( typeof me.oauth.query.userinfo == 'undefined' ) return false ;
+		if ( me.oauth.query.userinfo.name == batch_user_name ) return true ;
+		if ( typeof me.oauth.query.userinfo.groups == 'undefined' ) return false ;
+		var ret = false ;
+		$.each ( me.oauth.query.userinfo.groups , function ( k , v ) {
+			if ( v == 'administrator' ) ret = true ;
+		} ) ;
+		return ret ;
+	} ,
+	
 	updateBatchStatus : function () {
 		var me = this ;
 		if ( typeof me.run_state.batch_id == 'undefined' ) return ;
@@ -102,12 +115,13 @@ var QuickStatements = {
 			action:'get_batch_info',
 			batch:me.run_state.batch_id
 		} , function ( d ) {
+			var batch_id = me.run_state.batch_id ;
 			$('#single_batch_busy').hide() ;
-			var d2 = d.data[me.run_state.batch_id] ;
+			var d2 = d.data[batch_id] ;
 			var h = '' ;
 			if ( d2.name != '' ) h += "<h2>" + d2.batch.name.replace(/</,'&lt').replace(/>/,'&gt').replace(/&/,'&amp;') + "</h2>" ;
 			h += "<p>User:<a href='https://www.wikidata.org/wiki/User:" + encodeURIComponent(d2.batch.user_name) + "' target='_blank'>" + d2.batch.user_name + "</a></p>" ;
-			h += "<p>Status: " + d2.batch.status + " <small>" + d2.batch.message + "</small></p>" ;
+			h += "<p>Status: <b>" + d2.batch.status + "</b> <small>" + d2.batch.message + "</small></p>" ;
 			h += "<p>Created: " + me.ts2string(d2.batch.ts_created) + "</p>" ;
 			h += "<p>Last change: " + me.ts2string(d2.batch.ts_last_change) + "</p>" ;
 			h += "<table class='table table-condensed table-striped'>" ;
@@ -116,7 +130,49 @@ var QuickStatements = {
 				h += "<tr><td>" + k + "</td><td>" + v + "</td></tr>" ;
 			} ) ;
 			h += "</tbody></table>" ;
+			
+			if ( me.canUserStopBatch(d2.batch.user_name) ) {
+				h += "<div>" ;
+
+				h += "<button batch='"+batch_id+"' class='stop-batch btn btn-danger btn-lg'" ;
+				if ( d2.batch.status != 'RUN' ) h += " style='display:none'" ;
+				h += ">STOP THIS BATCH RUN NOW!</button>" ;
+
+				h += "<button batch='"+batch_id+"' class='start-batch btn btn-success btn-lg'" ;
+				if ( d2.batch.status != 'STOP' ) h += " style='display:none'" ;
+				h += ">(Re-)start this batch</button>" ;
+
+				h += "</div>" ;
+			}
+			
 			$('#single_batch_status').html ( h ) ;
+			
+			$('button.stop-batch').click ( function () {
+				var button = $(this) ;
+				var batch_id = button.attr('batch') ;
+				$.post ( me.api , {
+					action:'stop_batch',
+					batch:batch_id
+				} , function ( d ) {
+					console.log ( d ) ;
+					button.hide() ;
+					$('button.start-batch[batch="'+batch_id+'"]').show() ;
+				} ) ;
+			} ) ;
+
+			$('button.start-batch').click ( function () {
+				var button = $(this) ;
+				var batch_id = button.attr('batch') ;
+				$.post ( me.api , {
+					action:'start_batch',
+					batch:batch_id
+				} , function ( d ) {
+					console.log ( d ) ;
+					button.hide() ;
+					$('button.stop-batch[batch="'+batch_id+'"]').show() ;
+				} ) ;
+			} ) ;
+
 		} ) ;
 	} ,
 	
