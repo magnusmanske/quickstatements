@@ -39,7 +39,16 @@ if ( $action == 'import' ) {
 		$out['data'] = $oa->getConsumerRights() ;
 	}
 	$out['data']->is_logged_in = $ili ;
-	
+
+} else if ( $action == 'get_batch_info' ) {
+
+	$batch = get_request ( 'batch' , '0' ) * 1 ;
+
+	if ( $batch == 0 ) {
+		$out['status'] = 'Missing batch number' ;
+	} else {
+		$out['data'] = $qs->getBatchStatus ( array($batch) ) ;
+	}
 
 } else if ( $action == 'run_single_command' ) {
 
@@ -52,6 +61,23 @@ if ( $action == 'import' ) {
 		$out['command'] = $qs->runSingleCommand ( $command ) ;
 		$out['last_item'] = $qs->last_item ;
 	}
+
+} else if ( $action == 'run_batch' ) {
+
+	$user_id = $qs->getCurrentUserID() ;
+	$name = trim ( get_request ( 'name' , '' ) ) ;
+	if ( $user_id === false ) {
+		$out['status'] = $qs->last_error_message ;
+	} else {
+		$commands = json_decode ( get_request('commands','[]') ) ;
+		$batch_id = $qs->addBatch ( $commands , $user_id , $name ) ;
+		if ( $batch_id === false ) {
+			$out['status'] = $qs->last_error_message ;
+		} else {
+			$out['batch_id'] = $batch_id ;
+		}
+	}
+//	$qs->addBatch ( $commands ) ;
 
 }
 

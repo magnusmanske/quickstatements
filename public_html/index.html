@@ -55,6 +55,17 @@ a.red {
 #run_status_wrapper {
 	display:none;
 }
+#single_batch_busy {
+	display:none;
+	padding:2px;
+	margin:2px;
+	color:white;
+	background-color:#FF4848;
+	float:right;
+}
+#mode_batch {
+	display:none;
+}
 </style>
 
 </head>
@@ -100,7 +111,22 @@ a.red {
 </nav>
 
 
-<div class="container-fluid">
+<div id='mode_batch' class="container-fluid mode">
+
+<div class='row'>
+<div class='col-xs-12'>
+<div id='single_batch_busy' tt='busy'></div>
+<h1>Batch #<span id='single_batch_number'></span></h1>
+<div id='single_batch_status'></div>
+</div>
+</div>
+
+</div>
+
+
+
+
+<div id='mode_commands' class="container-fluid mode">
 
 <div class='row'>
 <div class='col-xs-12'>

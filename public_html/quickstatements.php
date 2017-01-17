@@ -14,11 +14,15 @@ class QuickStatements {
 	public $oa ;
 	public $use_oauth = true ;
 	public $bot_config_file = '/data/project/quickstatements/bot.ini' ;
+	public $last_error_message = '' ;
 	
 	protected $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
 	protected $site = 'wikidata' ;
 	protected $sites ;
 	protected $is_batch_run = false ;
+	protected $user_name = '' ;
+	protected $user_id = 0 ;
+	protected $db ;
 	
 	public function QuickStatements () {
 		$this->sites = json_decode ( file_get_contents ( '/data/project/quickstatements/public_html/sites.json' ) ) ;
@@ -45,6 +49,142 @@ class QuickStatements {
 		return $ret ;
 	}
 	
+	public function getCurrentUserID () {
+		$oa = $this->getOA() ;
+		$cr = $oa->getConsumerRights() ;
+		if ( !isset($cr->query) || !isset($cr->query->userinfo) || !isset($cr->query->userinfo) || !isset($cr->query->userinfo->id) ) {
+			$this->last_error_message = "Not logged in" ;
+			return false ;
+		}
+		$this->user_name = $cr->query->userinfo->name ;
+		$this->user_id = $cr->query->userinfo->id ;
+		if ( !$this->ensureCurrentUserInDB() ) return false ;
+		return $this->user_id ;
+	}
+	
+	public function addBatch ( $commands , $user_id , $name = '' ) {
+		if ( count($commands) == 0 ) return $this->setErrorMessage ( 'No commands' ) ;
+		$db = $this->getDB() ;
+		$ts = $this->getCurrentTimestamp() ;
+		$sql = "INSERT INTO batch (name,user,ts_created,ts_last_change,status) VALUES (".$db->real_escape_string($name)."$user_id,'$ts','$ts','INIT')" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		$batch_id = $db->insert_id ;
+		foreach ( $commands AS $k => $c ) {
+			$cs = json_encode ( $c ) ;
+			$status = 'INIT' ;
+			if ( isset($c->status) and trim($c->status) != '' ) $status = strtoupper(trim($c->status)) ;
+			$sql = "INSERT INTO command (batch_id,num,json,status,ts_change) VALUES ($batch_id,$k,'".$db->real_escape_string($cs)."','".$db->real_escape_string($status)."','$ts')" ;
+			if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		}
+		return $batch_id ;
+	}
+
+	public function getDB () {
+		if ( !isset($this->db) ) $this->db = openToolDB ( 'quickstatements_p' ) ;
+		if ( !$this->db->ping() ) $this->db = openToolDB ( 'quickstatements_p' ) ;
+		return $this->db ;
+	}
+	
+	public function startBatch ( $batch_id ) {
+		$db = $this->getDB() ;
+		$sql = "UPDATE batch SET status='RUN' WHERE id=$batch_id" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		return true ;
+	}
+	
+	public function runNextCommandInBatch ( $batch_id ) {
+		$db = $this->getDB() ;
+		
+		$sql = "SELECT last_item FROM batch WHERE id=$batch_id" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		$o = $result->fetch_object() ;
+		$this->last_item = $o->last_item ;
+		
+		$sql = "SELECT * FROM command WHERE batch_id=$batch_id AND status IN ('INIT') ORDER BY num LIMIT 1" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		$o = $result->fetch_object() ;
+
+		// Update status
+		$ts = $this->getCurrentTimestamp() ;
+		$sql = "UPDATE command SET status='RUN',ts_change='$ts',message='' WHERE id={$o->id}" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+
+		// Run command
+		$summary = "command #{$o->num} of batch #{$batch_id}" ;
+		$cmd = json_decode ( $o->json ) ;
+		if ( !isset($cmd->summary) ) $cmd->summary = $summary ;
+		else $cmd->summary .= '; ' . $summary ;
+		$this->use_oauth = false ;
+		$this->runSingleCommand ( $cmd ) ;
+
+		// Update batch status
+		$db = $this->getDB() ;
+		$ts = $this->getCurrentTimestamp() ;
+		$sql = "UPDATE batch SET status='RUN',ts_last_change='$ts',last_item='{$this->last_item}' WHERE id=$batch_id" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		
+		// Update command status
+		$status = strtoupper ( $cmd->status ) ;
+		$msg = isset($cmd->message) ? $cmd->message : '' ;
+		$sql = "UPDATE command SET status='$status',ts_change='$ts',message='".$db->real_escape_string($msg)."' WHERE id={$o->id}" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		
+		// Batch done?
+		$sql = "SELECT count(*) AS cnt FROM command WHERE batch_id=$batch_id AND status NOT IN ('ERROR','DONE')" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		$o = $result->fetch_object() ;
+		if ( $o->cnt == 0 ) {
+			$sql = "UPDATE batch SET status='DONE',last_item='',message='' WHERE id=$batch_id" ;
+			if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		}
+		
+		return true ;
+	}
+	
+	// $batches : array of batch_id!
+	public function getBatchStatus ( $batches ) {
+		$ret = array() ;
+		if ( count($batches) == 0 ) return $ret ;
+		$db = $this->getDB() ;
+		$bl = implode ( ',' , $batches ) ;
+
+		$sql = "SELECT user.name AS user_name,batch.* FROM batch,user WHERE user.id=batch.user AND batch.id IN ($bl)" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		while ( $o = $result->fetch_object() ) {
+			$batch_id = $o->id ;
+			$ret["$batch_id"] = array ( 'batch' => $o , 'commands' => array() ) ;
+		}
+		
+		$sql = "SELECT batch_id,status,count(*) AS cnt FROM command WHERE batch_id IN ($bl) GROUP BY batch_id,status" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		while ( $o = $result->fetch_object() ) {
+			$batch_id = $o->batch_id ;
+			$status = $o->status ;
+//			print "$batch_id / $status\n" ;
+//			if ( !isset($ret->$batch_id->commands) ) $ret->$batch_id->commands = (object) array() ;
+			$ret["$batch_id"]['commands'][$status] = $o->cnt ;
+		}
+		return $ret ;
+	}
+	
+
+
+	
+	protected function getCurrentTimestamp () {
+		return date ( 'YmdHis' ) ;
+	}
+	
+	protected function setErrorMessage ( $msg ) {
+		$this->last_error_message = $msg ;
+		return false ;
+	}
+	
+	protected function ensureCurrentUserInDB () {
+		$db = $this->getDB() ;
+		$sql = "INSERT IGNORE INTO user (id,name) VALUES ({$this->user_id},'".$db->real_escape_string($this->user_name)."')" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		return true ;
+	}
 	
 	protected function createNewItem ( $command ) {
 		$this->runAction ( array (
@@ -151,6 +291,7 @@ class QuickStatements {
 		$params = (object) $params ;
 		$summary = '#quickstatements' ;
 		if ( isset($params->summary) and $params->summary != '' ) $summary .= '; ' . $params->summary ;
+		else if ( isset($command->summary) and $command->summary != '' ) $summary .= "; " . $command->summary ;
 		$params->summary = $summary ;
 		$params->bot = 1 ;
 		

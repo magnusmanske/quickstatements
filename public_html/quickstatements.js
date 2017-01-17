@@ -9,6 +9,7 @@ var QuickStatements = {
 	sites : {} , // Loaded from sites.json
 	types : {} ,
 	run_state : { running:false } ,
+	batch_update_interval : 5000 ,
 
 	init : function () {
 		var me = this ;
@@ -39,6 +40,9 @@ var QuickStatements = {
 			if ( typeof me.params.v1 != 'undefined' ) me.importFromV1 ( me.params.v1 ) ;
 
 			me.updateUnlabeledItems() ;
+			
+			if ( me.params.mode == 'batch' ) me.run_state.batch_id = me.params.batch ;
+			me.switchMode ( me.params.mode ) ;
 		}
 		
 		me.tt = new ToolTranslation ( { tool:'quickstatements' , language:me.lang() , fallback:'en' , callback : function () { fin() } } ) ;
@@ -80,15 +84,97 @@ var QuickStatements = {
 	stop : function () {
 		var me = this ;
 		me.run_state.running = false ;
+		if ( typeof me.run_state.batch_watcher != 'undefined' ) clearInterval ( me.run_state.batch_watcher ) ;
 		$('#stop_buttons button').prop ( 'disabled' , true ) ;
 		$('#run_buttons button').prop ( 'disabled' , false ) ;
 		$('#stop_buttons').hide() ;
 	} ,
 	
+	ts2string : function ( ts ) {
+		return ts.substr(0,4) + '-' + ts.substr(4,2) + '-' + ts.substr(6,2) + ' ' + ts.substr(8,2) + ':' + ts.substr(10,2) + ':' + ts.substr(12,2) ;
+	} ,
+	
+	updateBatchStatus : function () {
+		var me = this ;
+		if ( typeof me.run_state.batch_id == 'undefined' ) return ;
+		$('#single_batch_busy').show() ;
+		$.post ( me.api , {
+			action:'get_batch_info',
+			batch:me.run_state.batch_id
+		} , function ( d ) {
+			$('#single_batch_busy').hide() ;
+			var d2 = d.data[me.run_state.batch_id] ;
+			var h = '' ;
+			if ( d2.name != '' ) h += "<h2>" + d2.batch.name.replace(/</,'&lt').replace(/>/,'&gt').replace(/&/,'&amp;') + "</h2>" ;
+			h += "<p>User:<a href='https://www.wikidata.org/wiki/User:" + encodeURIComponent(d2.batch.user_name) + "' target='_blank'>" + d2.batch.user_name + "</a></p>" ;
+			h += "<p>Status: " + d2.batch.status + " <small>" + d2.batch.message + "</small></p>" ;
+			h += "<p>Created: " + me.ts2string(d2.batch.ts_created) + "</p>" ;
+			h += "<p>Last change: " + me.ts2string(d2.batch.ts_last_change) + "</p>" ;
+			h += "<table class='table table-condensed table-striped'>" ;
+			h += "<thead><tr><th>Status</th><th>Count</th></tr></thead><tbody>" ;
+			$.each ( d2.commands , function ( k , v ) {
+				h += "<tr><td>" + k + "</td><td>" + v + "</td></tr>" ;
+			} ) ;
+			h += "</tbody></table>" ;
+			$('#single_batch_status').html ( h ) ;
+		} ) ;
+	} ,
+	
+	showBatch : function () {
+		var me = this ;
+		location.hash = 'mode=batch&batch=' + me.run_state.batch_id ;
+		$('#single_batch_number').text ( me.run_state.batch_id ) ;
+
+		if ( typeof me.run_state.batch_watcher != 'undefined' ) clearInterval ( me.run_state.batch_watcher ) ;
+		me.run_state.batch_watcher = setInterval ( function () { me.updateBatchStatus() ; } , me.batch_update_interval ) ;
+		me.updateBatchStatus()
+	} ,
+	
+	switchMode : function ( new_mode ) {
+		var me = this ;
+		if ( typeof new_mode == 'undefined' ) return ;
+		me.mode = new_mode ;
+		$('div.mode').hide() ;
+		$('#mode_'+new_mode).show() ;
+		if ( new_mode == 'batch' ) me.showBatch () ;
+	} ,
+	
+	runInBackground : function () {
+		var me = this ;
+		var name = '' ;
+		var res = prompt ( 'Enter a name for this batch (optional)' , '' ) ;
+		if ( res != '' ) name = res ;
+		$.post ( me.api , {
+			action:'run_batch',
+			name:name,
+			commands : JSON.stringify(me.data.commands)
+		} , function ( d ) {
+		
+			if ( d.status != 'OK' ) {
+				alert ( d.status ) ;
+				console.log ( d ) ;
+				return ;
+			}
+
+			me.run_state = {
+				running : true ,
+				last_item : '' ,
+				commands : { pending:0 , done:0 } ,
+				batch_id : d.batch_id
+			} ;
+			
+			me.switchMode ( 'batch' ) ;
+
+		} ) ;
+	} ,
+	
 	run : function ( in_background ) {
 		var me = this ;
+		if ( me.run_state.running ) return ; // Already running
+		if ( typeof me.run_state.batch_watcher != 'undefined' ) clearInterval ( me.run_state.batch_watcher ) ;
 		if ( in_background ) {
-			alert ( "Not implemented yet" ) ;
+			me.runInBackground () ;
+//			alert ( "Not implemented yet" ) ;
 			return ;
 		}
 		me.run_state = {
@@ -164,7 +250,6 @@ var QuickStatements = {
 	runSingleCommand : function ( cmdnum ) {
 		var me = this ;
 		var cmd = me.data.commands[cmdnum] ;
-//		console.log ( cmdnum , cmd ) ;
 		me.setCommandStatus ( cmdnum , 'running' ) ;
 		me.updateRunStatus() ;
 		$.post ( me.api , {
@@ -172,7 +257,6 @@ var QuickStatements = {
 			command : JSON.stringify(cmd) ,
 			last_item : me.run_state.last_item
 		} , function ( d ) {
-//			console.log ( d ) ;
 			me.data.commands[cmdnum] = d.command ;
 			if ( typeof d.command.item != 'undefined' ) me.run_state.last_item = d.command.item ;
 			me.run_state.commands.pending-- ;
@@ -324,7 +408,6 @@ var QuickStatements = {
 		var title = input.val() ;
 		var pqv = container.find('div.pq_value') ;
 		if ( do_store && pq != '' ) {
-//			console.log ( "Storing " + pq + ' : ' + title ) ;
 			me.updateRef ( container.attr('ref') , pq ) ; // store in data structure
 			pqv.html ( me.renderPQvalue ( pq ) ) ;
 			container.attr ( { pq:pq } ) ;
