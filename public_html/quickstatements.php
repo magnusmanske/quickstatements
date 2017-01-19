@@ -741,6 +741,17 @@ class QuickStatements {
 			) ) ;
 			return true ;
 		}
+		if ( preg_match ( '/^([\+\-]{0,1}\d+(\.\d+){0,1})\s*~\s*([\+\-]{0,1}\d+(\.\d+){0,1})$/' , $v , $m ) ) { // Quantity with error
+			$value = $m[1]*1 ;
+			$error = $m[3]*1 ;
+			$cmd['datavalue'] = array ( "type"=>"quantity" , "value"=>array(
+				"amount" => $value ,
+				"upperBound" => $value+$error ,
+				"lowerBound" => $value-$error ,
+				"unit" => "1"
+			) ) ;
+			return true ;
+		}
 		
 		
 		$cmd['datavalue'] = array ( "type"=>"unknown" , "text"=>$v ) ;

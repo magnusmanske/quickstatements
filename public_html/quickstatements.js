@@ -688,6 +688,11 @@ var QuickStatements = {
 		if ( typeof ref != 'undefined' ) h += " ref='" + me.htmlSafe(JSON.stringify(ref)) + "'" ;
 		h += ">" ;
 		h += me.htmlSafe(v.amount) ; // TODO
+		var range = '' ;
+		if ( typeof v.lowerBound != 'undefined' && v.amount*1 != v.lowerBound*1 ) range += me.htmlSafe(v.lowerBound)+'&ndash;' ;
+		if ( typeof v.upperBound != 'undefined' && v.amount*1 != v.upperBound*1 ) range += '&ndash;'+me.htmlSafe(v.upperBound) ;
+		range = range.replace ( /(&ndash;)+/ , '&ndash;' ) ;
+		if ( range != '' ) h += '&nbsp;(' + range + ')' ;
 		h += "</div>" ;
 		return h ;
 	} ,
