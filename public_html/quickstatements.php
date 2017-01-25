@@ -24,6 +24,8 @@ class QuickStatements {
 	protected $user_id = 0 ;
 	protected $user_groups = array() ;
 	protected $db ;
+	protected $logging = true ;
+	protected $logfile = '/data/project/quickstatements/tool.log' ;
 	
 	public function QuickStatements () {
 		$this->sites = json_decode ( file_get_contents ( '/data/project/quickstatements/public_html/sites.json' ) ) ;
@@ -82,8 +84,10 @@ class QuickStatements {
 	}
 
 	public function getDB () {
-		if ( !isset($this->db) ) $this->db = openToolDB ( 'quickstatements_p' ) ;
-		if ( !$this->db->ping() ) $this->db = openToolDB ( 'quickstatements_p' ) ;
+		if ( !isset($this->db) or !$this->db->ping() ) {
+			$this->db = openToolDB ( 'quickstatements_p' ) ;
+			$this->db->set_charset("utf8") ;
+		}
 		return $this->db ;
 	}
 	
@@ -119,7 +123,7 @@ class QuickStatements {
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 
 		// Run command
-		$summary = "[https://tools.wmflabs.org/quickstatements/#mode=batch&batch={$batch_id} batch #{$batch_id}] by [[User:{$this->user_name}|]]" ;
+		$summary = "[[:toollabs:quickstatements/#mode=batch&batch={$batch_id}|batch #{$batch_id}]] by [[User:{$this->user_name}|]]" ;
 		$cmd = json_decode ( $o->json ) ;
 		if ( !isset($cmd->summary) ) $cmd->summary = $summary ;
 		else $cmd->summary .= '; ' . $summary ;
@@ -187,6 +191,12 @@ class QuickStatements {
 	
 	
 	
+	
+	protected function log ( $data ) {
+		if ( !$this->logging ) return ;
+		$out = $this->getCurrentTimestamp() . "\t" . json_encode ( $data ) ;
+		file_put_contents ( $this->logfile , $out , FILE_APPEND ) ;
+	}
 	
 	protected function canCurrentUserChangeBatchStatus ( $batch_id ) {
 		if ( false === $this->getCurrentUserID() ) return $this->setErrorMessage ( "Not logged in" ) ;
@@ -335,6 +345,7 @@ class QuickStatements {
 		if ( $this->use_oauth ) {
 			$oa = $this->getOA() ;
 			$status = $oa->genericAction ( $params ) ;
+			$this->log ( array ( $params , $status ) ) ;
 			if ( isset($oa->last_res) ) $result = $oa->last_res ;
 		} else {
 			$status = $this->runBotAction ( $params ) ;

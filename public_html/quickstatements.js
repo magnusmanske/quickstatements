@@ -422,7 +422,9 @@ var QuickStatements = {
 	
 	getUrlVars : function () {
 		var vars = {} ;
-		var hashes = window.location.href.slice(window.location.href.indexOf('#') + 1).split('&');
+		var hash = window.location.href.slice(window.location.href.indexOf('#') + 1) ;
+		if ( hash.match(/.3D/) ) hash = hash.replace(/\.3D/g,'=').replace(/\.26/g,'&') ; // Hack around MediaWiki botching the URL encoding when using [[:toollabs:]] syntax
+		var hashes = hash.split('&');
 		$.each ( hashes , function ( i , j ) {
 			var hash = j.split('=');
 			hash[1] += '' ;
