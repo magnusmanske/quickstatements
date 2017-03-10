@@ -119,6 +119,7 @@ class QuickStatements {
 		}
 
 		// Update status
+if ( !isset($o->id) ) print_r ( $o ) ;
 		$sql = "UPDATE command SET status='RUN',ts_change='$ts',message='' WHERE id={$o->id}" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 
@@ -129,6 +130,9 @@ class QuickStatements {
 		else $cmd->summary .= '; ' . $summary ;
 		$this->use_oauth = false ;
 		$this->runSingleCommand ( $cmd ) ;
+		if ( isset($cmd->item) and $cmd->item != '' ) {
+			$this->last_item = $cmd->item ;
+		}
 
 		// Update batch status
 		$db = $this->getDB() ;
