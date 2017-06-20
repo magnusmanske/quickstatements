@@ -27,8 +27,8 @@ function iterate() {
 
 while ( 1 ) {
 	$worked = iterate() ;
-	if ( $worked > 0 ) sleep ( 0.5 ) ;
-	else sleep ( 5 ) ;
+//	if ( $worked > 0 ) sleep ( 0.5 ) ;
+	if ( $worked == 0 ) sleep ( 5 ) ;
 }
 
 ?>

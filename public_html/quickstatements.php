@@ -31,7 +31,11 @@ class QuickStatements {
 		$this->sites = json_decode ( file_get_contents ( '/data/project/quickstatements/public_html/sites.json' ) ) ;
 		$this->wd = new WikidataItemList () ;
 	}
-	
+/*	
+	public function setBatchRun ( $is_batch ) {
+		$this->is_batch_run = $is_batch ;
+	}
+*/	
 	protected function isBatchRun () {
 		return $this->is_batch_run ;
 	}
@@ -41,6 +45,21 @@ class QuickStatements {
 			$this->oa = new MW_OAuth ( 'quickstatements' , 'wikidata' , 'wikidata' ) ;
 		}
 		return $this->oa ;
+	}
+
+	public function getBatch ( $id ) {
+		$id *= 1 ;
+		$ret = array('commands'=>array()) ;
+		$db = $this->getDB() ;
+		$sql = "SELECT * FROM command WHERE batch_id=$id" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		while ( $o = $result->fetch_object() ) {
+			$j = json_decode ( $o->json ) ;
+			$j->_meta = $o ;
+			unset ( $j->_meta->json ) ;
+			$ret['commands'][$o->num] = $j ;
+		}
+		return $ret ;
 	}
 	
 	public function importData ( $data , $format , $persistent = false ) {
@@ -137,7 +156,7 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 		// Update batch status
 		$db = $this->getDB() ;
 		$ts = $this->getCurrentTimestamp() ;
-		$sql = "UPDATE batch SET status='RUN',ts_last_change='$ts',last_item='{$this->last_item}' WHERE id=$batch_id" ;
+		$sql = "UPDATE batch SET status='RUN',ts_last_change='$ts',last_item='{$this->last_item}' WHERE id=$batch_id AND status IN ('INIT','RUN')" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		
 		// Update command status
@@ -319,6 +338,8 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 		if ( !isset($params['action']) ) return false ;
 		$action = $params['action'] ;
 		unset ( $params['action'] ) ;
+		
+		$params['bot'] = 1 ;
 
 		$api = $this->getBotAPI() ;
 		$params['token'] = $api->getToken() ;

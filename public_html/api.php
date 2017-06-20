@@ -122,6 +122,12 @@ if ( $action == 'import' ) {
 	}
 //	$qs->addBatch ( $commands ) ;
 
+} else if ( $action == 'get_batch' ) {
+
+	$id = get_request ( 'id' , '' ) ;
+	$out['id'] = $id ;
+	$out['data'] = $qs->getBatch ( $id ) ;
+
 }
 
 print json_encode ( $out , JSON_PRETTY_PRINT ) ; // FIXME
