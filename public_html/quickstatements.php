@@ -1,5 +1,24 @@
 <?PHP
 
+/*
+To use for editing in a tool (requires bot.ini file):
+function getQS () {
+	$toolname = '' ; // Or fill this in manually
+	$path = realpath(dirname(__FILE__)) ;
+	$user = get_current_user() ;
+	if ( $toolname != '' ) {}
+	else if ( preg_match ( '/^tools\.(.+)$/' , $user , $m ) ) $toolname = $m[1] ;
+	else if ( preg_match ( '/^\/mnt\/nfs\/[^\/]+\/([^\/]+)/' , $path , $m ) ) $toolname = $m[1] ;
+	if ( $toolname == '' ) die ( "getQS(): Can't determine the toolname for $path\n" ) ;
+	$qs = new QuickStatements() ;
+	$qs->use_oauth = false ;
+	$qs->bot_config_file = "/data/project/$toolname/bot.ini" ;
+	$qs->toolname = $toolname ;
+//	$qs->sleep = 1 ; // Sleep 1 sec between edits
+	return $qs ;
+}
+*/
+
 require_once ( '/data/project/magnustools/public_html/php/common.php' ) ;
 require_once ( '/data/project/magnustools/public_html/php/wikidata.php' ) ;
 require_once ( '/data/project/quickstatements/public_html/php/oauth.php' ) ;
@@ -15,6 +34,8 @@ class QuickStatements {
 	public $use_oauth = true ;
 	public $bot_config_file = '/data/project/quickstatements/bot.ini' ;
 	public $last_error_message = '' ;
+	public $toolname = '' ; // To be set if used directly by another tool
+	public $sleep = 0 ; // Number of seconds to sleep between each edit
 	
 	protected $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
 	protected $site = 'wikidata' ;
@@ -362,6 +383,7 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 		$summary = '#quickstatements' ;
 		if ( isset($params->summary) and $params->summary != '' ) $summary .= '; ' . $params->summary ;
 		else if ( isset($command->summary) and $command->summary != '' ) $summary .= "; " . $command->summary ;
+		if ( $this->toolname != '' ) $summary .= "; invoked by " . $this->toolname ;
 		$params->summary = $summary ;
 		$params->bot = 1 ;
 		
@@ -593,6 +615,7 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 	}
 	
 	public function runSingleCommand ( $command ) {
+		if ( $this->sleep != 0 ) sleep ( $this->sleep ) ;
 		$command->status = 'working' ;
 		if ( isset($command->error) ) unset ( $command->error ) ;
 		if ( $command->action == 'create' ) {
