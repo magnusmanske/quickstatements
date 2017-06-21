@@ -27,7 +27,7 @@ $tmp = $qs->importData ( $commands , 'v1' ) ;
 $qs->runCommandArray ( $tmp['data']['commands'] ) ;
 
 
-A bot.ini file needs to exist in your tool home directory, lokking like this:
+A bot.ini file needs to exist in your tool home directory, looking like this:
 [user]
 user = YourBotName
 pass = YourBotPassword
