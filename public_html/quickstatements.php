@@ -1,7 +1,10 @@
 <?PHP
 
 /*
-To use for editing in a tool (requires bot.ini file):
+To use for editing in a tool (requires a bot.ini file, see below):
+
+require_once ( '/data/project/quickstatements/public_html/quickstatements.php' ) ;
+
 function getQS () {
 	$toolname = '' ; // Or fill this in manually
 	$path = realpath(dirname(__FILE__)) ;
@@ -17,6 +20,17 @@ function getQS () {
 //	$qs->sleep = 1 ; // Sleep 1 sec between edits
 	return $qs ;
 }
+
+$qs = getQS() ;
+$commands = "Q123\tP456\tQ789" ; // Just QuickStatements V1 commands, can be multiple lines with "\n"
+$tmp = $qs->importData ( $commands , 'v1' ) ;
+$qs->runCommandArray ( $tmp['data']['commands'] ) ;
+
+
+A bot.ini file needs to exist in your tool home directory, lokking like this:
+[user]
+user = YourBotName
+pass = YourBotPassword
 */
 
 require_once ( '/data/project/magnustools/public_html/php/common.php' ) ;
