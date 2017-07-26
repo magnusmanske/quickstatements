@@ -106,7 +106,7 @@ var QuickStatements = {
 		if ( typeof me.oauth.query.userinfo.groups == 'undefined' ) return false ;
 		var ret = false ;
 		$.each ( me.oauth.query.userinfo.groups , function ( k , v ) {
-			if ( v == 'administrator' ) ret = true ;
+			if ( v == 'sysop' ) ret = true ;
 		} ) ;
 		return ret ;
 	} ,

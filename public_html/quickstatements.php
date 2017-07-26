@@ -12,6 +12,7 @@ function getQS () {
 	if ( $toolname != '' ) {}
 	else if ( preg_match ( '/^tools\.(.+)$/' , $user , $m ) ) $toolname = $m[1] ;
 	else if ( preg_match ( '/^\/mnt\/nfs\/[^\/]+\/([^\/]+)/' , $path , $m ) ) $toolname = $m[1] ;
+	else if ( preg_match ( '/^\/data\/project\/([^\/]+)/' , $path , $m ) ) $toolname = $m[1] ;
 	if ( $toolname == '' ) die ( "getQS(): Can't determine the toolname for $path\n" ) ;
 	$qs = new QuickStatements() ;
 	$qs->use_oauth = false ;
@@ -145,8 +146,33 @@ class QuickStatements {
 		return $this->db ;
 	}
 	
+	public function isUserBlocked ( $username ) {
+		$username = ucfirst ( str_replace ( ' ' , '_' , trim ( $username ) ) ) ;
+		$url = "https://www.wikidata.org/w/api.php?action=query&list=blocks&format=json&bkusers=" . urlencode ( $username ) ;
+		$j = json_decode ( file_get_contents ( $url ) ) ;
+		foreach ( $j->query->blocks AS $b ) {
+			//if ( $username == $b->user ) 
+			return true ; // We asked for a specific user, so if there is a value, it must be the user, right?
+		}
+		return false ;
+	}
+	
 	public function startBatch ( $batch_id ) {
+		$batch_id *= 1 ;
 		$db = $this->getDB() ;
+		
+		# Get user name
+		$user_name = '' ;
+		$sql = "select user.name AS `name` from `user`,batch WHERE user.id=batch.user AND batch.id=$batch_id"  ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		while ( $o = $result->fetch_object() ) $user_name = $o->name ;
+		if ( $user_name == '' ) return $this->setErrorMessage ( "Cannot determine user name for batch #" . $batch_id ) ;
+		if ( $this->isUserBlocked ( $user_name ) ) {
+			$sql = "UPDATE batch SET status='BLOCKED' WHERE id=$batch_id" ;
+			$db->query($sql) ;
+			return $this->setErrorMessage ( "User:$user_name is blocked on Wikidata" ) ;
+		}
+		
 		$sql = "UPDATE batch SET status='RUN' WHERE id=$batch_id" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		return true ;
