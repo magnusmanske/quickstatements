@@ -30,6 +30,18 @@ if ( $action == 'import' ) {
 	$oa->doAuthorizationRedirect('api.php') ;
 	exit(0) ;
 
+} else if ( $action == 'get_token' ) {
+
+	$oa = $qs->getOA() ;
+	$ili = $oa->isAuthOK() ;
+	$out['data'] = (object) array() ;
+	if ( $ili ) {
+		$cr = $oa->getConsumerRights() ;
+		$user_name = $cr->query->userinfo->name ;
+		$out['data']->token = $qs->generateToken ( $user_name , false ) ;
+	}
+	$out['data']->is_logged_in = $ili ;
+
 } else if ( $action == 'is_logged_in' ) {
 
 	$oa = $qs->getOA() ;

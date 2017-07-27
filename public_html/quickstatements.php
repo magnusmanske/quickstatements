@@ -157,15 +157,20 @@ class QuickStatements {
 		return false ;
 	}
 	
-	public function startBatch ( $batch_id ) {
-		$batch_id *= 1 ;
+	public function getUsernameFromBatchID ( $batch_id ) {
 		$db = $this->getDB() ;
-		
-		# Get user name
 		$user_name = '' ;
 		$sql = "select user.name AS `name` from `user`,batch WHERE user.id=batch.user AND batch.id=$batch_id"  ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		while ( $o = $result->fetch_object() ) $user_name = $o->name ;
+		return $user_name ;
+	}
+	
+	public function startBatch ( $batch_id ) {
+		$batch_id *= 1 ;
+		$db = $this->getDB() ;
+		
+		$user_name = $this->getUsernameFromBatchID ( $batch_id ) ;
 		if ( $user_name == '' ) return $this->setErrorMessage ( "Cannot determine user name for batch #" . $batch_id ) ;
 		if ( $this->isUserBlocked ( $user_name ) ) {
 			$sql = "UPDATE batch SET status='BLOCKED' WHERE id=$batch_id" ;
@@ -237,6 +242,37 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 		
 		return true ;
 	}
+
+	public function getToken ( $user_name ) {
+		$db = $this->getDB() ;
+		$token = '' ;
+		$sql = "SELECT * FROM `user` WHERE name='" . $db->real_escape_string($user_name) . "'" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		while ( $o = $result->fetch_object() ) {
+			if ( $o->api_hash == '' ) continue ;
+			return $o->api_hash ;
+		}
+		return $token ;
+	}
+	
+	public function generateToken ( $user_name , $force_replace = false ) {
+		
+		// Check existing token
+		if ( !$force_replace ) {
+			$token = $this->getToken ( $user_name ) ;
+			if ( $token != '' ) return $token ;
+		}
+		
+		// None to use, generate new one
+		$db = $this->getDB() ;
+		$token = password_hash ( rand() . $user_name . rand() . rand() , PASSWORD_DEFAULT ) ;
+		$token = substr ( $token , 0 , 60 ) ;
+		$this->user_name = $user_name ;
+		if ( !$this->ensureCurrentUserInDB() ) return '' ;
+		$sql = "UPDATE `user` set api_hash='$token' WHERE id={$this->user_id}" ;
+			if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		return $token ;
+	}
 	
 	// $batches : array of batch_id!
 	public function getBatchStatus ( $batches ) {
@@ -267,7 +303,18 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 
 	public function userChangeBatchStatus ( $batch_id , $new_status ) {
 		if ( !$this->canCurrentUserChangeBatchStatus ( $batch_id ) ) return false ;
+
 		$db = $this->getDB() ;
+		if ( $new_status != 'STOP' ) { // Always allow user to stop a batch
+			$user_name = $this->getUsernameFromBatchID ( $batch_id ) ;
+			if ( $user_name == '' ) return $this->setErrorMessage ( "Cannot determine user name for batch #" . $batch_id ) ;
+			if ( $this->isUserBlocked ( $user_name ) ) {
+				$sql = "UPDATE batch SET status='BLOCKED' WHERE id=$batch_id" ;
+				$db->query($sql) ;
+				return $this->setErrorMessage ( "User:$user_name is blocked on Wikidata" ) ;
+			}
+		}
+
 		$sql = "UPDATE batch SET status='" . $db->real_escape_string($new_status) . "',message='Status set by User:" . $db->real_escape_string($this->user_name) . "' WHERE id=$batch_id" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		return true ;

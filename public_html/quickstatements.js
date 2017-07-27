@@ -260,6 +260,16 @@ var QuickStatements = {
 		if ( typeof me.run_state.batch_watcher != 'undefined' ) clearInterval ( me.run_state.batch_watcher ) ;
 		if ( new_mode == 'batch' ) me.showBatch () ;
 		if ( new_mode == 'batches' ) me.showBatches () ;
+		if ( new_mode == 'token' ) me.getToken () ;
+	} ,
+	
+	getToken : function () {
+		var me = this ;
+		var params = { action:'get_token' } ;
+		console.log ( params ) ;
+		$.post ( me.api , params , function ( d ) {
+			console.log ( d ) ;
+		} ) ;
 	} ,
 	
 	runInBackground : function () {
