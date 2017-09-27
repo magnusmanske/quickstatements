@@ -256,6 +256,7 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 	}
 	
 	public function generateToken ( $user_name , $force_replace = false ) {
+		$user_name = trim ( str_replace ( '_' , ' ' , $user_name ) ) ;
 		
 		// Check existing token
 		if ( !$force_replace ) {
@@ -267,10 +268,22 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 		$db = $this->getDB() ;
 		$token = password_hash ( rand() . $user_name . rand() . rand() , PASSWORD_DEFAULT ) ;
 		$token = substr ( $token , 0 , 60 ) ;
-		$this->user_name = $user_name ;
-		if ( !$this->ensureCurrentUserInDB() ) return '' ;
-		$sql = "UPDATE `user` set api_hash='$token' WHERE id={$this->user_id}" ;
-			if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		
+		$id = '' ;
+		$un = $db->real_escape_string($user_name) ;
+		$sql = "SELECT * FROM user WHERE name='$un'" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		while ( $o = $result->fetch_object() ) $id = $o->id ;
+		
+		if ( $id == '' ) {
+			$sql = "INSERT INTO `user` (name,api_hash) VALUES ('$un','$token')" ;
+		} else {
+			$sql = "UPDATE `user` set api_hash='$token' WHERE id=$id" ;
+		}
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		
+		
+		
 		return $token ;
 	}
 	
@@ -421,6 +434,8 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 	}
 	
 	protected function getBotAPI () {
+		global $qs_global_bot_api ;
+		if ( !isset($this->bot_api) and isset($qs_global_bot_api) ) $this->bot_api = $qs_global_bot_api ;
 		if ( isset($this->bot_api) and $this->bot_api->isLoggedIn() ) return $this->bot_api ;
 
 		$api_url = 'https://' . $this->getSite()->server . '/w/api.php' ;
@@ -435,6 +450,8 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 			$x = $api->login( new \Mediawiki\Api\ApiUser( $username, $password ) );
 			if ( !$x ) return false ;
 		}
+		if ( !isset($qs_global_bot_api) ) $qs_global_bot_api = $api ;
+		$this->bot_api = $api ;
 		return $api ;
 		
 	}

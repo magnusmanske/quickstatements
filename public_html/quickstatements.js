@@ -268,7 +268,7 @@ var QuickStatements = {
 		var params = { action:'get_token' } ;
 		console.log ( params ) ;
 		$.post ( me.api , params , function ( d ) {
-			console.log ( d ) ;
+			$('#token').text ( d.data.token ) ;
 		} ) ;
 	} ,
 	
