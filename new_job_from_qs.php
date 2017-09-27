@@ -14,6 +14,7 @@ $commands = file_get_contents ( $fn ) ;
 $batch_name = isset($argv[2]) ? $argv[2] : '' ;
 
 $qs = new QuickStatements ;
+$qs->use_command_compression = true ;
 $j = $qs->importData ( $commands , 'V1' , true ) ;
 $batch_id = $qs->addBatch ( $j['data']['commands'] , $user_id_magnus , $batch_name ) ;
 print "Now as batch #$batch_id with " . count($j['data']['commands']) . " commands\n" ;

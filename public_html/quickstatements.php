@@ -51,6 +51,7 @@ class QuickStatements {
 	public $last_error_message = '' ;
 	public $toolname = '' ; // To be set if used directly by another tool
 	public $sleep = 0 ; // Number of seconds to sleep between each edit
+	public $use_command_compression = false ;
 	
 	protected $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
 	protected $site = 'wikidata' ;
@@ -123,6 +124,7 @@ class QuickStatements {
 	
 	public function addBatch ( $commands , $user_id , $name = '' ) {
 		if ( count($commands) == 0 ) return $this->setErrorMessage ( 'No commands' ) ;
+		if ( $this->use_command_compression ) $commands = $this->compressCommands ( $commands ) ;
 		$db = $this->getDB() ;
 		$ts = $this->getCurrentTimestamp() ;
 		$sql = "INSERT INTO batch (name,user,ts_created,ts_last_change,status) VALUES ('".$db->real_escape_string($name)."',$user_id,'$ts','$ts','INIT')" ;
@@ -376,10 +378,12 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 	}
 	
 	protected function createNewItem ( $command ) {
+		$data = '{}' ;
+		if ( isset($command->data) ) $data = json_encode ( $this->array2object ( $command->data ) ) ;
 		$this->runAction ( array (
 			'action' => 'wbeditentity' ,
 			'new' => $command->type ,
-			'data' => '{}' , //json_encode ( (object) array() ) ,
+			'data' => $data ,
 			'summary' => ''
 		) , $command ) ;
 		if ( $command->status != 'done' ) return $command ;
@@ -426,6 +430,92 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 		}
 		
 		return false ; // Can't determine type
+	}
+	
+	protected function compressCommands ( $commands ) {
+		if ( !$this->use_command_compression ) return $commands ;
+		if ( count($commands) < 2 ) return $commands ; // Nothing to do
+	
+		$out = array ( $commands[0] ) ;
+		for ( $pos = 1 ; $pos < count($commands) ; $pos++ ) {
+			if ( $commands[$pos] == 'SKIP' ) continue ;
+			if ( $out[count($out)-1]['action'] == 'create' and $out[count($out)-1]['type'] == 'item' and $commands[$pos]['action'] == 'add'  and strtolower($commands[$pos]['item']) == 'last' ) {
+				if ( !isset($out[count($out)-1]['data']) ) $out[count($out)-1]['data'] = array() ;
+				if ( $commands[$pos]['what'] == 'label' ) {
+					$lang = $commands[$pos]['language'] ;
+					$out[count($out)-1]['data']['labels'][$lang] = array ( 'language' => $lang , 'value' => $commands[$pos]['value'] ) ;
+				} else if ( $commands[$pos]['what'] == 'description' ) {
+					$lang = $commands[$pos]['language'] ;
+					$out[count($out)-1]['data']['descriptions'][$lang] = array ( 'language' => $lang , 'value' => $commands[$pos]['value'] ) ;
+				} else if ( $commands[$pos]['what'] == 'alias' ) {
+					$lang = $commands[$pos]['language'] ;
+					$out[count($out)-1]['data']['aliases'][$lang][] = array ( 'language' => $lang , 'value' => $commands[$pos]['value'] ) ;
+				} else if ( $commands[$pos]['what'] == 'sitelink' ) {
+					$site = $commands[$pos]['site'] ;
+					$out[count($out)-1]['data']['sitelinks'][$site] = array ( 'site' => $site , 'title' => $commands[$pos]['value'] ) ;
+
+				} else if ( $commands[$pos]['what'] == 'statement' and isset($commands[$pos]['datavalue']) ) {
+				
+					$claim = array (
+						'mainsnak' => array (
+							'snaktype' => 'value' ,
+							'property' => $commands[$pos]['property'] ,
+							'datavalue' => $commands[$pos]['datavalue']
+						) ,
+						'type' => 'statement' ,
+						'rank' => 'normal'
+					) ;
+
+					// BEGIN sources and qualifiers
+					$pos2 = $pos+1 ;
+					while ( $pos2 < count($commands) 
+						and $commands[$pos2]['action'] == 'add' 
+						and strtolower($commands[$pos2]['item']) == 'last' 
+						and in_array($commands[$pos2]['what'],array('qualifier','sources')) 
+						and $commands[$pos2]['property'] == $commands[$pos]['property'] 
+						and isset ( $commands[$pos2]['datavalue'] )
+						and serialize($commands[$pos2]['datavalue']) == serialize($claim['mainsnak']['datavalue'])
+						) {
+					
+						if ( $commands[$pos2]['what'] == 'sources' ) {
+							if ( !isset($claim['references']) ) $claim['references'] = array(  ) ;
+						
+							$refs = array('snaks'=>array()) ;
+							foreach ( $commands[$pos2]['sources'] AS $s ) {
+								$source = array (
+									'snaktype' => 'value' ,
+									'property' => $s['prop'] ,
+									'datavalue' => $s['value']
+								) ;
+								$refs['snaks'][$s['prop']][] = $source ;
+							}
+
+							$claim['references'][] = $refs ;
+						} else if ( $commands[$pos2]['what'] == 'qualifier' ) {
+							$qual = array (
+								'property' => $commands[$pos2]['qualifier']['prop'] ,
+								'snaktype' => 'value' ,
+								'datavalue' => $commands[$pos2]['qualifier']['value']
+							) ;
+							$claim['qualifiers'][] = $qual ;
+						}
+					
+						$commands[$pos2] = 'SKIP' ;
+						$pos2++ ;
+					}
+					// END sources and qualifiers
+
+					$out[count($out)-1]['data']['claims'][] = $claim ;
+				
+				} else {
+					$out[] = $commands[$pos] ;
+				}
+			} else {
+				$out[] = $commands[$pos] ;
+			}
+		}
+	
+		return $out ;
 	}
 	
 	protected function getSite () {
@@ -845,6 +935,7 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 
 			if ( isset($cmd['action']) && !$skip_add_command ) $ret['data']['commands'][] = $cmd ;
 		}
+		if ( $this->use_command_compression ) $ret['data']['commands'] = $this->compressCommands ( $ret['data']['commands'] ) ;
 	}
 	
 	
