@@ -127,16 +127,19 @@ class QuickStatements {
 		if ( $this->use_command_compression ) $commands = $this->compressCommands ( $commands ) ;
 		$db = $this->getDB() ;
 		$ts = $this->getCurrentTimestamp() ;
-		$sql = "INSERT INTO batch (name,user,ts_created,ts_last_change,status) VALUES ('".$db->real_escape_string($name)."',$user_id,'$ts','$ts','INIT')" ;
+		$sql = "INSERT INTO batch (name,user,ts_created,ts_last_change,status) VALUES ('".$db->real_escape_string($name)."',$user_id,'$ts','$ts','LOADING')" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		$batch_id = $db->insert_id ;
 		foreach ( $commands AS $k => $c ) {
 			$cs = json_encode ( $c ) ;
+			if ( trim($cs) == '' ) continue ; // Paranoia
 			$status = 'INIT' ;
 			if ( isset($c->status) and trim($c->status) != '' ) $status = strtoupper(trim($c->status)) ;
 			$sql = "INSERT INTO command (batch_id,num,json,status,ts_change) VALUES ($batch_id,$k,'".$db->real_escape_string($cs)."','".$db->real_escape_string($status)."','$ts')" ;
 			if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		}
+		$sql = "UPDATE batch SET status='INIT' WHERE id=$batch_id" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		return $batch_id ;
 	}
 
@@ -523,15 +526,15 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 		return $this->sites->$site ;
 	}
 	
-	protected function getBotAPI () {
+	protected function getBotAPI ( $force_login = false ) {
 		global $qs_global_bot_api ;
 		if ( !isset($this->bot_api) and isset($qs_global_bot_api) ) $this->bot_api = $qs_global_bot_api ;
-		if ( isset($this->bot_api) and $this->bot_api->isLoggedIn() ) return $this->bot_api ;
+		if ( !$force_login and isset($this->bot_api) and $this->bot_api->isLoggedIn() ) return $this->bot_api ;
 
 		$api_url = 'https://' . $this->getSite()->server . '/w/api.php' ;
 		$config = parse_ini_file ( $this->bot_config_file ) ;
 		$api = new \Mediawiki\Api\MediawikiApi( $api_url );
-		if ( !$api->isLoggedin() ) {
+		if ( $force_login or !$api->isLoggedin() ) {
 			if ( isset($config['user']) ) $username = $config['user'] ;
 			if ( isset($config['username']) ) $username = $config['username'] ;
 			if ( isset($config['pass']) ) $password = $config['pass'] ;
@@ -602,8 +605,10 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 			}
 		} else {
 			$command->status = 'error' ;
-			if ( isset($result->error) and isset($result->error->info) ) $command->message = $result->error->info ;
-			else $command->message = json_encode ( $result ) ;
+			if ( isset($result->error) and isset($result->error->info) ) {
+				$command->message = $result->error->info ;
+				if ( $result->error->info == 'Invalid CSRF token.' ) $this->getBotAPI ( true ) ;
+			} else $command->message = json_encode ( $result ) ;
 		}
 	}
 	
@@ -935,7 +940,7 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 
 			if ( isset($cmd['action']) && !$skip_add_command ) $ret['data']['commands'][] = $cmd ;
 		}
-		if ( $this->use_command_compression ) $ret['data']['commands'] = $this->compressCommands ( $ret['data']['commands'] ) ;
+//		if ( $this->use_command_compression ) $ret['data']['commands'] = $this->compressCommands ( $ret['data']['commands'] ) ;
 	}
 	
 	
