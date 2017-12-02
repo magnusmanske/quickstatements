@@ -57,12 +57,9 @@ var QuickStatements = {
 		} , 'json' ) ;
 
 		me.oauth = { is_logged_in:false } ;
-		$.post ( me.api , {
-			action:'is_logged_in'
-		} , function ( d ) {
-			me.oauth = d.data ;
-			fin() ;
-		} , 'json' ) ;
+		$.post ( me.api , { action:'is_logged_in' }, 'json' )
+			.then( function( d ) { me.oauth = d.data; } )
+			.always( fin );
 	} ,
 
 	setSite : function ( site ) {
