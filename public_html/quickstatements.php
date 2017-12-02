@@ -3,7 +3,7 @@
 /*
 To use for editing in a tool (requires a bot.ini file, see below):
 
-require_once ( '/data/project/quickstatements/public_html/quickstatements.php' ) ;
+require_once ( __DIR__ . '/public_html/quickstatements.php' ) ;
 
 function getQS () {
 	$toolname = '' ; // Or fill this in manually
@@ -34,10 +34,10 @@ user = YourBotName
 pass = YourBotPassword
 */
 
-require_once ( '/data/project/magnustools/public_html/php/common.php' ) ;
-require_once ( '/data/project/magnustools/public_html/php/wikidata.php' ) ;
-require_once ( '/data/project/quickstatements/public_html/php/oauth.php' ) ;
-require_once ( '/data/project/quickstatements/vendor/autoload.php' ) ;
+require_once ( __DIR__ . '/../../magnustools/public_html/php/common.php' ) ;
+require_once ( __DIR__ . '/../../magnustools/public_html/php/wikidata.php' ) ;
+require_once ( __DIR__ . '/../../magnustools/public_html/php/oauth.php' ) ;
+require_once ( __DIR__ . '/../vendor/autoload.php' ) ;
 
 // QuickStatements class
 
@@ -47,7 +47,7 @@ class QuickStatements {
 	public $wd ;
 	public $oa ;
 	public $use_oauth = true ;
-	public $bot_config_file = '/data/project/quickstatements/bot.ini' ;
+	public $bot_config_file = __DIR__ . '/bot.ini' ;
 	public $last_error_message = '' ;
 	public $toolname = '' ; // To be set if used directly by another tool
 	public $sleep = 0 ; // Number of seconds to sleep between each edit
@@ -62,10 +62,10 @@ class QuickStatements {
 	protected $user_groups = array() ;
 	protected $db ;
 	protected $logging = true ;
-	protected $logfile = '/data/project/quickstatements/tool.log' ;
+	protected $logfile = __DIR__ . '/tool.log' ;
 	
 	public function QuickStatements () {
-		$this->sites = json_decode ( file_get_contents ( '/data/project/quickstatements/public_html/sites.json' ) ) ;
+		$this->sites = json_decode ( file_get_contents ( __DIR__ . '/sites.json' ) ) ;
 		$this->wd = new WikidataItemList () ;
 	}
 /*	
