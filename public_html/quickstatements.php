@@ -104,6 +104,7 @@ class QuickStatements {
 		$format = trim ( strtolower ( $format ) ) ;
 		// TODO persistent
 		if ( $format == 'v1' ) $this->importDataFromV1 ( $data , $ret ) ;
+		elseif ( $format == 'csv' ) $this->importDataFromCSV ( $data , $ret ) ;
 		else $ret['status'] = "ERROR: Unknown format $format" ;
 		return $ret ;
 	}
@@ -942,6 +943,55 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 		}
 //		if ( $this->use_command_compression ) $ret['data']['commands'] = $this->compressCommands ( $ret['data']['commands'] ) ;
 	}
+
+    protected function importDataFromCSV ( $data, &$ret ) {
+        $commands = [];
+        $ret['data']['commands'] = &$commands;
+
+        // write the CSV string to a "file" so we can use fgetcsv which unlike str_getcsv supports multiple lines
+        $stream = fopen( 'php://temp', 'r+' );
+        fwrite( $stream, $data );
+        rewind( $stream );
+
+        $header = fgetcsv( $stream );
+        if ( $header[0] !== 'qid' ) { // this is deliberately case-sensitive, so Qid, QID etc. are reserved for future expansion
+            fclose( $stream );
+            return; // TODO error message
+        }
+        array_shift( $header );
+        if ( in_array( 'qid', $header ) ) {
+            fclose( $stream );
+            return; // TODO error message
+        }
+
+        while ( ( $row = fgetcsv( $stream ) ) !== false ) {
+            $qid = array_shift( $row );
+            if ( $qid === '' ) {
+                $commands[] = [ 'action' => 'create', 'type' => 'item' ];
+                $qid = 'LAST';
+            }
+
+            foreach ( $row as $index => $value ) {
+                $command = [
+                    'action' => 'add',
+                    'item' => $qid
+                ];
+                $instruction = $header[$index];
+
+                if ( $instruction[0] === 'P' ) {
+                    $command += [
+                        'what' => 'statement',
+                        'property' => $instruction
+                    ];
+                    $this->parseValueV1( $value, $command );
+                    $commands[] = $command;
+                } else {
+                    // TODO error message
+                }
+            }
+        }
+        fclose( $stream );
+    }
 	
 	
 	protected function getEntityType ( $q ) {
