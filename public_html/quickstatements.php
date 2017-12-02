@@ -64,7 +64,7 @@ class QuickStatements {
 	protected $logging = true ;
 	protected $logfile = __DIR__ . '/tool.log' ;
 	
-	public function QuickStatements () {
+	public function __construct () {
 		$this->sites = json_decode ( file_get_contents ( __DIR__ . '/sites.json' ) ) ;
 		$this->wd = new WikidataItemList () ;
 	}
