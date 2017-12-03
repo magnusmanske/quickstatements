@@ -981,6 +981,11 @@ if ( !isset($o->id) ) print_r ( $o ) ;
                 ];
                 $instruction = $header[$index];
 
+                if ( $instruction[0] === '-' ) {
+                    $command['action'] = 'remove';
+                    $instruction = substr( $instruction, 1 );
+                }
+
                 if ( $instruction[0] === 'P' ) {
                     $command += [
                         'what' => 'statement',
