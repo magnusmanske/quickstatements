@@ -1059,7 +1059,8 @@ if ( !isset($o->id) ) print_r ( $o ) ;
                     ];
                     $commands[] = $command;
                 } else {
-                    // TODO error message
+                    fclose( $stream );
+                    return; // TODO error message
                 }
             }
         }
