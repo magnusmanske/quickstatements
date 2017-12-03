@@ -985,6 +985,27 @@ if ( !isset($o->id) ) print_r ( $o ) ;
                     ];
                     $this->parseValueV1( $value, $command );
                     $commands[] = $command;
+                } elseif ( $instruction[0] === 'L' ) {
+                    $command += [
+                        'what' => 'label',
+                        'language' => substr( $instruction, 1 ),
+                        'value' => $value
+                    ];
+                    $commands[] = $command;
+                } elseif ( $instruction[0] === 'D' ) {
+                    $command += [
+                        'what' => 'description',
+                        'language' => substr( $instruction, 1 ),
+                        'value' => $value
+                    ];
+                    $commands[] = $command;
+                } elseif ( $instruction[0] === 'A' ) {
+                    $command += [
+                        'what' => 'alias',
+                        'language' => substr( $instruction, 1 ),
+                        'value' => $value
+                    ];
+                    $commands[] = $command;
                 } else {
                     // TODO error message
                 }
