@@ -1051,6 +1051,13 @@ if ( !isset($o->id) ) print_r ( $o ) ;
                     $dummy = []; // parseValueV1 writes to 'datavalue', but the source needs 'value', so we parse into this dummy and copy the value later
                     $this->parseValueV1( $value, $dummy );
                     $lastSources[] = [ 'prop' => 'P' . substr( $instruction, 1 ), 'value' => $dummy['datavalue'] ];
+                } elseif ( $instruction[0] === 'S' ) {
+                    $command += [
+                        'what' => 'sitelink',
+                        'site' => substr( $instruction, 1 ),
+                        'value' => $value
+                    ];
+                    $commands[] = $command;
                 } else {
                     // TODO error message
                 }
