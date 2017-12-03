@@ -972,6 +972,7 @@ if ( !isset($o->id) ) print_r ( $o ) ;
             }
             $lastStatementProperty = null;
             $lastStatementDatavalue = null;
+            $lastSources = null;
 
             foreach ( $row as $index => $value ) {
                 $command = [
@@ -988,6 +989,8 @@ if ( !isset($o->id) ) print_r ( $o ) ;
                     $this->parseValueV1( $value, $command );
                     $lastStatementProperty = $instruction;
                     $lastStatementDatavalue = $command['datavalue'];
+                    unset( $lastSources ); // break reference
+                    $lastSources = null;
                     $commands[] = $command;
                 } elseif ( $instruction[0] === 'L' ) {
                     $command += [
@@ -1024,6 +1027,30 @@ if ( !isset($o->id) ) print_r ( $o ) ;
                         'qualifier' => [ 'prop' => 'P' . substr( $instruction, 3 ), 'value' => $dummy['datavalue'] ]
                     ];
                     $commands[] = $command;
+                } elseif ( $instruction[0] === 'S' && ctype_digit( $instruction[1] ) ) {
+                    if ( $lastStatementProperty === null || $lastStatementDatavalue === null ) {
+                        fclose( $stream );
+                        return; // TODO error message
+                    }
+                    $dummy = []; // parseValueV1 writes to 'datavalue', but the source needs 'value', so we parse into this dummy and copy the value later
+                    $this->parseValueV1( $value, $dummy );
+                    unset( $lastSources ); // break reference
+                    $lastSources = [ [ 'prop' => 'P' . substr( $instruction, 1 ), 'value' => $dummy['datavalue'] ] ];
+                    $command += [
+                        'what' => 'sources',
+                        'property' => $lastStatementProperty,
+                        'datavalue' => $lastStatementDatavalue,
+                        'sources' => &$lastSources
+                    ];
+                    $commands[] = $command;
+                } elseif ( $instruction[0] === 's' && ctype_digit( $instruction[1] ) ) {
+                    if ( $lastSources === null ) {
+                        fclose( $stream );
+                        return; // TODO error message
+                    }
+                    $dummy = []; // parseValueV1 writes to 'datavalue', but the source needs 'value', so we parse into this dummy and copy the value later
+                    $this->parseValueV1( $value, $dummy );
+                    $lastSources[] = [ 'prop' => 'P' . substr( $instruction, 1 ), 'value' => $dummy['datavalue'] ];
                 } else {
                     // TODO error message
                 }
