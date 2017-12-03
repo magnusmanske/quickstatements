@@ -970,6 +970,8 @@ if ( !isset($o->id) ) print_r ( $o ) ;
                 $commands[] = [ 'action' => 'create', 'type' => 'item' ];
                 $qid = 'LAST';
             }
+            $lastStatementProperty = null;
+            $lastStatementDatavalue = null;
 
             foreach ( $row as $index => $value ) {
                 $command = [
@@ -984,6 +986,8 @@ if ( !isset($o->id) ) print_r ( $o ) ;
                         'property' => $instruction
                     ];
                     $this->parseValueV1( $value, $command );
+                    $lastStatementProperty = $instruction;
+                    $lastStatementDatavalue = $command['datavalue'];
                     $commands[] = $command;
                 } elseif ( $instruction[0] === 'L' ) {
                     $command += [
@@ -1004,6 +1008,20 @@ if ( !isset($o->id) ) print_r ( $o ) ;
                         'what' => 'alias',
                         'language' => substr( $instruction, 1 ),
                         'value' => $value
+                    ];
+                    $commands[] = $command;
+                } elseif ( substr( $instruction, 0, 3 ) === 'qal' ) {
+                    if ( $lastStatementProperty === null || $lastStatementDatavalue === null ) {
+                        fclose( $stream );
+                        return; // TODO error message
+                    }
+                    $dummy = []; // parseValueV1 writes to 'datavalue', but the qualifier needs 'value', so we parse into this dummy and copy the value later
+                    $this->parseValueV1( $value, $dummy );
+                    $command += [
+                        'what' => 'qualifier',
+                        'property' => $lastStatementProperty,
+                        'datavalue' => $lastStatementDatavalue,
+                        'qualifier' => [ 'prop' => 'P' . substr( $instruction, 3 ), 'value' => $dummy['datavalue'] ]
                     ];
                     $commands[] = $command;
                 } else {
