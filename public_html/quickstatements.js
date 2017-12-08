@@ -104,6 +104,7 @@ var QuickStatements = {
 		if ( typeof me.oauth.query.userinfo == 'undefined' ) return false ;
 		if ( me.oauth.query.userinfo.name == batch_user_name ) return true ;
 		if ( typeof me.oauth.query.userinfo.groups == 'undefined' ) return false ;
+
 		var ret = false ;
 		$.each ( me.oauth.query.userinfo.groups , function ( k , v ) {
 			if ( v == 'sysop' ) ret = true ;

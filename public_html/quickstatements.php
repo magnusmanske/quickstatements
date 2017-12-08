@@ -50,7 +50,7 @@ class QuickStatements {
 	public $bot_config_file = '/data/project/quickstatements/bot.ini' ;
 	public $last_error_message = '' ;
 	public $toolname = '' ; // To be set if used directly by another tool
-	public $sleep = 0 ; // Number of seconds to sleep between each edit
+	public $sleep = 0.1 ; // Number of seconds to sleep between each edit
 	public $use_command_compression = false ;
 	
 	protected $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
@@ -173,6 +173,8 @@ class QuickStatements {
 	
 	public function startBatch ( $batch_id ) {
 		$batch_id *= 1 ;
+		if ( isset ( $qs_global_bot_api ) ) unset ( $qs_global_bot_api ) ;
+		if ( isset ( $this->bot_api ) ) unset ( $this->bot_api ) ;
 		$db = $this->getDB() ;
 		
 		$user_name = $this->getUsernameFromBatchID ( $batch_id ) ;
@@ -435,7 +437,7 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 		return false ; // Can't determine type
 	}
 	
-	protected function compressCommands ( $commands ) {
+	public function compressCommands ( $commands ) {
 		if ( !$this->use_command_compression ) return $commands ;
 		if ( count($commands) < 2 ) return $commands ; // Nothing to do
 	
@@ -607,7 +609,12 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 			$command->status = 'error' ;
 			if ( isset($result->error) and isset($result->error->info) ) {
 				$command->message = $result->error->info ;
-				if ( $result->error->info == 'Invalid CSRF token.' ) $this->getBotAPI ( true ) ;
+				if ( preg_match ( '/Invalid CSRF token/' , $result->error->info ) ) {
+exit ( 1 ) ; // Force bot restart
+					if ( isset ( $qs_global_bot_api ) ) unset ( $qs_global_bot_api ) ;
+					if ( isset ( $this->bot_api ) ) unset ( $this->bot_api ) ;
+					$this->getBotAPI ( true ) ;
+				}
 			} else $command->message = json_encode ( $result ) ;
 		}
 	}
@@ -929,6 +936,7 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 				if ( $code == 'S' ) $cmd['site'] = $lang ;
 				else $cmd['language'] = $lang ;
 				$this->parseValueV1 ( $cols[2] , $cmd ) ;
+				if ( !isset($cmd['datavalue']) or !isset($cmd['datavalue']['value']) ) $cmd['error'] = 'Broken command' ;
 				$cmd['value'] = $cmd['datavalue']['value'] ;
 				unset ( $cmd['datavalue'] ) ;
 			} else if ( $first == 'CREATE' ) {

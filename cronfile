@@ -1,1 +1,1 @@
-17 22 * * * jsub -l release=trusty -mem 4g -N bot -once -continuous /data/project/quickstatements/bot.php
+* 22 * * * jsub -l release=trusty -mem 4g -N bot -once -continuous /data/project/quickstatements/bot.php
