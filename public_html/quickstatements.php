@@ -3,7 +3,7 @@
 /*
 To use for editing in a tool (requires a bot.ini file, see below):
 
-require_once ( '/data/project/quickstatements/public_html/quickstatements.php' ) ;
+require_once ( __DIR__ . '/public_html/quickstatements.php' ) ;
 
 function getQS () {
 	$toolname = '' ; // Or fill this in manually
@@ -34,10 +34,10 @@ user = YourBotName
 pass = YourBotPassword
 */
 
-require_once ( '/data/project/magnustools/public_html/php/common.php' ) ;
-require_once ( '/data/project/magnustools/public_html/php/wikidata.php' ) ;
-require_once ( '/data/project/quickstatements/public_html/php/oauth.php' ) ;
-require_once ( '/data/project/quickstatements/vendor/autoload.php' ) ;
+require_once ( __DIR__ . '/../../magnustools/public_html/php/common.php' ) ;
+require_once ( __DIR__ . '/../../magnustools/public_html/php/wikidata.php' ) ;
+require_once ( __DIR__ . '/../../magnustools/public_html/php/oauth.php' ) ;
+require_once ( __DIR__ . '/../vendor/autoload.php' ) ;
 
 // QuickStatements class
 
@@ -47,7 +47,7 @@ class QuickStatements {
 	public $wd ;
 	public $oa ;
 	public $use_oauth = true ;
-	public $bot_config_file = '/data/project/quickstatements/bot.ini' ;
+	public $bot_config_file = __DIR__ . '/bot.ini' ;
 	public $last_error_message = '' ;
 	public $toolname = '' ; // To be set if used directly by another tool
 	public $sleep = 0.1 ; // Number of seconds to sleep between each edit
@@ -62,10 +62,10 @@ class QuickStatements {
 	protected $user_groups = array() ;
 	protected $db ;
 	protected $logging = true ;
-	protected $logfile = '/data/project/quickstatements/tool.log' ;
+	protected $logfile = __DIR__ . '/tool.log' ;
 	
-	public function QuickStatements () {
-		$this->sites = json_decode ( file_get_contents ( '/data/project/quickstatements/public_html/sites.json' ) ) ;
+	public function __construct () {
+		$this->sites = json_decode ( file_get_contents ( __DIR__ . '/sites.json' ) ) ;
 		$this->wd = new WikidataItemList () ;
 	}
 /*	
@@ -104,6 +104,7 @@ class QuickStatements {
 		$format = trim ( strtolower ( $format ) ) ;
 		// TODO persistent
 		if ( $format == 'v1' ) $this->importDataFromV1 ( $data , $ret ) ;
+		elseif ( $format == 'csv' ) $this->importDataFromCSV ( $data , $ret ) ;
 		else $ret['status'] = "ERROR: Unknown format $format" ;
 		return $ret ;
 	}
@@ -950,6 +951,134 @@ exit ( 1 ) ; // Force bot restart
 		}
 //		if ( $this->use_command_compression ) $ret['data']['commands'] = $this->compressCommands ( $ret['data']['commands'] ) ;
 	}
+
+    protected function importDataFromCSV ( $data, &$ret ) {
+        $commands = [];
+        $ret['data']['commands'] = &$commands;
+
+        // write the CSV string to a "file" so we can use fgetcsv which unlike str_getcsv supports multiple lines
+        $stream = fopen( 'php://temp', 'r+' );
+        fwrite( $stream, $data );
+        rewind( $stream );
+
+        $header = fgetcsv( $stream );
+        if ( $header[0] !== 'qid' ) { // this is deliberately case-sensitive, so Qid, QID etc. are reserved for future expansion
+            fclose( $stream );
+            return; // TODO error message
+        }
+        array_shift( $header );
+        if ( in_array( 'qid', $header ) ) {
+            fclose( $stream );
+            return; // TODO error message
+        }
+
+        while ( ( $row = fgetcsv( $stream ) ) !== false ) {
+            $qid = array_shift( $row );
+            if ( $qid === '' ) {
+                $commands[] = [ 'action' => 'create', 'type' => 'item' ];
+                $qid = 'LAST';
+            }
+            $lastStatementProperty = null;
+            $lastStatementDatavalue = null;
+            $lastSources = null;
+
+            foreach ( $row as $index => $value ) {
+                $command = [
+                    'action' => 'add',
+                    'item' => $qid
+                ];
+                $instruction = $header[$index];
+
+                if ( $instruction[0] === '-' ) {
+                    $command['action'] = 'remove';
+                    $instruction = substr( $instruction, 1 );
+                }
+
+                if ( $instruction[0] === 'P' ) {
+                    $command += [
+                        'what' => 'statement',
+                        'property' => $instruction
+                    ];
+                    $this->parseValueV1( $value, $command );
+                    $lastStatementProperty = $instruction;
+                    $lastStatementDatavalue = $command['datavalue'];
+                    unset( $lastSources ); // break reference
+                    $lastSources = null;
+                    $commands[] = $command;
+                } elseif ( $instruction[0] === 'L' ) {
+                    $command += [
+                        'what' => 'label',
+                        'language' => substr( $instruction, 1 ),
+                        'value' => $value
+                    ];
+                    $commands[] = $command;
+                } elseif ( $instruction[0] === 'D' ) {
+                    $command += [
+                        'what' => 'description',
+                        'language' => substr( $instruction, 1 ),
+                        'value' => $value
+                    ];
+                    $commands[] = $command;
+                } elseif ( $instruction[0] === 'A' ) {
+                    $command += [
+                        'what' => 'alias',
+                        'language' => substr( $instruction, 1 ),
+                        'value' => $value
+                    ];
+                    $commands[] = $command;
+                } elseif ( substr( $instruction, 0, 3 ) === 'qal' ) {
+                    if ( $lastStatementProperty === null || $lastStatementDatavalue === null ) {
+                        fclose( $stream );
+                        return; // TODO error message
+                    }
+                    $dummy = []; // parseValueV1 writes to 'datavalue', but the qualifier needs 'value', so we parse into this dummy and copy the value later
+                    $this->parseValueV1( $value, $dummy );
+                    $command += [
+                        'what' => 'qualifier',
+                        'property' => $lastStatementProperty,
+                        'datavalue' => $lastStatementDatavalue,
+                        'qualifier' => [ 'prop' => 'P' . substr( $instruction, 3 ), 'value' => $dummy['datavalue'] ]
+                    ];
+                    $commands[] = $command;
+                } elseif ( $instruction[0] === 'S' && ctype_digit( $instruction[1] ) ) {
+                    if ( $lastStatementProperty === null || $lastStatementDatavalue === null ) {
+                        fclose( $stream );
+                        return; // TODO error message
+                    }
+                    $dummy = []; // parseValueV1 writes to 'datavalue', but the source needs 'value', so we parse into this dummy and copy the value later
+                    $this->parseValueV1( $value, $dummy );
+                    unset( $lastSources ); // break reference
+                    $lastSources = [ [ 'prop' => 'P' . substr( $instruction, 1 ), 'value' => $dummy['datavalue'] ] ];
+                    $command += [
+                        'what' => 'sources',
+                        'property' => $lastStatementProperty,
+                        'datavalue' => $lastStatementDatavalue,
+                        'sources' => &$lastSources
+                    ];
+                    $commands[] = $command;
+                } elseif ( $instruction[0] === 's' && ctype_digit( $instruction[1] ) ) {
+                    if ( $lastSources === null ) {
+                        fclose( $stream );
+                        return; // TODO error message
+                    }
+                    $dummy = []; // parseValueV1 writes to 'datavalue', but the source needs 'value', so we parse into this dummy and copy the value later
+                    $this->parseValueV1( $value, $dummy );
+                    $lastSources[] = [ 'prop' => 'P' . substr( $instruction, 1 ), 'value' => $dummy['datavalue'] ];
+                } elseif ( $instruction[0] === 'S' ) {
+                    $command += [
+                        'what' => 'sitelink',
+                        'site' => substr( $instruction, 1 ),
+                        'value' => $value
+                    ];
+                    $commands[] = $command;
+                } else {
+                    fclose( $stream );
+                    return; // TODO error message
+                }
+            }
+        }
+        fclose( $stream );
+    }
 	
 	
 	protected function getEntityType ( $q ) {

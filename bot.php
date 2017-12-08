@@ -1,7 +1,7 @@
 #!/usr/bin/php
 <?PHP
 
-require_once ( '/data/project/quickstatements/public_html/quickstatements.php' ) ;
+require_once ( __DIR__ . '/public_html/quickstatements.php' ) ;
 
 function iterate() {
 	$ret = 0 ;

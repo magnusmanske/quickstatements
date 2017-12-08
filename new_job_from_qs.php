@@ -4,7 +4,7 @@
 #error_reporting(E_ERROR|E_CORE_ERROR|E_ALL|E_COMPILE_ERROR);
 $user_id_magnus = 4420 ;
 
-require_once ( '/data/project/quickstatements/public_html/quickstatements.php' ) ;
+require_once ( __DIR__ . '/public_html/quickstatements.php' ) ;
 
 if ( !isset($argv[1]) ) die ( "Requires QS file as parameter\n" ) ;
 $fn = $argv[1] ;

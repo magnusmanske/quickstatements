@@ -27,17 +27,22 @@ var QuickStatements = {
 			$('#import_v1_dialog').on('shown.bs.modal', function () { $('#v1_commands').val('').focus() })
 			$('#v1_import').click ( function(){me.onImportV1(); $('#import_v1_dialog').modal('hide') } ) ;
 		
+			$('#import_csv_dialog').on('shown.bs.modal', function () { $('#csv_input').val('').focus() })
+			$('#csv_import').click ( function(){me.onImportCSV(); $('#import_csv_dialog').modal('hide') } ) ;
+		
 			$('#main_table').DataTable ( {
 				ordering:false,
 				info:false
 			} );
 	
 			$('#link_import_qs1').click ( me.onClickImportV1 ) ;
+			$('#link_import_csv').click ( me.onClickImportCSV ) ;
 			$('#run').click ( function () { me.run ( false ) ; return false } ) ;
 			$('#run_background').click ( function () { me.run ( true ) ; return false } ) ;
 			$('#stop').click ( function () { me.stop() ; return false } ) ;
 		
 			if ( typeof me.params.v1 != 'undefined' ) me.importFromV1 ( me.params.v1 ) ;
+			if ( typeof me.params.csv != 'undefined' ) me.importFromCSV ( me.params.csv ) ;
 
 			me.updateUnlabeledItems() ;
 			
@@ -57,12 +62,9 @@ var QuickStatements = {
 		} , 'json' ) ;
 
 		me.oauth = { is_logged_in:false } ;
-		$.post ( me.api , {
-			action:'is_logged_in'
-		} , function ( d ) {
-			me.oauth = d.data ;
-			fin() ;
-		} , 'json' ) ;
+		$.post ( me.api , { action:'is_logged_in' }, 'json' )
+			.then( function( d ) { me.oauth = d.data; } )
+			.always( fin );
 	} ,
 
 	setSite : function ( site ) {
@@ -450,11 +452,24 @@ var QuickStatements = {
 		$('#import_v1_dialog').modal('show') ;
 	} ,
 	
+	onClickImportCSV : function () {
+		var me = QuickStatements ;
+		me.switchMode ( 'commands' ) ;
+		$('#import_csv_dialog').modal('show') ;
+	} ,
+	
 	onImportV1 : function () {
 		var me = this ;
 		var text = $('#v1_commands').val() ;
 		$('#v1_commands').val('') ;
 		me.importFromV1 ( text ) ;
+	} ,
+	
+	onImportCSV : function () {
+		var me = this ;
+		var csv = $('#csv_input').val() ;
+		$('#csv_input').val('') ;
+		me.importFromCSV ( csv ) ;
 	} ,
 	
 	updateUnlabeledItems : function () {
@@ -618,6 +633,21 @@ var QuickStatements = {
 			action:'import',
 			data:v1,
 			format:'v1',
+			persistent:0,
+		} , function ( d ) {
+			// TODO status/error check
+			me.data = d.data ;
+			me.setupTableFromCommands() ;
+		} , 'json' ) ;
+	} ,
+	
+	importFromCSV : function ( csv ) {
+		var me = this ;
+		if ( csv.length < 1000 ) location.hash = 'csv='+csv ;
+		$.post ( me.api , {
+			action:'import',
+			data:csv,
+			format:'csv',
 			persistent:0,
 		} , function ( d ) {
 			// TODO status/error check

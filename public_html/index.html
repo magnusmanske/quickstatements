@@ -103,6 +103,7 @@ a.red {
       <a class="nav-link dropdown-toggle" href="#" id="supportedContentDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" tt='import_commands'></a>
       <div class="dropdown-menu" aria-labelledby="supportedContentDropdown">
         <a id="link_import_qs1" class="dropdown-item" href="#" tt='v1_format'></a>
+        <a id="link_import_csv" class="dropdown-item" href="#" tt='format_csv'></a>
 <!--        <a class="dropdown-item" href="#">Another action</a>-->
       </div>
     </li>
@@ -224,6 +225,30 @@ a.red {
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-dismiss="modal" tt='close'></button>
         <button type="button" class="btn btn-primary" id='v1_import' tt='do_import_v1'></button>
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<!-- CSV import dialog -->
+<div id='import_csv_dialog' class="modal fade hidden">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+        <h4 class="modal-title" tt='dialog_import_csv'></h4>
+      </div>
+      <div class="modal-body">
+      	<div>
+      	<small tt='dialog_import_csv_intro'></small>
+      	</div>
+      	<textarea id='csv_input' style='width:100%' rows='20'></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal" tt='close'></button>
+        <button type="button" class="btn btn-primary" id='csv_import' tt='do_import_csv'></button>
       </div>
     </div><!-- /.modal-content -->
   </div><!-- /.modal-dialog -->
