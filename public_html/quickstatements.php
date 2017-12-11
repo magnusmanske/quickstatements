@@ -47,7 +47,7 @@ class QuickStatements {
 	public $wd ;
 	public $oa ;
 	public $use_oauth = true ;
-	public $bot_config_file = __DIR__ . '/bot.ini' ;
+	public $bot_config_file = '/data/project/quickstatements/bot.ini' ;
 	public $last_error_message = '' ;
 	public $toolname = '' ; // To be set if used directly by another tool
 	public $sleep = 0.1 ; // Number of seconds to sleep between each edit
@@ -62,7 +62,7 @@ class QuickStatements {
 	protected $user_groups = array() ;
 	protected $db ;
 	protected $logging = true ;
-	protected $logfile = __DIR__ . '/tool.log' ;
+	protected $logfile = '/data/project/quickstatements/tool.log' ;
 	
 	public function __construct () {
 		$this->sites = json_decode ( file_get_contents ( __DIR__ . '/sites.json' ) ) ;
