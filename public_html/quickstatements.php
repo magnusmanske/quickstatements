@@ -413,6 +413,8 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 		$i = $this->wd->getItem ( $q ) ;
 		$claims = $i->getClaims ( $command->property ) ;
 		foreach ( $claims AS $c ) {
+			if ( !isset($c->mainsnak) or !isset($c->mainsnak->datavalue) ) continue ;
+			if ( !isset($command->datavalue) ) continue ;
 			if ( $this->compareDatavalue ( $c->mainsnak->datavalue , $command->datavalue ) ) return $c->id ;
 		}
 	}
@@ -801,15 +803,31 @@ exit ( 1 ) ; // Force bot restart
 		return $command ;
 	}
 	
+	public function array2object_recursive($array) {
+		$obj = new stdClass;
+		foreach($array as $k => $v) {
+			if(strlen($k)) {
+				if(is_array($v)) {
+					$obj->{$k} = $this->array2object_recursive($v); //RECURSION
+				} else {
+					$obj->{$k} = $v;
+				}
+				}
+		}
+		return $obj;
+	} 
+
 	public function array2object ( $a ) {
-		return json_decode ( json_encode ( $a ) ) ;
+		$ret = json_decode ( json_encode ( $a ) ) ;
+		if ( isset($ret) ) return $ret ;
+		return $this->array2object_recursive ( $a ) ;
 	}
 	
 	public function runCommandArray ( $commands ) {
 		// TODO auto-grouping, e.g. for CREATE
 		$this->is_batch_run = true ;
-		foreach ( $commands AS $command ) {
-			$command = $this->array2object ( $command ) ;
+		foreach ( $commands AS $command_original ) {
+			$command = $this->array2object ( $command_original ) ;
 			$command = $this->runSingleCommand ( $command ) ;
 			if ( isset($command->item) ) $this->last_item = $command->item ;
 			if ( $command->status != 'done' ) {
@@ -823,6 +841,7 @@ exit ( 1 ) ; // Force bot restart
 	
 	public function runSingleCommand ( $command ) {
 		if ( $this->sleep != 0 ) sleep ( $this->sleep ) ;
+		if ( !isset($command) ) return $this->commandError ( $command , "Empty command" ) ;
 		$command->status = 'working' ;
 		if ( isset($command->error) ) unset ( $command->error ) ;
 		if ( $command->action == 'create' ) {
@@ -1085,7 +1104,23 @@ exit ( 1 ) ; // Force bot restart
 		$q = strtoupper ( trim ( $q ) ) ;
 		if ( preg_match ( '/^Q\d+$/' , $q ) ) return 'item' ;
 		if ( preg_match ( '/^P\d+$/' , $q ) ) return 'property' ;
+		if ( preg_match ( '/^".*"$/' , $q ) ) return 'string' ;
 		return 'unknown' ;
+	}
+
+
+	protected function convertToUTF8($text){
+		$encoding = mb_detect_encoding($text, mb_detect_order(), false);
+		if ( $encoding == "UTF-8" ) {
+			$text = mb_convert_encoding($text, 'UTF-8', 'UTF-8');    
+		}
+		$ret = iconv(mb_detect_encoding($text, mb_detect_order(), false), "UTF-8//IGNORE", $text);
+		return $ret;
+	}
+
+	protected function enforceStringEncoding ( $s ) {
+		return $this->convertToUTF8($s) ;
+#		return @iconv('UTF-8', 'UTF-8//IGNORE', $s) ;
 	}
 	
 	protected function parseValueV1 ( $v , &$cmd ) {
@@ -1097,12 +1132,12 @@ exit ( 1 ) ; // Force bot restart
 		}
 		
 		if ( preg_match ( '/^"(.*)"$/i' , $v , $m ) ) { // STRING
-			$cmd['datavalue'] = array ( "type"=>"string" , "value"=>trim($m[1]) ) ;
+			$cmd['datavalue'] = array ( "type"=>"string" , "value"=>trim($this->enforceStringEncoding($m[1])) ) ;
 			return true ;
 		}
 
 		if ( preg_match ( '/^([a-z_-]+):"(.*)"$/i' , $v , $m ) ) { // MONOLINGUALTEXT
-			$cmd['datavalue'] = array ( "type"=>"monolingualtext" , "value"=>array("language"=>$m[1],"text"=>trim($m[2])) ) ;
+			$cmd['datavalue'] = array ( "type"=>"monolingualtext" , "value"=>array("language"=>$m[1],"text"=>trim($this->enforceStringEncoding($m[2]))) ) ;
 			return true ;
 		}
 
