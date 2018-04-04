@@ -1167,7 +1167,7 @@ exit ( 1 ) ; // Force bot restart
 		
 		if ( preg_match ( '/^([\+\-]{0,1}\d+(\.\d+){0,1})(U(\d+)){0,1}$/' , $v , $m ) ) { // Quantity
 			$cmd['datavalue'] = array ( "type"=>"quantity" , "value"=>array(
-				"amount" => $m[1]*1 ,
+				"amount" => $m[1] ,
 				"unit" => isset( $m[4] ) ? "http://www.wikidata.org/entity/Q{$m[4]}" : "1"
 			) ) ;
 			return true ;
@@ -1176,7 +1176,7 @@ exit ( 1 ) ; // Force bot restart
 			$value = $m[1]*1 ;
 			$error = $m[3]*1 ;
 			$cmd['datavalue'] = array ( "type"=>"quantity" , "value"=>array(
-				"amount" => $value ,
+				"amount" => $m[1] , // use $m[1] (string) instead of $value (float) to avoid precision problems
 				"upperBound" => $value+$error ,
 				"lowerBound" => $value-$error ,
 				"unit" => isset( $m[6] ) ? "http://www.wikidata.org/entity/Q{$m[6]}" : "1"
