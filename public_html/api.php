@@ -13,7 +13,7 @@ $action = get_request ( 'action' , '' ) ;
 
 if ( isset ( $_REQUEST['oauth_verifier'] ) ) {
 	$oa = $qs->getOA() ; // Answer to OAuth
-	header( "Location: https://tools.wmflabs.org/quickstatements" );
+	header( "Location: " . $qs->getToolBase() );
 	exit(0) ;
 }
 

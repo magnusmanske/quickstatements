@@ -164,6 +164,10 @@ class QuickStatements {
 	public function getAPI () {
 		return $this->getSite()->api ;
 	}
+
+	public function getToolBase () {
+	       return $this->getSite()->toolBase ;
+	}
 	
 	public function isUserBlocked ( $username ) {
 		$username = ucfirst ( str_replace ( ' ' , '_' , trim ( $username ) ) ) ;
