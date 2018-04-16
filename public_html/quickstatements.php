@@ -956,7 +956,10 @@ exit ( 1 ) ; // Force bot restart
 				if ( $code == 'S' ) $cmd['site'] = $lang ;
 				else $cmd['language'] = $lang ;
 				$this->parseValueV1 ( $cols[2] , $cmd ) ;
-				if ( !isset($cmd['datavalue']) or !isset($cmd['datavalue']['value']) ) $cmd['error'] = 'Broken command' ;
+				if ( !isset($cmd['datavalue']) or !isset($cmd['datavalue']['value']) ) {
+					$cmd['error'] = 'Broken command' ;
+					continue ;
+				}
 				$cmd['value'] = $cmd['datavalue']['value'] ;
 				unset ( $cmd['datavalue'] ) ;
 			} else if ( $first == 'CREATE' ) {
