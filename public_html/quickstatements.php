@@ -151,10 +151,14 @@ class QuickStatements {
 		}
 		return $this->db ;
 	}
+
+	public function getAPI () {
+		return $this->getSite()->api ;
+	}
 	
 	public function isUserBlocked ( $username ) {
 		$username = ucfirst ( str_replace ( ' ' , '_' , trim ( $username ) ) ) ;
-		$url = "https://www.wikidata.org/w/api.php?action=query&list=blocks&format=json&bkusers=" . urlencode ( $username ) ;
+		$url = $this->getAPI() . "?action=query&list=blocks&format=json&bkusers=" . urlencode ( $username ) ;
 		$j = json_decode ( file_get_contents ( $url ) ) ;
 		foreach ( $j->query->blocks AS $b ) {
 			//if ( $username == $b->user ) 
@@ -536,9 +540,8 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 		if ( !isset($this->bot_api) and isset($qs_global_bot_api) ) $this->bot_api = $qs_global_bot_api ;
 		if ( !$force_login and isset($this->bot_api) and $this->bot_api->isLoggedIn() ) return $this->bot_api ;
 
-		$api_url = 'https://' . $this->getSite()->server . '/w/api.php' ;
 		$config = parse_ini_file ( $this->bot_config_file ) ;
-		$api = new \Mediawiki\Api\MediawikiApi( $api_url );
+		$api = new \Mediawiki\Api\MediawikiApi( $this->getAPI() );
 		if ( $force_login or !$api->isLoggedin() ) {
 			if ( isset($config['user']) ) $username = $config['user'] ;
 			if ( isset($config['username']) ) $username = $config['username'] ;

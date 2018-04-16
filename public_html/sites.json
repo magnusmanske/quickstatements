@@ -1,7 +1,8 @@
 {
 	"wikidata" : {
 		"oauth" : { "language":"wikidata" , "project":"wikidata" } ,
-		"server" : "www.wikidata.org" ,
+		"api" : "https://www.wikidata.org/w/api.php" ,
+		"pageBase" : "https://www.wikidata.org/wiki/" ,
 		"types" : {
 			"P" : { "type":"property" , "ns":120 , "ns_prefix":"Property:" } ,
 			"Q" : { "type":"item" , "ns":0 , "ns_prefix":"" }
@@ -9,7 +10,6 @@
 	} ,
 	"factgrid" : {
 		"oauth" : { "language":"wikidata" , "project":"wikidata" } ,
-		"server" : "database.factgrid.de" ,
 		"api" : "https://database.factgrid.de/api.php" ,
 		"pageBase" : "https://database.factgrid.de/index.php/" ,
 		"types" : {
