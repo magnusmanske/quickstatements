@@ -55,7 +55,6 @@ class QuickStatements {
 	public $bot_config_file = '' ; // Legacy, should be in config.json
 	
 	protected $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
-//	protected $sites ;
 	protected $is_batch_run = false ;
 	protected $user_name = '' ;
 	protected $user_id = 0 ;
@@ -64,8 +63,9 @@ class QuickStatements {
 	protected $logging = true ;
 	
 	public function __construct () {
+		global $wikidata_api_url ;
 		$this->config = json_decode ( file_get_contents ( __DIR__ . '/config.json' ) ) ;
-//		$this->sites = json_decode ( file_get_contents ( __DIR__ . '/sites.json' ) ) ;
+		$wikidata_api_url = $this->getSite()->api ;
 		$this->wd = new WikidataItemList () ;
 	}
 /*	
