@@ -1,0 +1,5 @@
+{
+	"site" : "wikidata" ,
+	"bot_config_file" : "/data/project/quickstatements/bot.ini" ,
+	"logfile" : "/data/project/quickstatements/tool.log"
+}
