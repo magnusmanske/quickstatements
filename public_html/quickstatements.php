@@ -16,7 +16,7 @@ function getQS () {
 	if ( $toolname == '' ) die ( "getQS(): Can't determine the toolname for $path\n" ) ;
 	$qs = new QuickStatements() ;
 	$qs->use_oauth = false ;
-	$qs->bot_config_file = "/data/project/$toolname/bot.ini" ;
+	$qs->config->bot_config_file = "/data/project/$toolname/bot.ini" ;
 	$qs->toolname = $toolname ;
 //	$qs->sleep = 1 ; // Sleep 1 sec between edits
 	return $qs ;
@@ -46,26 +46,26 @@ class QuickStatements {
 	public $last_item = '' ;
 	public $wd ;
 	public $oa ;
+	public $config ;
 	public $use_oauth = true ;
-	public $bot_config_file = '/data/project/quickstatements/bot.ini' ;
 	public $last_error_message = '' ;
 	public $toolname = '' ; // To be set if used directly by another tool
 	public $sleep = 0.1 ; // Number of seconds to sleep between each edit
 	public $use_command_compression = false ;
+	public $bot_config_file = '' ; // Legacy, should be in config.json
 	
 	protected $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
-	protected $site = 'wikidata' ;
-	protected $sites ;
+//	protected $sites ;
 	protected $is_batch_run = false ;
 	protected $user_name = '' ;
 	protected $user_id = 0 ;
 	protected $user_groups = array() ;
 	protected $db ;
 	protected $logging = true ;
-	protected $logfile = '/data/project/quickstatements/tool.log' ;
 	
 	public function __construct () {
-		$this->sites = json_decode ( file_get_contents ( __DIR__ . '/sites.json' ) ) ;
+		$this->config = json_decode ( file_get_contents ( __DIR__ . '/config.json' ) ) ;
+//		$this->sites = json_decode ( file_get_contents ( __DIR__ . '/sites.json' ) ) ;
 		$this->wd = new WikidataItemList () ;
 	}
 /*	
@@ -351,7 +351,7 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 	protected function log ( $data ) {
 		if ( !$this->logging ) return ;
 		$out = $this->getCurrentTimestamp() . "\t" . json_encode ( $data ) ;
-		file_put_contents ( $this->logfile , $out , FILE_APPEND ) ;
+		file_put_contents ( $this->config->logfile , $out , FILE_APPEND ) ;
 	}
 	
 	protected function canCurrentUserChangeBatchStatus ( $batch_id ) {
@@ -531,8 +531,13 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 	}
 	
 	protected function getSite () {
-		$site = $this->site ;
-		return $this->sites->$site ;
+		$site = $this->config->site ;
+		return $this->config->sites->$site ;
+	}
+
+	protected function getBotConfig () {
+		if ( $this->bot_config_file != '' ) return parse_ini_file ( $this->bot_config_file ) ;
+		return parse_ini_file ( $this->config->bot_config_file ) ;
 	}
 	
 	protected function getBotAPI ( $force_login = false ) {
@@ -540,13 +545,13 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 		if ( !isset($this->bot_api) and isset($qs_global_bot_api) ) $this->bot_api = $qs_global_bot_api ;
 		if ( !$force_login and isset($this->bot_api) and $this->bot_api->isLoggedIn() ) return $this->bot_api ;
 
-		$config = parse_ini_file ( $this->bot_config_file ) ;
+		$bot_config = $this->getBotConfig() ;
 		$api = new \Mediawiki\Api\MediawikiApi( $this->getAPI() );
 		if ( $force_login or !$api->isLoggedin() ) {
-			if ( isset($config['user']) ) $username = $config['user'] ;
-			if ( isset($config['username']) ) $username = $config['username'] ;
-			if ( isset($config['pass']) ) $password = $config['pass'] ;
-			if ( isset($config['password']) ) $password = $config['password'] ;
+			if ( isset($bot_config['user']) ) $username = $bot_config['user'] ;
+			if ( isset($bot_config['username']) ) $username = $bot_config['username'] ;
+			if ( isset($bot_config['pass']) ) $password = $bot_config['pass'] ;
+			if ( isset($bot_config['password']) ) $password = $bot_config['password'] ;
 			if ( !isset($username) or !isset($password) ) return false ;
 			$x = $api->login( new \Mediawiki\Api\ApiUser( $username, $password ) );
 			if ( !$x ) return false ;

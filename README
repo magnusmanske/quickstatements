@@ -1,3 +1,4 @@
 Using addwiki:
 https://github.com/addwiki/mediawiki-api
 
+Copy public_html/config.json.template to config.json and modify for your needs

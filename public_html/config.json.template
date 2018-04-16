@@ -1,5 +1,28 @@
 {
 	"site" : "wikidata" ,
 	"bot_config_file" : "/data/project/quickstatements/bot.ini" ,
-	"logfile" : "/data/project/quickstatements/tool.log"
+	"logfile" : "/data/project/quickstatements/tool.log" ,
+	"sites" : {
+		"wikidata" : {
+			"oauth" : { "language":"wikidata" , "project":"wikidata" } ,
+			"server" : "www.wikidata.org" ,
+			"api" : "https://www.wikidata.org/w/api.php" ,
+			"pageBase" : "https://www.wikidata.org/wiki/" ,
+			"toolBase" : "https://tools.wmflabs.org/quickstatements" ,
+			"types" : {
+				"P" : { "type":"property" , "ns":120 , "ns_prefix":"Property:" } ,
+				"Q" : { "type":"item" , "ns":0 , "ns_prefix":"" }
+			}
+		}  ,
+		"factgrid" : {
+			"oauth" : { "language":"wikidata" , "project":"wikidata" } ,
+			"api" : "https://database.factgrid.de/api.php" ,
+			"pageBase" : "https://database.factgrid.de/index.php/" ,
+			"toolBase" : "https://database.factgrid.de/quickstatements" ,
+			"types" : {
+				"P" : { "type":"property" , "ns":122 , "ns_prefix":"Property:" } ,
+				"Q" : { "type":"item" , "ns":120 , "ns_prefix":"Item:" }
+			}
+		}
+	}
 }

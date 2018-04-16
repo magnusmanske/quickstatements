@@ -58,11 +58,9 @@ var QuickStatements = {
 		
 		$.get ( 'config.json' , function ( d ) {
 			me.config = d ;
-			$.get ( 'sites.json' , function ( d ) {
-				me.sites = d ;
-				me.setSite ( me.config.site ) ;
-				fin() ;
-			} , 'json' ) ;
+			me.sites = d.sites ;
+			me.setSite ( me.config.site ) ;
+			fin() ;
 		} ) ;
 
 		me.oauth = { is_logged_in:false } ;
