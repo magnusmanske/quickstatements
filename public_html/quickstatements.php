@@ -87,6 +87,7 @@ class QuickStatements {
 				'ini_file' => $this->getSite()->oauth->ini_file ,
 				'mwOAuthUrl' => $this->getSite()->oauth->mwOAuthUrl ,
 				'mwOAuthIW' => $this->getSite()->oauth->mwOAuthIW ,
+				'publicMwOAuthUrl' => $this->getSite()->oauth->publicMwOAuthUrl ,
 				'apiUrl' => $this->getSite()->api
 			] ) ;
 		}
