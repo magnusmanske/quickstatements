@@ -80,16 +80,18 @@ class QuickStatements {
 	public function getOA() {
 		if ( !isset($this->oa) ) {
 			$toolname = 'quickstatements' ; // TODO override with $this->toolname?
-			$this->oa = new MW_OAuth ( [
+
+			$params = [
 				'tool' => $toolname ,
 				'language' => $this->getSite()->oauth->language ,
 				'project' => $this->getSite()->oauth->project ,
 				'ini_file' => $this->getSite()->oauth->ini_file ,
 				'mwOAuthUrl' => $this->getSite()->oauth->mwOAuthUrl ,
 				'mwOAuthIW' => $this->getSite()->oauth->mwOAuthIW ,
-				'publicMwOAuthUrl' => $this->getSite()->oauth->publicMwOAuthUrl ,
 				'apiUrl' => $this->getSite()->api
-			] ) ;
+			] ;
+			if ( isset($this->getSite()->oauth->publicMwOAuthUrl) ) $params['publicMwOAuthUrl'] = $this->getSite()->oauth->publicMwOAuthUrl ;
+			$this->oa = new MW_OAuth ( $params ) ;
 		}
 		return $this->oa ;
 	}
