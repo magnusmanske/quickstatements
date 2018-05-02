@@ -826,6 +826,11 @@ exit ( 1 ) ; // Force bot restart
 		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
 		return $command ;
 	}
+
+	protected function commandRemoveSitelink ( $command, $i ) {
+		$command->value = '';
+		return $this->commandSetSitelink ( $command, $i );
+	}
 	
 	public function array2object_recursive($array) {
 		$obj = new stdClass;
@@ -906,8 +911,9 @@ exit ( 1 ) ; // Force bot restart
 					if ( !isset($command->id) ) $command->id = $this->getStatementID ( $command ) ;
 					if ( !isset($command->id) or $command->id == '' ) return $this->commandError ( $command , "Base statement not found" ) ;
 					return $this->commandRemoveStatement ( $command ) ;
+				} else if ( $command->what == 'sitelink' ) {
+					return $this->commandRemoveSitelink ( $command, $i ) ;
 				}
-				
 			
 			}
 			
