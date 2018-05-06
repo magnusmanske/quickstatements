@@ -1032,6 +1032,7 @@ exit ( 1 ) ; // Force bot restart
             }
             $lastStatementProperty = null;
             $lastStatementDatavalue = null;
+            unset( $lastSources ); // break reference
             $lastSources = null;
 
             foreach ( $row as $index => $value ) {
