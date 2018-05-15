@@ -232,7 +232,7 @@ class QuickStatements {
 		}
 
 		// Update status
-if ( !isset($o->id) ) print_r ( $o ) ;
+#if ( !isset($o->id) ) print_r ( $o ) ;
 		$sql = "UPDATE command SET status='RUN',ts_change='$ts',message='' WHERE id={$o->id}" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 
@@ -578,7 +578,8 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 		
 	}
 	
-	protected function runBotAction ( $params_orig ) {
+	protected function runBotAction ( $params_orig , $attempts_left = 3 ) {
+		if ( $attempts_left <= 0 ) return false ;
 		$params = array() ;
 		foreach ( $params_orig AS $k => $v ) $params[$k] = $v ; // Copy to array, and for safekeeping original
 		$this->last_result = (object) array() ;
@@ -598,7 +599,12 @@ if ( !isset($o->id) ) print_r ( $o ) ;
 			}
 //			} else return false ; // TODO is that correct?
 		} catch (Exception $e) {
-			$this->last_result->error = (object) array ( 'info' => $e->getMessage() ) ;
+			$msg = $e->getMessage() ;
+			if ( $msg == 'The save has failed.' ) {
+				sleep ( 5 ) ;
+				return $this->runBotAction ( $params_orig , $attempts_left-1 ) ;
+			}
+			$this->last_result->error = (object) array ( 'info' => $msg ) ;
 			return false ;
 		}
 		return true ;
@@ -853,7 +859,7 @@ exit ( 1 ) ; // Force bot restart
 	}
 	
 	public function runCommandArray ( $commands ) {
-		// TODO auto-grouping, e.g. for CREATE
+		if ( $this->use_command_compression ) $commands = $this->compressCommands ( $commands ) ;
 		$this->is_batch_run = true ;
 		foreach ( $commands AS $command_original ) {
 			$command = $this->array2object ( $command_original ) ;
@@ -931,6 +937,11 @@ exit ( 1 ) ; // Force bot restart
 		$rows = explode ( "\n" , $data ) ;
 		foreach ( $rows as $row ) {
 			$row = trim ( $row ) ;
+			$comment = '' ;
+			if ( preg_match ( '/^(.*?)\s*\/\*\s*(.*?)\s*\*\/\s*(.*?)$/' , $row , $m ) ) { // Extract comment as summary
+				$comment = $m[2] ;
+				$row = $m[1] . $m[3] ;
+			}
 			$cols = explode ( "\t" , $row ) ;
 			$cmd = array() ;
 			$skip_add_command = false ;
@@ -943,6 +954,7 @@ exit ( 1 ) ; // Force bot restart
 			if ( count ( $cols ) >= 3 and ( preg_match ( '/^[PQ]\d+$/' , $first ) or $first == 'LAST' ) and preg_match ( '/^([P])(\d+)$/' , $cols[1] ) ) {
 				$prop = strtoupper(trim($cols[1])) ;
 				$cmd = array ( 'action'=>$action , 'item'=>$first , 'property'=>$prop , 'what'=>'statement' ) ;
+				if ( $comment != '' ) $cmd['summary'] = $comment ;
 				$this->parseValueV1 ( $cols[2] , $cmd ) ;
 
 				// Remove base statement
@@ -983,6 +995,7 @@ exit ( 1 ) ; // Force bot restart
 				$code = strtoupper ( $m[1] ) ;
 				$lang = strtolower ( trim ( $m[2] ) ) ;
 				$cmd = array ( 'action'=>$action , 'what'=>$this->actions_v1[$code] , 'item'=>$first ) ;
+				if ( $comment != '' ) $cmd['summary'] = $comment ;
 				if ( $code == 'S' ) $cmd['site'] = $lang ;
 				else $cmd['language'] = $lang ;
 				$this->parseValueV1 ( $cols[2] , $cmd ) ;
@@ -994,9 +1007,11 @@ exit ( 1 ) ; // Force bot restart
 				unset ( $cmd['datavalue'] ) ;
 			} else if ( $first == 'CREATE' ) {
 				$cmd = array ( 'action'=>'create' , 'type'=>'item' ) ;
+				if ( $comment != '' ) $cmd['summary'] = $comment ;
 			} else if ( $first == 'STATEMENT' and count($cols) == 2 ) {
 				$id = trim ( $cols[1] ) ;
 				$cmd = array ( 'action'=>$action , 'what'=>'statement' , 'id'=>$id ) ;
+				if ( $comment != '' ) $cmd['summary'] = $comment ;
 			}
 
 			if ( isset($cmd['action']) && !$skip_add_command ) $ret['data']['commands'][] = $cmd ;
