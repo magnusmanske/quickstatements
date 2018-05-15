@@ -938,7 +938,7 @@ exit ( 1 ) ; // Force bot restart
 		foreach ( $rows as $row ) {
 			$row = trim ( $row ) ;
 			$comment = '' ;
-			if ( preg_match ( '/^(.*?)\s*\/\*\s*(.*?)\s*\*\/\s*(.*?)$/' , $row , $m ) ) { // Extract comment as summary
+			if ( preg_match ( '/^(.*?) *\/\* *(.*?) *\*\/ *(.*?)$/' , $row , $m ) ) { // Extract comment as summary
 				$comment = $m[2] ;
 				$row = $m[1] . $m[3] ;
 			}
