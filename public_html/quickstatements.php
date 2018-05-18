@@ -938,9 +938,9 @@ exit ( 1 ) ; // Force bot restart
 		foreach ( $rows as $row ) {
 			$row = trim ( $row ) ;
 			$comment = '' ;
-			if ( preg_match ( '/^(.*?) *\/\* *(.*?) *\*\/ *(.*?)$/' , $row , $m ) ) { // Extract comment as summary
+			if ( preg_match ( '/^(.*?) *\/\* *(.*?) *\*\/ *$/' , $row , $m ) ) { // Extract comment as summary
 				$comment = $m[2] ;
-				$row = $m[1] . $m[3] ;
+				$row = $m[1] ;
 			}
 			$cols = explode ( "\t" , $row ) ;
 			$cmd = array() ;
@@ -1037,6 +1037,10 @@ exit ( 1 ) ; // Force bot restart
         if ( in_array( 'qid', $header ) ) {
             fclose( $stream );
             return; // TODO error message
+        }
+        if ( $header[0] === '#' ) {
+            fclose( $stream );
+            return; // TODO error message: there must be at least one real command before the first comment / summary
         }
 
         while ( ( $row = fgetcsv( $stream ) ) !== false ) {
@@ -1139,6 +1143,9 @@ exit ( 1 ) ; // Force bot restart
                         'value' => $value
                     ];
                     $commands[] = $command;
+                } elseif ( $instruction === '#' ) {
+                    $lastIndex = count( $commands ) - 1;
+                    $commands[$lastIndex]['summary'] = $value;
                 } else {
                     fclose( $stream );
                     return; // TODO error message
