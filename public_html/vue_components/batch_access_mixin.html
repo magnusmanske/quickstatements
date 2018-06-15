@@ -1,0 +1,52 @@
+<script>
+'use strict';
+
+var batch_access_mixin = {
+	data : function () { return { batch_exists:false , meta:{batch:{site:'',id:0,data:{commands:[]},total_commands:0} , commands:{BLOCKED:0,DONE:0,INACTIVE:0,LOCKED:0,STOP:0} } , interval:'' } } ,
+	created : function () {
+		this.meta.batch.site = config.site ;
+		this.clearData() ;
+	} ,
+	methods : {
+		loadBatchInfo : function ( id ) {
+			let me = this ;
+			if ( me.meta.batch.id != id ) me.clearData() ;
+			if ( me.meta.batch.id != 0 && id != 0 && me.interval != '' ) {
+				clearInterval ( me.interval ) ;
+				me.interval = '' ;
+			}
+			return new Promise(function(resolve, reject) {
+	    		id *= 1 ;
+	    		if ( id == 0 ) return reject() ;
+				$.get ( './api.php' , {
+					action:'get_batch_info',
+					batch:id
+				} , function ( d ) {
+//					console.log ( JSON.parse(JSON.stringify(d.data[id])) ) ;
+					let old_data = me.meta.batch.data ;
+					me.meta = d.data[id] ;
+					me.meta.batch.data = old_data ;
+					me.meta.batch.total_commands = 0 ;
+					$.each ( me.meta.commands , function ( k , v ) { me.meta.batch.total_commands += v*1 } ) ;
+		    		me.batch_exists = true ;
+		    		if ( me.meta.batch.status != 'DONE' ) me.startStatusUpdate() ;
+					resolve() ;
+				} , 'json' ) ;
+			} ) ;
+		} ,
+		startStatusUpdate : function () {
+			let me = this ;
+			let seconds = 5 ;
+			if ( me.interval != '' ) return ;
+			me.interval = setInterval ( function () {
+				me.loadBatchInfo ( me.meta.batch.id ) ;
+			} , seconds*1000 ) ;
+		} ,
+		clearData : function () {
+	    	this.meta.site = config.site ;
+	    	this.batch_exists = false ;
+		}
+	}
+}
+
+</script>

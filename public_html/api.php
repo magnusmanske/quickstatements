@@ -92,6 +92,38 @@ if ( $action == 'import' ) {
 		$out['data'] = $qs->getBatchStatus ( $batches ) ;
 	}
 
+} else if ( $action == 'get_commands_from_batch' ) {
+
+	$batch_id = get_request ( 'batch' , 0 ) * 1 ;
+	$start = get_request ( 'start' , 0 ) * 1 ;
+//	$end = get_request ( 'end' , 0 ) * 1 ;
+	$limit = get_request ( 'limit' , 0 ) * 1 ;
+	$filter = get_request ( 'filter' , '' ) ;
+
+	$db = $qs->getDB() ;
+	$sql = "SELECT * FROM command WHERE batch_id={$batch_id} AND num>={$start}" ; // num BETWEEN {$start} AND {$end}
+	if ( $filter != '' ) {
+		$filter = explode ( ',' , $filter ) ;
+		foreach ( $filter AS $k => $v ) {
+			$v = $db->real_escape_string ( trim ( strtoupper ( $v ) ) ) ;
+			$filter[$k] = $v ;
+		}
+		$sql .= " AND status IN ('" . implode("','",$filter) . "')" ;
+	}
+	$sql .= " ORDER BY num LIMIT {$limit}" ;
+
+	$out['sql'] = $sql ;
+	if(!$result = $db->query($sql)) {
+		$out['status'] = $db->error ;
+	} else {
+		$batches = array() ;
+		$out['data'] = [] ;
+		while ( $o = $result->fetch_object() ) {
+			$o->json = json_decode ( $o->json ) ;
+			$out['data'][] = $o ;
+		}
+	}
+
 } else if ( $action == 'run_single_command' ) {
 
 	$qs->last_item = get_request ( 'last_item' , '' ) ;

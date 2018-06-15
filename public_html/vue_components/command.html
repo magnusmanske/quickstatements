@@ -1,0 +1,210 @@
+<style>
+div.command_row {
+	display:flex;
+	flex-direction:row;
+	flex:auto;
+}
+div.command_row:nth-child(even) {
+	background: #EEE;
+}
+div.command_status {
+	display:flex;
+	width:3em;
+}
+div.command_action {
+	width:4em;
+}
+div.command_id {
+	display:flex;
+	width:3em;
+	font-family:monospace;
+	justify-content:right;
+}
+div.command_what {
+	width:6em;
+}
+div.command_auto_grow {
+	display:flex;
+	flex-grow:3;
+	flex-basis:0;
+}
+div.command_part {
+	display:flex;
+	flex-direction: row;
+}
+div.command_part > div {
+	padding-left:2px;
+	padding-right:2px;
+}
+</style>
+
+<template id='datavalue-template'>
+<div style='flex-grow:1'>
+	<div v-if='dv.type=="wikibase-entityid"'>
+		<wd-link :item='dv.value.id' smallq='1'></wd-link>
+	</div>
+	<div v-else-if='dv.type=="globecoordinate"'>
+		<a target='_blank' class='external' :href='"https://maps.wikimedia.org/#7/"+dv.value.latitude+"/"+dv.value.longitude'>{{dv.value.latitude}}/{{dv.value.longitude}}</a>  (on <wd-link :item='dv.value.globe.replace(/^.+\//,"")'></wd-link>)
+	</div>
+	<div v-else-if='dv.type=="quantity"'>
+		{{dv.value.amount}}
+		<span v-if='typeof dv.value.unit!="undefined" && dv.value.unit!="1"'>
+			<wd-link :item='dv.value.unit.replace(/^.+\//,"")'></wd-link>
+		</span>
+	</div>
+	<div v-else-if='dv.type=="monolingualtext"'>
+		<i>{{dv.value.language}}</i>:"<tt>{{dv.value.text}}</tt>"
+	</div>
+	<div v-else-if='dv.type=="string"'>
+		"<tt>{{dv.value}}</tt>"
+	</div>
+	<div v-else-if='dv.type=="time"'>
+		<span v-if='dv.value.precision==11'>
+			{{dv.value.time.replace(/^\+/,'').replace(/T.*$/,'')}}
+		</span>
+		<span v-else-if='dv.value.precision==10'>
+			{{dv.value.time.replace(/^\+/,'').replace(/-\d\dT.*$/,'')}}
+		</span>
+		<span v-else-if='dv.value.precision==9'>
+			{{dv.value.time.replace(/^\+/,'').replace(/-\d\d-\d\dT.*$/,'')}}
+		</span>
+		<span v-else>
+			{{dv.value.time}}
+		</span>
+	</div>
+	<div v-else>
+		{{dv}}
+	</div>
+</div>
+</template>
+
+<template id='command-template'>
+<div class='command_row' :key='command.meta.id'>
+	<div class='command_id'>
+		{{command.meta.id+1}}
+	</div>
+	<div class='command_status' :title='command.meta.message'>
+		<span v-if='typeof command.meta.status!="undefined"'>
+			<span v-if='command.meta.status=="INIT"' class="badge badge-light">{{command.meta.status.toLowerCase()}}</span>
+			<span v-else-if='command.meta.status=="DONE"' class="badge badge-success">{{command.meta.status.toLowerCase()}}</span>
+			<span v-else-if='command.meta.status=="ERROR"' class="badge badge-danger">{{command.meta.status.toLowerCase()}}</span>
+			<span v-else class="badge badge-info">{{command.meta.status.toLowerCase()}}</span>
+		</span>
+		<span v-else>
+			TODO
+		</span>
+	</div>
+
+	<div class='command_auto_grow' style='flex-grow:1'>
+		<div v-if='typeof command.item!="undefined"'>
+			<wd-link v-if='command.item!="LAST"' :item='command.item' smallq='1'></wd-link>
+			<span v-else><i>Last created item</i></span>
+		</div>
+	</div>
+
+	<div>
+		<div v-if='typeof command.action!="undefined"' class='command_action'>
+			<span v-if='command.action.toUpperCase()=="ADD"' class="badge badge-primary">{{command.action.toUpperCase()}}</span>
+			<span v-else-if='command.action.toUpperCase()=="CREATE"' class="badge badge-success">{{command.action.toUpperCase()}}</span>
+			<span v-else-if='command.action.toUpperCase()=="REMOVE"' class="badge badge-danger">{{command.action.toUpperCase()}}</span>
+			<span v-else class="badge badge-light">{{command.action.toUpperCase()}}</span>
+		</div>
+	</div>
+
+	<div v-if='command.action=="add"' class='command_auto_grow'>
+
+		<div v-if='command.what=="statement"' class='command_part'>
+			<div class='command_what'>Statement</div>
+			<div class='command_part2'><wd-link :item='command.property' smallq='1'></wd-link></div>
+			<div>:</div>
+			<datavalue :dv='command.datavalue'></datavalue>
+		</div>
+		<div v-else-if='command.what=="label"' class='command_part'>
+			<div class='command_what'>Label</div>
+			<div><i>{{command.language}}</i>:"<tt>{{command.value}}</tt>"</div>
+		</div>
+		<div v-else-if='command.what=="alias"' class='command_part'>
+			<div class='command_what'>Alias</div>
+			<div><i>{{command.language}}</i>:"<tt>{{command.value}}</tt>"</div>
+		</div>
+		<div v-else-if='command.what=="sitelink"' class='command_part'>
+			<div class='command_what'>Sitelink</div>
+			<div><i>{{command.site}}</i>:"<tt>{{command.value}}</tt>"</div>
+		</div>
+		<div v-else-if='command.what=="description"' class='command_part'>
+			<div class='command_what'>Description</div>
+			<div><i>{{command.language}}</i>:<tt>{{command.value}}</tt></div>
+		</div>
+		<div v-else-if='command.what=="sources"' class='command_part'>
+			<div class='command_what'>Sources to</div>
+			<div><wd-link :item='command.property'></wd-link></div>
+			<div>:</div>
+			<div><datavalue :dv='command.datavalue'></datavalue></div>
+			<div style='margin-right:20px;'></div>
+			<div style='display:flex;flex-direction:column;'>
+				<div v-for='s in command.sources' style='display:flex;flex-direction:row;'>
+					<div><wd-link :item='s.prop' smallq='1'></wd-link></div>
+					<div>:</div>
+					<div><datavalue :dv='s.value'></datavalue></div>
+				</div>
+			</div>
+		</div>
+		<div v-else-if='command.what=="qualifier"' class='command_part'>
+			<div class='command_what'>Qualifier to</div>
+			<div><wd-link :item='command.property'></wd-link></div>
+			<div>:</div>
+			<div><datavalue :dv='command.datavalue'></datavalue></div>
+			<div style='margin-right:20px;'></div>
+			<div><wd-link :item='command.qualifier.prop' smallq='1'></wd-link></div>
+			<div>:</div>
+			<div><datavalue :dv='command.qualifier.value'></datavalue></div>
+		</div>
+		<div v-else><pre>{{command}}</pre></div>
+		<div v-if='typeof command.summary!="undefined" && command.summary!=""' style='margin-left:20px;color:green;font-style:oblique;'>
+			{{command.summary}}
+		</div>
+	</div>
+	<div v-else-if='command.action=="create"' class='command_auto_grow'>
+		<div class='command_what'>{{command.type}}</div>
+	</div>
+	<div v-else-if='command.action=="remove"' class='command_auto_grow'>
+		<div v-if='command.what=="statement"' class='command_part'>
+			<div class='command_what'>Statement</div>
+			<div class='command_part2'><wd-link :item='command.property' smallq='1'></wd-link></div>
+			<div>:</div>
+			<datavalue :dv='command.datavalue'></datavalue>
+		</div>
+	</div>
+	<div v-else class='command_auto_grow'>
+		<div>UNKNOWN COMMAND:</div>
+		{{command}}
+	</div>
+</div>
+</template>
+
+
+<script>
+'use strict';
+
+Vue.component ( 'datavalue' , {
+	props : [ 'dv' ] ,
+	data : function () { return {} } ,
+    created : function () {} ,
+    updated : function () { tt.updateInterface(this.$el) ; } ,
+    mounted : function () {	tt.updateInterface(this.$el) ; } ,
+    methods : {
+    } ,
+    template : '#datavalue-template'
+} ) ;
+
+Vue.component ( 'command' , {
+	props : [ 'command' ] ,
+	data : function () { return {} } ,
+    created : function () {} ,
+    updated : function () { tt.updateInterface(this.$el) ; } ,
+    mounted : function () {	tt.updateInterface(this.$el) ; } ,
+    methods : {
+    } ,
+    template : '#command-template'
+} ) ;
+</script>

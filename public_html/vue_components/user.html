@@ -1,0 +1,66 @@
+<template id='user-template'>
+<div>
+	<span v-if='is_logged_in'>
+		<a :href="'https://www.wikidata.org/wiki/User:'+encodeURIComponent(getUserName())" class='wikidata' target='_blank'>
+			{{getUserName()}}
+		</a>
+	</span>
+	<span v-else>
+		<a href='./api.php?action=oauth_redirect'><span tt='login'></span></a>
+	</span>
+</div>
+</template>
+
+
+<script>
+'use strict';
+
+let user ;
+
+Vue.component ( 'user' , {
+	data : function () { return { userinfo:{} , loaded:false , is_logged_in:false } } ,
+    created : function () {
+   		user = this ; // Global object
+    	this.loadData() ;
+    } ,
+    updated : function () { tt.updateInterface(this.$el) ; } ,
+    mounted : function () { tt.updateInterface(this.$el) ; } ,
+    methods : {
+    	loadData : function () {
+    		let me = this ;
+    		$.get ( './api.php' , {
+    			action:'is_logged_in'
+    		} , function ( d ) {
+// 				console.log(JSON.parse(JSON.stringify(d)));
+    			if ( d.data.is_logged_in ) {
+    				me.userinfo = d.data.query.userinfo ;
+    				me.is_logged_in = true ;
+    			} else {
+    				me.is_logged_in = false ;
+    			}
+    			me.loaded = true ;
+    		} , 'json' ) ;
+    	} ,
+    	isAdmin : function () {
+    		if ( !this.is_logged_in ) return '' ;
+    		return $.inArray ( 'sysop' , this.userinfo.groups ) > -1 ;
+    	} ,
+    	isAutoconfirmed : function () {
+    		if ( !this.is_logged_in ) return '' ;
+    		return $.inArray ( 'autoconfirmed' , this.userinfo.groups ) > -1 ;
+    	} ,
+    	isBlocked : function () { // UNTESTED
+    		if ( typeof this.userinfo.blockid == 'undefined' ) return false ;
+    		return true ;
+    	} ,
+    	canCreateBatch : function () {
+    		return this.is_logged_in && this.isAutoconfirmed() && !this.isBlocked() ;
+    	} ,
+    	getUserName : function () {
+    		if ( !this.is_logged_in ) return '' ;
+    		return this.userinfo.name ;
+    	}
+    },
+	template : '#user-template'
+} ) ;
+</script>

@@ -1,0 +1,145 @@
+<style>
+div.batch_status_header {
+	display:flex;
+}
+div.batch_status_header > div {
+	font-size:14pt;
+	padding:3px;
+}
+</style>
+
+<template id='batch-template'>
+<div>
+	<div v-if='ready' style='margin-bottom:1rem;border-bottom:2px solid #DDD'>
+		
+		<div>
+			<div v-if='batch_exists'>
+				<div class='batch_status_header'>
+					<div>
+						Batch 
+						<span v-if='meta.batch.id!=0'>
+							#{{meta.batch.id}}
+						</span>
+					</div>
+					<div v-if='typeof meta.batch.name!="undefined" && meta.batch.name!=""'>
+						"<tt>{{meta.batch.name}}</tt>"
+					</div>
+					<div>
+						on {{config.sites[meta.batch.site].label}}
+					</div>
+					<div style='flex-grow:1'>
+						by
+						<a :href="'https://www.wikidata.org/wiki/User:'+encodeURIComponent(meta.batch.user_name)" target='_blank' class='wikidata'>
+							{{meta.batch.user_name.replace(/_/g,' ')}}
+						</a>
+					</div>
+				</div>
+				<div class='batch_status_header'>
+					<div>
+						Status: {{meta.batch.status}}
+					</div>
+					<div style='flex-grow:1;'>
+						<div class="progress" style='height:21pt'>
+							<div class="progress-bar bg-success" role="progressbar" :style="'width:'+((meta.commands.DONE||0)*100/meta.batch.total_commands)+'%'" title='DONE'></div>
+							<div class="progress-bar bg-danger" role="progressbar" :style="'width:'+((meta.commands.ERROR||0)*100/meta.batch.total_commands)+'%'" title='ERROR'></div>
+							<div class="progress-bar" role="progressbar" :style="'width:'+((meta.batch.total_commands-(meta.commands.DONE||0)-(meta.commands.ERROR||0))*100/meta.batch.total_commands)+'%'" title='WAITING'></div>
+						</div>
+					</div>
+					<div>{{Number((100-100*(meta.commands.INIT||0)/meta.batch.total_commands).toFixed(1))}}% of {{meta.batch.total_commands}} done</div>
+					<div v-if='(meta.commands.ERROR||0)>0'>, {{(meta.commands.ERROR||0)}} errors</div>
+				</div>
+				<div>
+					<batch-commands :batch='meta.batch' @load-command='loadCommand($event)'></batch-commands>
+				</div>
+			</div>
+			<div v-else-if='user.canCreateBatch()'>
+				<form class='form-inline'>
+					Create new command batch for
+					<select class='form-control' v-model='meta.batch.site' style='margin-left:10px;margin-right:10px'>
+						<option v-for='(sd,sid) in config.sites' :value='sid'>
+							{{sd.label}}
+						</option>
+					</select>
+					as
+					<input type='text' class='form-control' v-model='meta.batch.name' style='margin-left:10px' placeholder='batch name' />
+				</form>
+
+				<div>
+					<textarea v-model='commands' rows=15 class='form-control' style='width:100%;font-family:monospace;'></textarea>
+				</div>
+				<div>
+					<button class='btn btn-outline-primary' @click.prevent='importV1'>Import V1 commands</button>
+					<button class='btn btn-outline-primary' @click.prevent='importCSV'>Import CSV</button>
+				</div>
+
+			</div>
+			<div v-else>
+				You can't create a new batch, because you are
+				<span v-if='!user.is_logged_in'>not logged in</span>
+				<span v-if='!user.isAutoconfirmed()'>not autoconfirmed</span>
+				<span v-if='user.isBlocked()'>blocked on Wikidata</span>
+			</div>
+		</div>
+
+	</div>
+</div>
+</template>
+
+
+<script>
+'use strict';
+
+let BatchPage = Vue.extend ( {
+	props : [ 'batch' ] ,
+	mixins : [ batch_access_mixin ] ,
+	data : function () { return { api:'./api.php' , ready:false , commands:'' } } ,
+    created : function () {
+    	if ( typeof this.batch != 'undefined' ) {
+    		this.loadBatchInfo ( this.batch )
+    		. then ( () => this.ready = true ) ;
+    	} else {
+    		let me = this ;
+    		$.get ( 'test.qs' , function(d){
+    			me.commands = d ;
+    			me.ready = true ;
+    		})
+	    	
+    	}
+    } ,
+    updated : function () { tt.updateInterface(this.$el) ; } ,
+    mounted : function () { tt.updateInterface(this.$el) ; } ,
+    methods : {
+    	importV1 : function () {
+    		var me = this ;
+			$.post ( me.api , {
+				action:'import',
+				data:me.commands,
+				format:'v1',
+				persistent:0,
+			} , function ( d ) {
+				if ( d.status != 'OK' ) {
+					// TODO status/error check
+					return ;
+				}
+				$.each ( d.data.commands , function ( k ,v ) {
+					d.data.commands[k].meta = { message:'' , status:'INIT' , id:k } ;
+				} ) ;
+				me.meta.batch.user_name = user.getUserName() ;
+				me.meta.batch.total_commands = d.data.commands.length ;
+				me.meta.commands = { INIT:me.meta.batch.total_commands } ;
+				me.batch_exists = true ; // ??
+				me.ready = true ;
+				me.meta.batch.data = d.data ;
+			} , 'json' ) ;
+    	} ,
+    	importCSV : function () {
+    		alert ( "NOT SUPPORTED YET" ) ;
+    	} ,
+    	loadCommand : function ( v ) {
+    		Vue.set ( this.meta.batch.data.commands , v.num*1 , v.json ) ;
+//    		console.log(JSON.parse(JSON.stringify(this.meta.batch)));
+    	} ,
+    },
+	template : '#batch-template'
+} ) ;
+</script>

@@ -1,0 +1,43 @@
+<template id='main-page-template'>
+	<div>
+        <div>
+            <p tt='intro'></p>
+            <ul>
+                <li>
+                    <router-link to='/batch'>New batch</router-link>
+                </li>
+                <li>
+                    <form class='form-inline'>
+                        <input class='form-control' type='text' id='batch_id' placeholder='batch number' style='width:10em' v-model='batch_id' />
+                        <input class='btn btn-outline-primary' type='submit' value='See batch details' @click.prevent='showBatch' />
+                    </form>
+                </li>
+            </ul>
+        </div>
+	</div>
+</template>
+
+<script>
+'use strict';
+
+let MainPage = Vue.extend ( {
+        props : ['q'] ,
+        data : function () { return { batch_id:'' } } ,
+        created : function () {
+        } ,
+        updated : function () { tt.updateInterface(this.$el) ; } ,
+        mounted : function () { tt.updateInterface(this.$el) ; } ,
+        methods : {
+            showBatch : function () {
+                var me = this ;
+                let id = me.batch_id * 1 ;
+                if ( id == 0 ) {
+                    $('#batch_id').addClass('is-invalid') ;
+                    return ;
+                }
+                this.$router.push ( '/batch/'+id ) ;
+            }
+        },
+        template:'#main-page-template'
+    } ) ;
+</script>

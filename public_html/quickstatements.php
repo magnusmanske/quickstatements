@@ -444,7 +444,15 @@ class QuickStatements {
 		if ( $d1->type != $d2->type ) return false ;
 		if ( $d1->type == 'string' ) return $d1->value == $d2->value ;
 		if ( $d1->type == 'quantity' ) return $d1->value->amount*1 == $d2->value->amount*1 ;
-		if ( $d1->type == 'time' ) return $d1->value->time == $d2->value->time and $d1->value->calendarmodel == $d2->value->calendarmodel and $d1->value->precision == $d2->value->precision ;
+		if ( $d1->type == 'time' ) {
+			if ( $d1->value->calendarmodel != $d2->value->calendarmodel ) return false ;
+			if ( $d1->value->precision != $d2->value->precision) return false ;
+			# The Leading Zeroes Dance
+			$t1 = preg_replace('/^([+-]{0,1})0*(.+)$/','$1$2',$d1->value->time) ;
+			$t2 = preg_replace('/^([+-]{0,1})0*(.+)$/','$1$2',$d2->value->time) ;
+			if ( $t1 != $t2 ) return false ;
+			return true ;
+		}
 		if ( $d1->type == 'globecoordinate' ) return $d1->value->latitude == $d2->value->latitude and $d1->value->longitude == $d2->value->longitude and $d1->value->globe == $d2->value->globe ;
 		if ( $d1->type == 'monolingualtext' ) return $d1->value->text == $d2->value->text and $d1->value->language == $d2->value->language ;
 
