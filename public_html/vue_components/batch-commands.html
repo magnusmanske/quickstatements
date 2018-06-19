@@ -61,7 +61,7 @@ div.position_button_bar > div {
 Vue.component ( 'batch-commands' , {
 	props : [ 'batch' ] ,
 	mixins : [ batch_helper_mixin ] ,
-	data : function () { return { current_command_ids:[] , view:{is_loaded:false,load_partially:false,position:0,batch_size:10,filter:''} , status:[] , working:false } } ,
+	data : function () { return { current_command_ids:[] , view:{is_loaded:false,load_partially:false,position:0,batch_size:25,filter:''} , status:[] , working:false } } ,
     created : function () {} ,
     updated : function () { tt.updateInterface(this.$el) ; } ,
     mounted : function () {

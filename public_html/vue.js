@@ -37,6 +37,7 @@ $(document).ready ( function () {
           { path: '/batches/:user_name', component: BatchesPage , props:true },
           { path: '/batch', component: BatchPage , props:true },
           { path: '/batch/:batch', component: BatchPage , props:true },
+          { path: '/:url_params', component: MainPage , props:true },
         ] ;
         router = new VueRouter({routes}) ;
         app = new Vue ( { router } ) .$mount('#app') ;

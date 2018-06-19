@@ -66,7 +66,7 @@ div.batch_status_header > div {
 					<batch-commands :batch='meta.batch' @load-command='loadCommand($event)'></batch-commands>
 				</div>
 				<div style='display:flex;flex-direction:row;margin-bottom:0.5rem;'>
-					<div v-if='meta.batch.status=="RUN"'>
+					<div v-if='meta.batch.status=="RUN" || meta.batch.status=="INIT"'>
 						<button v-if='userCanStopBatch()' class='btn btn-outline-danger' @click='stopBatch'>STOP</button>
 						<span v-else>
 							<span tt='original_submitter_hint'></span>
@@ -98,10 +98,10 @@ div.batch_status_header > div {
 					<input type='text' class='form-control' v-model='meta.batch.name' style='margin-left:10px' placeholder='batch name' />
 				</form>
 
-				<div>
+				<div style='margin-top:0.2rem'>
 					<textarea v-model='commands' rows=15 class='form-control' style='width:100%;font-family:monospace;'></textarea>
 				</div>
-				<div>
+				<div style='margin-top:0.2rem'>
 					<button class='btn btn-outline-primary' @click.prevent='importV1' tt='dialog_import_v1'></button>
 					<button class='btn btn-outline-primary' @click.prevent='importCSV' tt='dialog_import_csv'></button>
 				</div>
@@ -131,16 +131,20 @@ let BatchPage = Vue.extend ( {
     	var me = this ;
     	me.run.start_ts = me.getTimestampNow() ;
     	me.run.last_ts = me.getTimestampNow() ;
-    	if ( typeof this.batch != 'undefined' ) {
+    	if ( typeof me.$route.query.tempfile != 'undefined' ) {
+    		me.loadTempFile ( me.$route.query.tempfile ) ;
+    	} else if ( typeof this.batch != 'undefined' ) {
     		this.loadBatchInfo ( this.batch )
     		. then ( () => me.ready = true ) ;
     	} else {
-    		let me = this ;
-    		$.get ( 'test.qs' , function(d){
-    			me.commands = d ;
-    			me.ready = true ;
-    		})
-	    	
+    		if ( 0 ) { // TEST FILE
+	    		$.get ( 'test.qs' , function(d){
+	    			me.commands = d ;
+	    			me.ready = true ;
+	    		})
+	    	} else {
+				me.ready = true ;
+			}
     	}
     } ,
     updated : function () { tt.updateInterface(this.$el) ; } ,
@@ -157,9 +161,36 @@ let BatchPage = Vue.extend ( {
     	}
     } ,
     methods : {
+    	loadTempFile : function ( tmpfile ) {
+    		var me = this ;
+			$.post ( me.api , {
+				action:'load_temp_file',
+				filename:tmpfile
+			} , function ( d ) {
+				history.pushState(null, null, '#/batch'); // MWAHAHAHA!!1!
+				me.processParsedCommands ( d ) ;
+			} , 'json' ) ;
+    	} ,
     	getTimestampNow : function () {
     		let ret = new Date().toISOString() ;
     		return ret.replace ( /\D/g , '' ) ;
+    	} ,
+    	processParsedCommands : function ( d ) {
+    		var me = this ;
+			if ( d.status != 'OK' ) {
+				alert ( "processParsedCommands: " + d.status ) ;
+				return ;
+			}
+			$.each ( d.data.commands , function ( k ,v ) {
+				d.data.commands[k].meta = { message:'' , status:'INIT' , id:k } ;
+			} ) ;
+			me.meta.batch.user_name = user.getUserName() ;
+			me.meta.batch.total_commands = d.data.commands.length ;
+			me.meta.commands = { INIT:me.meta.batch.total_commands } ;
+			me.batch_exists = true ;
+			me.ready = true ;
+			me.meta.batch.data = d.data ;
+			me.generateTemporaryBatchId() ;
     	} ,
     	importV1 : function () {
     		var me = this ;
@@ -170,20 +201,11 @@ let BatchPage = Vue.extend ( {
 				format:'v1',
 				persistent:0,
 			} , function ( d ) {
-				if ( d.status != 'OK' ) {
-					// TODO status/error check
+				if ( d.data.commands.length == 0 ) {
+					alert ( "No valid commands found" ) ;
 					return ;
 				}
-				$.each ( d.data.commands , function ( k ,v ) {
-					d.data.commands[k].meta = { message:'' , status:'INIT' , id:k } ;
-				} ) ;
-				me.meta.batch.user_name = user.getUserName() ;
-				me.meta.batch.total_commands = d.data.commands.length ;
-				me.meta.commands = { INIT:me.meta.batch.total_commands } ;
-				me.batch_exists = true ; // ??
-				me.ready = true ;
-				me.meta.batch.data = d.data ;
-				me.generateTemporaryBatchId() ;
+				me.processParsedCommands ( d ) ;
 			} , 'json' ) ;
     	} ,
     	importCSV : function () {
@@ -210,13 +232,18 @@ let BatchPage = Vue.extend ( {
 					batch:me.meta.batch.id
 				} , function ( d ) {
 					me.loadBatchInfo(me.meta.batch.id) ;
-				} ) ;
+				} , 'json' ) ;
         	}
         } ,
         tryResetErrors : function () {
         	var me = this ;
         	if ( me.meta.batch.id == 0 ) { // In browser
-        		// TODO
+        		$.each ( me.meta.batch.data.commands , function ( k , cmd ) {
+        			if ( typeof cmd.meta == 'undefined' || typeof cmd.meta.status == 'undefined' || cmd.meta.status != 'ERROR' ) return ;
+        			if ( cmd.action == 'CREATE' && typeof cmd.data == 'undefined' ) return ;
+        			if ( typeof cmd.item != 'undefined' && cmd.item == 'LAST' ) return ;
+        			cmd.meta.status = 'INIT' ;
+        		} ) ;
         	} else {
         		$.get ( me.api , {
         			action:'reset_errors',

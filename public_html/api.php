@@ -10,7 +10,7 @@ require_once ( 'quickstatements.php' ) ;
 function fin ( $status = '' ) {
 	global $out ;
 	if ( $status != '' ) $out['status'] = $status ;
-	print json_encode ( $out , JSON_PRETTY_PRINT ) ; // FIXME
+	print json_encode ( $out ) ; // , JSON_PRETTY_PRINT 
 	exit ( 0 ) ;
 }
 
@@ -27,6 +27,7 @@ if ( isset ( $_REQUEST['oauth_verifier'] ) ) {
 if ( $action == 'import' ) {
 
 	$format = get_request ( 'format' , '' ) ;
+	$temporary = get_request ( 'temporary' , false ) ;
 	$persistent = get_request ( 'persistent' , false ) ;
 	$data = get_request ( 'data' , '' ) ;
 	$compress = get_request ( 'compress' , 0 ) * 1 ;
@@ -35,6 +36,25 @@ if ( $action == 'import' ) {
 		$qs->use_command_compression = true ;
 		$out['data']['commands'] = $qs->compressCommands ( $out['data']['commands'] ) ;
 	}
+
+	if ( $temporary ) {
+		$dir = './tmp' ;
+		if ( !file_exists($dir) ) mkdir ( $dir ) ;
+		$filename = tempnam ( $dir , 'qs_' ) ;
+		$handle = fopen($filename, "w");
+		fwrite($handle, json_encode($out) );
+		fclose($handle);
+		$out['data'] = preg_replace ( '/^.+\//' , '' , $filename ) ;
+		fin() ;
+	}
+
+} else if ( $action == 'load_temp_file' ) {
+
+	$dir = './tmp' ;
+	$filename = "{$dir}/" . get_request ( 'filename' , '' ) ;
+	if ( !file_exists($filename) ) fin ( "File '{$filename}' not found." ) ;
+	$out = json_decode ( file_get_contents ( $filename ) ) ;
+	unlink ( $filename ) ; // Only access once!
 
 } else if ( $action == 'oauth_redirect' ) {
 
@@ -94,8 +114,6 @@ if ( $action == 'import' ) {
 	$sql .= " LIMIT $limit" ;
 	if ( $offset != 0 ) $sql .= " OFFSET $offset" ;
 
-//$out['sql'] = $sql ;
-	
 	if(!$result = $db->query($sql)) {
 		$out['status'] = $db->error ;
 	} else {
@@ -108,7 +126,6 @@ if ( $action == 'import' ) {
 
 	$batch_id = get_request ( 'batch' , 0 ) * 1 ;
 	$start = get_request ( 'start' , 0 ) * 1 ;
-//	$end = get_request ( 'end' , 0 ) * 1 ;
 	$limit = get_request ( 'limit' , 0 ) * 1 ;
 	$filter = get_request ( 'filter' , '' ) ;
 
@@ -124,7 +141,6 @@ if ( $action == 'import' ) {
 	}
 	$sql .= " ORDER BY num LIMIT {$limit}" ;
 
-//	$out['sql'] = $sql ;
 	if(!$result = $db->query($sql)) {
 		$out['status'] = $db->error ;
 	} else {

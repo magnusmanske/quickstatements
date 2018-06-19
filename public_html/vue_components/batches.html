@@ -34,7 +34,7 @@
 				</td>
 				<td>
 					<div>
-						<span v-if='b.batch.status=="RUN"'><b tt='running'></b></span>
+						<span v-if='b.batch.status=="RUN" || b.batch.status=="INIT"'><b tt='running'></b></span>
 						<span v-else>{{b.batch.status}}</span>
 					</div>
 					<div>
@@ -46,12 +46,12 @@
 				<td>
 					{{formatDate(b.batch.ts_last_change)}}
 				</td>
-				<td>
-					<div v-if='b.batch.status=="RUN" && userCanStopBatch(b.batch)'>
-						<button class='btn btn-outline-danger' tt='stop' @click='stopBatch(b)'></button>
-					</div>
+				<td style='display:flex;flex-direction:row'>
 					<div>
 						<a target='_blank' class='btn btn-outline-dark' :href='"https://tools.wmflabs.org/editgroups/b/QSv2/"+b.batch.id' tt='revert_batch'></a>
+					</div>
+					<div v-if='(b.batch.status=="RUN"||b.batch.status=="INIT") && userCanStopBatch(b.batch)'>
+						<button class='btn btn-outline-danger' tt='stop' @click='stopBatch(b)'></button>
 					</div>
 				</td>
 			</tr>
@@ -71,9 +71,11 @@ let BatchesPage = Vue.extend ( {
         	DONE:'success',
         	ERROR:'danger',
         	RUN:'info'
-        } , working:false } } ,
+        } , working:false , interval:'' , update_interval_ms:5000 } } ,
         created : function () {
-        	this.loadBatches () ;
+        	var me = this ;
+        	me.loadBatches () ;
+        	me.interval = setInterval ( me.loadBatches , me.update_interval_ms ) ;
         } ,
         updated : function () { tt.updateInterface(this.$el) ; } ,
         mounted : function () { tt.updateInterface(this.$el) ; } ,
@@ -84,7 +86,14 @@ let BatchesPage = Vue.extend ( {
         	stopBatch : function ( b ) {
         		var me = this ;
         		let batch_id = b.batch.id ;
-        		// TODO
+				$.post ( 'api.php' , {
+					action:'stop_batch',
+					batch:batch_id
+				} , function ( d ) {
+					if ( d.status == 'OK' ) b.batch.status = 'STOP' ;
+					else b.batch.status = '???' ;
+				} , 'json' ) ;
+
         	} ,
 	        userCanStopBatch : function ( batch ) {
 	        	var me = this ;
@@ -95,7 +104,6 @@ let BatchesPage = Vue.extend ( {
             loadBatches : function () {
                 var me = this ;
                 me.working = true ;
-                me.batches = {} ;
                 let params = { action:'get_batches_info' } ;
                 if ( typeof me.user_name != "undefined" ) params.user = me.user_name ;
                 $.get ( './api.php' , params , function ( d ) {
