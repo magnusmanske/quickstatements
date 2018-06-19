@@ -135,12 +135,13 @@ class QuickStatements {
 		return $this->user_id ;
 	}
 	
-	public function addBatch ( $commands , $user_id , $name = '' ) {
+	public function addBatch ( $commands , $user_id , $name = '' , $site = '' ) {
+		if ( $site == '' ) $site = $this->config->site ;
 		if ( count($commands) == 0 ) return $this->setErrorMessage ( 'No commands' ) ;
 		if ( $this->use_command_compression ) $commands = $this->compressCommands ( $commands ) ;
 		$db = $this->getDB() ;
 		$ts = $this->getCurrentTimestamp() ;
-		$sql = "INSERT INTO batch (name,user,ts_created,ts_last_change,status) VALUES ('".$db->real_escape_string($name)."',$user_id,'$ts','$ts','LOADING')" ;
+		$sql = "INSERT INTO batch (name,user,site,ts_created,ts_last_change,status) VALUES ('".$db->real_escape_string($name)."',$user_id,'".$db->real_escape_string($site)."','$ts','$ts','LOADING')" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		$batch_id = $db->insert_id ;
 		foreach ( $commands AS $k => $c ) {
@@ -377,7 +378,8 @@ class QuickStatements {
 		$sql = "SELECT * FROM batch WHERE id=$batch_id" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		$batch = $result->fetch_object() ;
-		
+
+//		if ( !isset($this->user_id) ) $this->user_id = $this->getCurrentUserID() ;
 		if ( $batch->user == $this->user_id ) return true ; // User who submitted the batch
 		
 		foreach ( $this->user_groups AS $k => $v ) {
@@ -471,7 +473,7 @@ class QuickStatements {
 	public function compressCommands ( $commands ) {
 		if ( !$this->use_command_compression ) return $commands ;
 		if ( count($commands) < 2 ) return $commands ; // Nothing to do
-	
+
 		$out = array ( $commands[0] ) ;
 		for ( $pos = 1 ; $pos < count($commands) ; $pos++ ) {
 			if ( $commands[$pos] == 'SKIP' ) continue ;
@@ -604,8 +606,9 @@ class QuickStatements {
 			$x = $api->postRequest( new \Mediawiki\Api\SimpleRequest( $action, $params ) );
 			if ( isset($x) ) {
 				$this->last_result = json_decode ( json_encode ( $x ) ) ; // Casting to object
+			} else {
+//				return false ; // TODO is that correct?
 			}
-//			} else return false ; // TODO is that correct?
 		} catch (Exception $e) {
 			$msg = $e->getMessage() ;
 			if ( $msg == 'The save has failed.' ) {
@@ -648,7 +651,9 @@ class QuickStatements {
 			}
 		} else {
 			$command->status = 'error' ;
-			if ( isset($result->error) and isset($result->error->info) ) {
+			if ( !isset($result) or $result === null or $result == '' ) {
+				$command->message = 'No result received for ' . json_encode($params) ;
+			} else if ( isset($result->error) and isset($result->error->info) ) {
 				$command->message = $result->error->info ;
 				if ( preg_match ( '/Invalid CSRF token/' , $result->error->info ) ) {
 exit ( 1 ) ; // Force bot restart

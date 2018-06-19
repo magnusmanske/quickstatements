@@ -17,6 +17,7 @@ div.command_action {
 div.command_id {
 	display:flex;
 	width:3em;
+	margin-right:0.1rem;
 	font-family:monospace;
 	justify-content:right;
 }
@@ -35,6 +36,17 @@ div.command_part {
 div.command_part > div {
 	padding-left:2px;
 	padding-right:2px;
+}
+div.qualifier_or_reference_column {
+	display:flex;
+	flex-direction:column;
+	margin-left:1rem;
+	padding-left:0.1rem;
+	border-left:1px dotted #BBB;
+}
+div.qualifier_or_reference_column > div {
+	display:flex;
+	flex-direction:column;
 }
 </style>
 
@@ -93,6 +105,7 @@ div.command_part > div {
 		<span v-else>
 			TODO
 		</span>
+		<span v-if='typeof command.meta.message!="undefined" && command.meta.message!=""'>!</span>
 	</div>
 
 	<div class='command_auto_grow' style='flex-grow:1'>
@@ -137,7 +150,7 @@ div.command_part > div {
 		</div>
 		<div v-else-if='command.what=="sources"' class='command_part'>
 			<div class='command_what'>Sources to</div>
-			<div><wd-link :item='command.property'></wd-link></div>
+			<div><wd-link :item='command.property' smallq='1'></wd-link></div>
 			<div>:</div>
 			<div><datavalue :dv='command.datavalue'></datavalue></div>
 			<div style='margin-right:20px;'></div>
@@ -151,7 +164,7 @@ div.command_part > div {
 		</div>
 		<div v-else-if='command.what=="qualifier"' class='command_part'>
 			<div class='command_what'>Qualifier to</div>
-			<div><wd-link :item='command.property'></wd-link></div>
+			<div><wd-link :item='command.property' smallq='1'></wd-link></div>
 			<div>:</div>
 			<div><datavalue :dv='command.datavalue'></datavalue></div>
 			<div style='margin-right:20px;'></div>
@@ -164,8 +177,44 @@ div.command_part > div {
 			{{command.summary}}
 		</div>
 	</div>
-	<div v-else-if='command.action=="create"' class='command_auto_grow'>
-		<div class='command_what'>{{command.type}}</div>
+	<div v-else-if='command.action=="create" && command.type=="item"' class='command_auto_grow'>
+		<div class='command_what'>Item</div>
+		<div class='command_part' v-if='typeof command.data!="undefined"'>
+			<div style='display:flex;flex-direction:column;'>
+				<div v-for='x in (command.data.labels||[])'><i>{{x.language}}</i>:<tt>{{x.value}}</tt></div>
+				<div v-for='x in (command.data.aliases||[])'>
+					<div v-for='y in x'><i>{{y.language}}</i>:<tt>{{y.value}}</tt></div>
+				</div>
+				<div v-for='x in (command.data.descriptions||[])'><i>{{x.language}}</i>:<tt>{{x.value}}</tt></div>
+				<div v-for='x in (command.data.claims||[])' style='display:flex;flex-direction:row;'>
+					<div><wd-link :item='x.mainsnak.property' smallq='1'></wd-link></div>
+					<div>:</div>
+					<div><datavalue :dv='x.mainsnak.datavalue'></datavalue></div>
+
+					<div v-if='typeof x.qualifiers!="undefined"' class='qualifier_or_reference_column'>
+						<div v-for='qualifier in x.qualifiers' style='display:flex;flex-direction:row'>
+							<div><wd-link :item='qualifier.property' smallq='1'></wd-link></div>
+							<div>:</div>
+							<div><datavalue :dv='qualifier.datavalue'></datavalue></div>
+						</div>
+					</div>
+
+					<div v-if='typeof x.references!="undefined"' class='qualifier_or_reference_column'>
+						<div v-for='refgroup in x.references'>
+							<div v-for='(refs,rprop) in refgroup.snaks' style='display:flex;flex-direction:row'>
+								<div><wd-link :item='rprop' smallq='1'></wd-link></div>
+								<div>:</div>
+								<div style='display:flex;flex-direction:column'>
+									<div v-for='ref in refs'><datavalue :dv='ref.datavalue'></datavalue></div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+				</div>
+				<div v-for='x in (command.data.sitelinks||[])'><i>{{x.site}}</i>:<tt>{{x.title}}</tt></div>
+			</div>
+		</div>
 	</div>
 	<div v-else-if='command.action=="remove"' class='command_auto_grow'>
 		<div v-if='command.what=="statement"' class='command_part'>

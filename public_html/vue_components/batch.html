@@ -10,13 +10,13 @@ div.batch_status_header > div {
 
 <template id='batch-template'>
 <div>
-	<div v-if='ready' style='margin-bottom:1rem;border-bottom:2px solid #DDD'>
+	<div v-if='ready'>
 		
 		<div>
 			<div v-if='batch_exists'>
 				<div class='batch_status_header'>
 					<div>
-						Batch 
+						<span tt='batch'></span> 
 						<span v-if='meta.batch.id!=0'>
 							#{{meta.batch.id}}
 						</span>
@@ -25,36 +25,70 @@ div.batch_status_header > div {
 						"<tt>{{meta.batch.name}}</tt>"
 					</div>
 					<div>
-						on {{config.sites[meta.batch.site].label}}
+						<span tt='on'></span> {{config.sites[meta.batch.site].label}}
 					</div>
-					<div style='flex-grow:1'>
-						by
+					<div>
+						<span tt='by'></span>
 						<a :href="'https://www.wikidata.org/wiki/User:'+encodeURIComponent(meta.batch.user_name)" target='_blank' class='wikidata'>
 							{{meta.batch.user_name.replace(/_/g,' ')}}
 						</a>
+						[<router-link :to='"/batches/"+meta.batch.user_name' tt='batches'></router-link>]
 					</div>
+					<div v-if='(meta.commands.DONE||0)>0'>
+						<span v-if='meta.batch.id==0'>
+							<a target='_blank' class='external' :href='getUserEditsURL'>Show edits for this batch</a>
+						</span>
+						<span v-else>
+							<a target='_blank' class='external' :href='"https://tools.wmflabs.org/editgroups/b/QSv2/"+meta.batch.id' tt='revert_batch'></a>
+						</span>
+					</div>
+					<div style='flex-grow:1'></div>
 				</div>
 				<div class='batch_status_header'>
 					<div>
-						Status: {{meta.batch.status}}
+						<span tt='status'></span>: {{meta.batch.status}}
 					</div>
 					<div style='flex-grow:1;'>
 						<div class="progress" style='height:21pt'>
-							<div class="progress-bar bg-success" role="progressbar" :style="'width:'+((meta.commands.DONE||0)*100/meta.batch.total_commands)+'%'" title='DONE'></div>
-							<div class="progress-bar bg-danger" role="progressbar" :style="'width:'+((meta.commands.ERROR||0)*100/meta.batch.total_commands)+'%'" title='ERROR'></div>
-							<div class="progress-bar" role="progressbar" :style="'width:'+((meta.batch.total_commands-(meta.commands.DONE||0)-(meta.commands.ERROR||0))*100/meta.batch.total_commands)+'%'" title='WAITING'></div>
+							<div class="progress-bar bg-success" role="progressbar" :style="'width:'+((meta.commands.DONE||0)*100/meta.batch.total_commands)+'%'" tt_title='done'></div>
+							<div class="progress-bar bg-danger" role="progressbar" :style="'width:'+((meta.commands.ERROR||0)*100/meta.batch.total_commands)+'%'" tt_title='error'></div>
+							<div class="progress-bar" role="progressbar" :style="'width:'+((meta.batch.total_commands-(meta.commands.DONE||0)-(meta.commands.RUN||0)-(meta.commands.ERROR||0))*100/meta.batch.total_commands)+'%'" tt_title='waiting'></div>
 						</div>
 					</div>
-					<div>{{Number((100-100*(meta.commands.INIT||0)/meta.batch.total_commands).toFixed(1))}}% of {{meta.batch.total_commands}} done</div>
-					<div v-if='(meta.commands.ERROR||0)>0'>, {{(meta.commands.ERROR||0)}} errors</div>
+					<div>
+						{{Number((100*((meta.commands.DONE||0)*1+(meta.commands.ERROR||0)*1)/meta.batch.total_commands).toFixed(1))}}%
+						({{Number((meta.commands.DONE||0)*1+(meta.commands.RUN||0)*1).toFixed(0)}})
+						<span tt='of'></span> {{meta.batch.total_commands}} <span tt='done'></span>
+					</div>
+					<div v-if='(meta.commands.ERROR||0)>0'>, {{(meta.commands.ERROR||0)}} <span tt='errors'></span></div>
 				</div>
-				<div>
+				<div style='margin-top:0.5rem;padding-top:0.5rem;border-top:2px solid #DDD'>
 					<batch-commands :batch='meta.batch' @load-command='loadCommand($event)'></batch-commands>
+				</div>
+				<div style='display:flex;flex-direction:row;margin-bottom:0.5rem;'>
+					<div v-if='meta.batch.status=="RUN"'>
+						<button v-if='userCanStopBatch()' class='btn btn-outline-danger' @click='stopBatch'>STOP</button>
+						<span v-else>
+							<span tt='original_submitter_hint'></span>
+							<span v-if='!user.is_logged_in'>
+								<span tt='admin_hint'></span> <a href='./api.php?action=oauth_redirect'><span tt='login'></span></a>!
+							</span>
+						</span>
+					</div>
+					<div v-else>
+						<span v-if='user.canRunBatch()'>
+							<button v-if='(meta.commands.INIT||0)>0 && meta.batch.id==0' class='btn btn-outline-primary' tt='run' @click='runBatchDirectly'></button>
+							<button v-if='(meta.commands.ERROR||0)>0 && meta.batch.status=="DONE"' class='btn btn-outline-success' @click='tryResetErrors'>Try to reset errors</button>
+						</span>
+						<span v-if='user.canSubmitBatch() && !run.is_running_in_browser && (meta.commands.INIT||0)>0'>
+							<button v-if='' class='btn btn-outline-primary' tt='run_background' @click='runBatchInBackground'></button>
+						</span>
+					</div>
 				</div>
 			</div>
 			<div v-else-if='user.canCreateBatch()'>
 				<form class='form-inline'>
-					Create new command batch for
+					<span tt='create_new_batch'></span>
 					<select class='form-control' v-model='meta.batch.site' style='margin-left:10px;margin-right:10px'>
 						<option v-for='(sd,sid) in config.sites' :value='sid'>
 							{{sd.label}}
@@ -68,8 +102,8 @@ div.batch_status_header > div {
 					<textarea v-model='commands' rows=15 class='form-control' style='width:100%;font-family:monospace;'></textarea>
 				</div>
 				<div>
-					<button class='btn btn-outline-primary' @click.prevent='importV1'>Import V1 commands</button>
-					<button class='btn btn-outline-primary' @click.prevent='importCSV'>Import CSV</button>
+					<button class='btn btn-outline-primary' @click.prevent='importV1' tt='dialog_import_v1'></button>
+					<button class='btn btn-outline-primary' @click.prevent='importCSV' tt='dialog_import_csv'></button>
 				</div>
 
 			</div>
@@ -92,11 +126,14 @@ div.batch_status_header > div {
 let BatchPage = Vue.extend ( {
 	props : [ 'batch' ] ,
 	mixins : [ batch_access_mixin ] ,
-	data : function () { return { api:'./api.php' , ready:false , commands:'' } } ,
+	data : function () { return { api:'./api.php' , ready:false , commands:'' , run:{is_running_in_browser:false,last_item:'',temp_id:'',start_ts:'',last_ts:''} , direct_command_delay_ms:1000 } } ,
     created : function () {
+    	var me = this ;
+    	me.run.start_ts = me.getTimestampNow() ;
+    	me.run.last_ts = me.getTimestampNow() ;
     	if ( typeof this.batch != 'undefined' ) {
     		this.loadBatchInfo ( this.batch )
-    		. then ( () => this.ready = true ) ;
+    		. then ( () => me.ready = true ) ;
     	} else {
     		let me = this ;
     		$.get ( 'test.qs' , function(d){
@@ -108,12 +145,28 @@ let BatchPage = Vue.extend ( {
     } ,
     updated : function () { tt.updateInterface(this.$el) ; } ,
     mounted : function () { tt.updateInterface(this.$el) ; } ,
+    computed : {
+    	getUserEditsURL : function () {
+    		var me = this ;
+    		return "https://tools.wmflabs.org/wikidata-todo/user_edits.php?sparql=&pattern="
+    			+encodeURIComponent(me.run.temp_id)
+    			+"&user="+encodeURIComponent(user.getUserName())
+    			+"&start="+me.run.start_ts
+    			+"&end="+me.run.last_ts
+    			+"&doit=Do+it&format=html" ;
+    	}
+    } ,
     methods : {
+    	getTimestampNow : function () {
+    		let ret = new Date().toISOString() ;
+    		return ret.replace ( /\D/g , '' ) ;
+    	} ,
     	importV1 : function () {
     		var me = this ;
 			$.post ( me.api , {
 				action:'import',
 				data:me.commands,
+				compress:1,
 				format:'v1',
 				persistent:0,
 			} , function ( d ) {
@@ -130,6 +183,7 @@ let BatchPage = Vue.extend ( {
 				me.batch_exists = true ; // ??
 				me.ready = true ;
 				me.meta.batch.data = d.data ;
+				me.generateTemporaryBatchId() ;
 			} , 'json' ) ;
     	} ,
     	importCSV : function () {
@@ -139,6 +193,160 @@ let BatchPage = Vue.extend ( {
     		Vue.set ( this.meta.batch.data.commands , v.num*1 , v.json ) ;
 //    		console.log(JSON.parse(JSON.stringify(this.meta.batch)));
     	} ,
+        userCanStopBatch : function () {
+        	var me = this ;
+            if ( user.isAdmin() ) return true ;
+            if ( me.run.is_running_in_browser ) return true ;
+            if ( user.getUserName() == me.meta.batch.user_name ) return true ;
+            return false ;
+        } ,
+        stopBatch : function () {
+        	var me = this ;
+        	if ( me.meta.batch.id == 0 ) { // In browser
+        		me.meta.batch.status = 'STOP' ;
+        	} else {
+				$.post ( me.api , {
+					action:'stop_batch',
+					batch:me.meta.batch.id
+				} , function ( d ) {
+					me.loadBatchInfo(me.meta.batch.id) ;
+				} ) ;
+        	}
+        } ,
+        tryResetErrors : function () {
+        	var me = this ;
+        	if ( me.meta.batch.id == 0 ) { // In browser
+        		// TODO
+        	} else {
+        		$.get ( me.api , {
+        			action:'reset_errors',
+        			batch_id:me.meta.batch.id
+        		} , function ( d ) {
+					if ( d.status != 'OK' ) {
+						alert ( d.status ) ;
+						console.log ( d ) ;
+						return ;
+					}
+					if ( d.init == 0 ) {
+						alert ( "No failed commands could be reset" ) ;
+						return ;
+					}
+        			me.meta.batch.data.commands = [] ;
+        			me.clearData() ;
+        			me.loadBatchInfo(me.meta.batch.id) ;
+        		} , 'json' ) ;
+        	}
+        } ,
+        generateTemporaryBatchId : function () {
+        	var me = this ;
+        	me.run.temp_id = '#temporary_batch_' + Date.now() ;//+ '_' + user.getUserName().replace(/\s/,'_') ;
+        } ,
+
+        runNextCommand : function () {
+        	var me = this ;
+        	if ( me.meta.batch.status != 'RUN' ) return ; // Done
+        	let command_id = -1 ;
+        	$.each ( me.meta.batch.data.commands , function ( id , command ) {
+        		if ( command.meta.status != 'INIT' ) return ;
+        		command_id = id ;
+        		return false ;
+        	} ) ;
+        	if ( command_id == -1 ) {
+        		me.meta.batch.status = 'DONE' ;
+        		return ;
+        	}
+
+        	me.runSingleCommand ( command_id ) ;
+        } ,
+		runSingleCommand : function ( cmdnum ) {
+			var me = this ;
+			let cmd = me.meta.batch.data.commands[cmdnum] ;
+			Vue.set ( me.meta.commands , 'INIT' , (me.meta.commands.INIT||0)-1 ) ;
+			Vue.set ( me.meta.commands , 'RUN' , (me.meta.commands.RUN||0)+1 ) ;
+			me.meta.batch.data.commands[cmdnum].meta.status = 'RUN' ;
+
+			let j = JSON.parse(JSON.stringify(cmd)) ;
+			let original_summary = j.summary ;
+			if ( typeof j.summary == 'undefined' ) j.summary = me.run.temp_id ;
+			else j.summary = me.run.temp_id + "; " + j.summary ;
+
+			$.post ( me.api , {
+				action:'run_single_command',
+				command : JSON.stringify(j) ,
+				site : me.meta.batch.site ,
+				last_item : me.run.last_item
+			} , function ( d ) {
+				if ( typeof d.command.message != 'undefined' ) d.command.meta.message = d.command.message ;
+				d.command.summary = original_summary ; // To remove the temporary_batch
+				Vue.set( me.meta.batch.data.commands, cmdnum, d.command ) ;
+//				console.log(JSON.parse(JSON.stringify(d)));
+				if ( typeof d.command.item != 'undefined' ) me.run.last_item = d.command.item ;
+				me.meta.commands.RUN-- ;
+				if ( d.status == 'OK' ) {
+					me.meta.batch.data.commands[cmdnum].meta.status = 'DONE' ;
+					Vue.set ( me.meta.commands , 'DONE' , (me.meta.commands.DONE||0)+1 ) ;
+				} else {
+					me.meta.batch.data.commands[cmdnum].meta.status = 'ERROR' ;
+					Vue.set ( me.meta.commands , 'ERROR' , (me.meta.commands.ERROR||0)+1 ) ;
+				}
+				setTimeout ( function () { me.runNextCommand() } , me.direct_command_delay_ms ) ;
+				me.run.last_ts = me.getTimestampNow() ;
+			} , 'json' ) ;
+		} ,
+    	runBatchDirectly : function () {
+    		var me = this ;
+    		if ( !me.startRun(true) ) return ;
+    		me.run.last_item = '' ;
+    		me.runNextCommand() ;
+    	} ,
+
+
+        startRun : function ( is_running_in_browser ) {
+        	var me = this ;
+        	if ( me.meta.batch.status == 'RUN' ) return false ;
+        	me.run.is_running_in_browser = is_running_in_browser ;
+        	Vue.set ( me.meta.batch , 'status' , 'RUN' ) ;
+        	return true ;
+        } ,
+
+    	runBatchInBackground : function () {
+    		var me = this ;
+    		if ( !me.startRun(false) ) return ;
+    		if ( me.meta.batch.id > 0 ) {
+    			let params = { action:'start_batch' , batch:me.meta.batch.id } ;
+				$.get ( me.api , params , function ( d ) {
+					if ( d.status != 'OK' ) {
+						alert ( d.status ) ;
+						console.log ( d ) ;
+						return ;
+					}
+					me.loadBatchInfo(me.meta.batch.id) ;
+				} , 'json' ) ;
+				return ;
+    		}
+
+    		if ( me.meta.batch.name == '' ) {
+				var res = prompt ( 'Enter a name for this batch (optional)' , '' ) ;
+				if ( res != '' ) me.meta.batch.name = res ;
+			}
+
+    		let params = {
+				action:'run_batch',
+				name:me.meta.batch.name,
+				site:me.meta.batch.site,
+				commands : JSON.stringify(me.meta.batch.data.commands)
+			} ;
+			$.post ( me.api , params , function ( d ) {
+				if ( d.status != 'OK' ) {
+					alert ( d.status ) ;
+					console.log ( d ) ;
+					return ;
+				}
+				me.$router.push ( '/batch/'+d.batch_id );
+			} , 'json' ) ;
+
+    	} ,
+
     },
 	template : '#batch-template'
 } ) ;

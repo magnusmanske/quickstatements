@@ -12,6 +12,12 @@
                         <input class='btn btn-outline-primary' type='submit' value='See batch details' @click.prevent='showBatch' />
                     </form>
                 </li>
+                <li>
+                    <form class='form-inline'>
+                        <input class='form-control' type='text' id='user_name' placeholder='user name' style='width:10em' v-model='username' />
+                        <input class='btn btn-outline-primary' type='submit' value='See batches by user' @click.prevent='showBatchesByUser' />
+                    </form>
+                </li>
             </ul>
         </div>
 	</div>
@@ -22,12 +28,20 @@
 
 let MainPage = Vue.extend ( {
         props : ['q'] ,
-        data : function () { return { batch_id:'' } } ,
+        data : function () { return { batch_id:'',username:'' } } ,
         created : function () {
         } ,
         updated : function () { tt.updateInterface(this.$el) ; } ,
         mounted : function () { tt.updateInterface(this.$el) ; } ,
         methods : {
+            showBatchesByUser : function () {
+                var me = this ;
+                if ( $.trim(me.username) == '' ) {
+                    $('#user_name').addClass('is-invalid') ;
+                    return ;
+                }
+                this.$router.push ( '/batches/'+encodeURIComponent(me.username.replace(/_/g,' ')) ) ;
+            } ,
             showBatch : function () {
                 var me = this ;
                 let id = me.batch_id * 1 ;

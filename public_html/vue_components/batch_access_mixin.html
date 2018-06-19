@@ -1,8 +1,28 @@
 <script>
 'use strict';
 
+var batch_helper_mixin = {
+	methods : {
+    	precacheLabels : function ( data ) {
+    		var me = this ;
+			return new Promise(function(resolve, reject) {
+				let to_cache = {} ;
+				$.each ( data , function ( dummy , cmd ) {
+					if ( typeof cmd == 'undefined' ) return ;
+					let j = cmd ;
+					if ( typeof j.json != 'undefined' ) j = j.json ;
+					if ( typeof j.item != 'undefined' ) to_cache[j.item] = 1 ;
+					if ( typeof j.property != 'undefined' ) to_cache[j.property] = 1 ;
+					if ( typeof j.datavalue != 'undefined' && j.datavalue.type == 'wikibase-entityid' ) to_cache[j.datavalue.value.id] = 1 ;
+				} ) ;
+				wd.getItemBatch ( Object.keys(to_cache) , resolve )
+			} ) ;
+    	} ,
+	}
+} ;
+
 var batch_access_mixin = {
-	data : function () { return { batch_exists:false , meta:{batch:{site:'',id:0,data:{commands:[]},total_commands:0} , commands:{BLOCKED:0,DONE:0,INACTIVE:0,LOCKED:0,STOP:0} } , interval:'' } } ,
+	data : function () { return { batch_exists:false , meta:{batch:{site:'',name:'',id:0,data:{commands:[]},total_commands:0} , commands:{INIT:0,BLOCKED:0,DONE:0,INACTIVE:0,LOCKED:0,STOP:0} } , interval:'' } } ,
 	created : function () {
 		this.meta.batch.site = config.site ;
 		this.clearData() ;

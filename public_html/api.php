@@ -7,6 +7,13 @@ header("Cache-Control: no-cache, must-revalidate");
 
 require_once ( 'quickstatements.php' ) ;
 
+function fin ( $status = '' ) {
+	global $out ;
+	if ( $status != '' ) $out['status'] = $status ;
+	print json_encode ( $out , JSON_PRETTY_PRINT ) ; // FIXME
+	exit ( 0 ) ;
+}
+
 $qs = new QuickStatements ;
 $out = array ( 'status' => 'OK' ) ;
 $action = get_request ( 'action' , '' ) ;
@@ -22,7 +29,12 @@ if ( $action == 'import' ) {
 	$format = get_request ( 'format' , '' ) ;
 	$persistent = get_request ( 'persistent' , false ) ;
 	$data = get_request ( 'data' , '' ) ;
+	$compress = get_request ( 'compress' , 0 ) * 1 ;
 	$out = $qs->importData ( $data , $format , $persistent ) ;
+	if ( $compress ) {
+		$qs->use_command_compression = true ;
+		$out['data']['commands'] = $qs->compressCommands ( $out['data']['commands'] ) ;
+	}
 
 } else if ( $action == 'oauth_redirect' ) {
 
@@ -112,7 +124,7 @@ if ( $action == 'import' ) {
 	}
 	$sql .= " ORDER BY num LIMIT {$limit}" ;
 
-	$out['sql'] = $sql ;
+//	$out['sql'] = $sql ;
 	if(!$result = $db->query($sql)) {
 		$out['status'] = $db->error ;
 	} else {
@@ -125,6 +137,9 @@ if ( $action == 'import' ) {
 	}
 
 } else if ( $action == 'run_single_command' ) {
+
+	$site = strtolower ( trim ( get_request ( 'site' , '' ) ) ) ;
+	if ( !$site != '' ) $qs->config->site = $site ;
 
 	$qs->last_item = get_request ( 'last_item' , '' ) ;
 	$command = json_decode ( get_request ( 'command' , '' ) ) ;
@@ -142,7 +157,7 @@ if ( $action == 'import' ) {
 	$batch_id = get_request ( 'batch' , 0 ) * 1 ;
 	
 	$res = false ;
-	if ( $action == 'start_batch' ) $res = $qs->userChangeBatchStatus ( $batch_id , 'RUN' ) ;
+	if ( $action == 'start_batch' ) $res = $qs->userChangeBatchStatus ( $batch_id , 'INIT' ) ;
 	if ( $action == 'stop_batch' )  $res = $qs->userChangeBatchStatus ( $batch_id , 'STOP' ) ;
 	
 	if ( !$res ) {
@@ -153,11 +168,12 @@ if ( $action == 'import' ) {
 
 	$user_id = $qs->getCurrentUserID() ;
 	$name = trim ( get_request ( 'name' , '' ) ) ;
+	$site = strtolower ( trim ( get_request ( 'site' , '' ) ) ) ;
 	if ( $user_id === false ) {
 		$out['status'] = $qs->last_error_message ;
 	} else {
 		$commands = json_decode ( get_request('commands','[]') ) ;
-		$batch_id = $qs->addBatch ( $commands , $user_id , $name ) ;
+		$batch_id = $qs->addBatch ( $commands , $user_id , $name , $site ) ;
 		if ( $batch_id === false ) {
 			$out['status'] = $qs->last_error_message ;
 		} else {
@@ -172,8 +188,41 @@ if ( $action == 'import' ) {
 	$out['id'] = $id ;
 	$out['data'] = $qs->getBatch ( $id ) ;
 
+} else if ( $action == 'reset_errors' ) {
+
+	$batch_id = get_request ( 'batch_id' , 0 ) * 1 ;
+	if ( $batch_id <= 0 ) fin("Bad batch ID #{$batch_id}") ;
+
+	$out['init'] = 0 ;
+	$db = $qs->getDB() ;
+	$sql = "SELECT * FROM command WHERE batch_id={$batch_id} AND `status`='ERROR'" ;
+	if(!$result = $db->query($sql)) fin($db->error) ;
+
+	$ids = [] ;
+	while ( $o = $result->fetch_object() ) {
+		if ( stristr($o->message,'no-such-entity') ) continue ; // No such item exists, no point in re-trying
+		if ( !isset($o->json) ) continue ; // No actual command
+		$j = @json_decode ( $o->json ) ;
+		if ( !isset($j) or $j === null ) continue ; // Bad JSON
+		if ( isset($j->item) and $j->item == 'LAST' ) continue ; // Don't know which item to re-apply for
+		if ( isset($j->action) and $j->action == 'CREATE' and !isset($j->data) ) continue ; // Empty CREATE command
+		$ids[] = $o->id ;
+	}
+
+	if ( count($ids) > 0 ) {
+		$sql = "UPDATE command SET `status`='INIT' WHERE id IN (" . implode(',',$ids) . ")" ;
+		$out['sql'] = $sql ;
+		if(!$result = $db->query($sql)) fin($db->error) ;
+
+		$out['init'] = count($ids) ;
+		$res = $qs->userChangeBatchStatus ( $batch_id , 'INIT' ) ;
+		if ( !$res ) {
+			$out['status'] = $qs->last_error_message ;
+		}
+	}
+
 }
 
-print json_encode ( $out , JSON_PRETTY_PRINT ) ; // FIXME
+fin();
 
 ?>

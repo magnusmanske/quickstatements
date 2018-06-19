@@ -1,0 +1,118 @@
+<template id='batches-template'>
+<div>
+	<h1>
+		Latest batches
+		<span v-if='typeof user_name!="undefined"'>
+			for user {{user_name}}
+		</span>
+		<span v-if='working'>
+			<img src='https://upload.wikimedia.org/wikipedia/commons/2/2e/24px-spinner-black.gif' width='24px' height='24px' />
+		</span>
+	</h1>
+
+	<div v-if='!user.is_logged_in'>
+		<span tt='admin_hint'></span> <a href='./api.php?action=oauth_redirect'><span tt='login'></span></a>!
+	</div>
+
+	<table class='table table-striped'>
+		<thead><tr><th>#</th><th>User</th><th>Name</th><th>Status</th><th>Last change</th><th>Actions</th></tr></thead>
+		<tbody>
+			<tr v-for='b in batches'>
+				<td>
+					<router-link :to='"/batch/"+b.batch.id'>#{{b.batch.id}}</router-link>
+				</td>
+				<td>
+					<div>
+						<a :href='"https://www.wikidata.org/wiki/User:"+b.batch.user_name' class='wikidata' target="_blank">{{b.batch.user_name}}</a>
+					</div>
+					<div v-if='b.batch.user_name!=user.getUserName()'>
+						[<router-link :to='"/batches/"+b.batch.user_name' tt='batches'></router-link>]
+					</div>
+				</td>
+				<td>
+					{{b.batch.name}}
+				</td>
+				<td>
+					<div>
+						<span v-if='b.batch.status=="RUN"'><b tt='running'></b></span>
+						<span v-else>{{b.batch.status}}</span>
+					</div>
+					<div>
+						<span v-for='(num,cmd) in b.commands' style='margin-right:0.5rem;'>
+							<span :class="'badge badge-'+status_class[cmd]" style='font-weight:normal;'>{{cmd}}:{{num}}</span>
+						</span>
+					</div>
+				</td>
+				<td>
+					{{formatDate(b.batch.ts_last_change)}}
+				</td>
+				<td>
+					<div v-if='b.batch.status=="RUN" && userCanStopBatch(b.batch)'>
+						<button class='btn btn-outline-danger' tt='stop' @click='stopBatch(b)'></button>
+					</div>
+					<div>
+						<a target='_blank' class='btn btn-outline-dark' :href='"https://tools.wmflabs.org/editgroups/b/QSv2/"+b.batch.id' tt='revert_batch'></a>
+					</div>
+				</td>
+			</tr>
+		</tbody>
+	</table>
+</div>
+</template>
+
+
+<script>
+'use strict';
+
+let BatchesPage = Vue.extend ( {
+        props : ['user_name'] ,
+        data : function () { return { batches:{} , status_class:{
+        	INIT:'light',
+        	DONE:'success',
+        	ERROR:'danger',
+        	RUN:'info'
+        } , working:false } } ,
+        created : function () {
+        	this.loadBatches () ;
+        } ,
+        updated : function () { tt.updateInterface(this.$el) ; } ,
+        mounted : function () { tt.updateInterface(this.$el) ; } ,
+        methods : {
+        	formatDate : function ( d ) {
+        		return d.substr(0,4)+'-'+d.substr(4,2)+'-'+d.substr(6,2)+' '+d.substr(8,2)+':'+d.substr(10,2)+':'+d.substr(12,2) ;
+        	} ,
+        	stopBatch : function ( b ) {
+        		var me = this ;
+        		let batch_id = b.batch.id ;
+        		// TODO
+        	} ,
+	        userCanStopBatch : function ( batch ) {
+	        	var me = this ;
+	            if ( user.isAdmin() ) return true ;
+	            if ( user.getUserName() == batch.user_name ) return true ;
+	            return false ;
+	        } ,
+            loadBatches : function () {
+                var me = this ;
+                me.working = true ;
+                me.batches = {} ;
+                let params = { action:'get_batches_info' } ;
+                if ( typeof me.user_name != "undefined" ) params.user = me.user_name ;
+                $.get ( './api.php' , params , function ( d ) {
+                	me.working = false ;
+                	if ( d.status != 'OK' ) {
+                		alert ( d.status ) ;
+                		return ;
+                	}
+                	let data = Object.values ( d.data ) ;
+                	data.sort ( function ( a , b ) {
+                		return b.batch.ts_last_change*1 - a.batch.ts_last_change*1 ;
+                	} ) ;
+                	//console.log(JSON.parse(JSON.stringify(data)));
+                	me.batches = data ;
+                } , 'json' ) ;
+            }
+        },
+        template:'#batches-template'
+    } ) ;
+</script>
