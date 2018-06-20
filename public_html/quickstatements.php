@@ -406,7 +406,19 @@ class QuickStatements {
 	}
 
 	protected function mergeItems ( $command ) {
-		# TODO FIXME
+		$this->runAction ( [
+			'action' => 'wbmergeitems' ,
+			'fromid' => $command->item1 ,
+			'toid' => $command->item2 ,
+			'ignoreconflicts' => 'description|sitelink' ,
+			'summary' => ''
+		] , $command ) ;
+		if ( $command->status != 'done' ) return $command ;
+		if ( !$this->isBatchRun() ) {
+			$this->wd->updateItem ( $command->item1 ) ;
+			$this->wd->updateItem ( $command->item2 ) ;
+		}
+		return $command ;
 	}
 	
 	protected function createNewItem ( $command ) {
