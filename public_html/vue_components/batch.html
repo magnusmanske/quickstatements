@@ -39,7 +39,7 @@ div.create_batch_box > div {
 					</div>
 					<div v-if='(meta.commands.DONE||0)>0'>
 						<span v-if='meta.batch.id==0'>
-							<a target='_blank' class='external' :href='getUserEditsURL'>Show edits for this batch</a>
+							<a target='_blank' class='external' :href='"https://tools.wmflabs.org/editgroups/b/QSv2T/"+encodeURIComponent(run.temp_id.replace(/\D/g,""))' tt='revert_batch'></a>
 						</span>
 						<span v-else>
 							<a target='_blank' class='external' :href='"https://tools.wmflabs.org/editgroups/b/QSv2/"+meta.batch.id' tt='revert_batch'></a>
@@ -173,17 +173,6 @@ let BatchPage = Vue.extend ( {
     } ,
     updated : function () { tt.updateInterface(this.$el) ; } ,
     mounted : function () { tt.updateInterface(this.$el) ; } ,
-    computed : {
-    	getUserEditsURL : function () {
-    		var me = this ;
-    		return "https://tools.wmflabs.org/wikidata-todo/user_edits.php?sparql=&pattern="
-    			+encodeURIComponent(me.run.temp_id)
-    			+"&user="+encodeURIComponent(user.getUserName())
-    			+"&start="+me.run.start_ts
-    			+"&end="+me.run.last_ts
-    			+"&doit=Do+it&format=html" ;
-    	}
-    } ,
     methods : {
     	loadTempFile : function ( tmpfile ) {
     		var me = this ;
