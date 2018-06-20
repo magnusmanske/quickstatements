@@ -81,14 +81,6 @@ if ( $action == 'import' ) {
 		}
 	}
 
-} else if ( $action == 'load_temp_file' ) {
-
-	$dir = './tmp' ;
-	$filename = "{$dir}/" . get_request ( 'filename' , '' ) ;
-	if ( !file_exists($filename) ) fin ( "File '{$filename}' not found." ) ;
-	$out = json_decode ( file_get_contents ( $filename ) ) ;
-	unlink ( $filename ) ; // Only access once!
-
 } else if ( $action == 'oauth_redirect' ) {
 
 	$oa = $qs->getOA() ;

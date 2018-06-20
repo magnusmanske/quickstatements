@@ -177,14 +177,11 @@ let BatchPage = Vue.extend ( {
     	loadTempFile : function ( tmpfile ) {
     		var me = this ;
     		$('#working').show() ;
-			$.post ( me.api , {
-				action:'load_temp_file',
-				filename:tmpfile
-			} , function ( d ) {
+    		$.get ( './tmp/'+tmpfile , function ( d ) {
 				$('#working').hide() ;
 				history.pushState(null, null, '#/batch'); // MWAHAHAHA!!1!
 				me.processParsedCommands ( d ) ;
-			} , 'json' ) ;
+    		} , 'json' ) ;
     	} ,
     	getTimestampNow : function () {
     		let ret = new Date().toISOString() ;
