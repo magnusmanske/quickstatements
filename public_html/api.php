@@ -2,8 +2,11 @@
 
 error_reporting(E_ERROR|E_CORE_ERROR|E_ALL|E_COMPILE_ERROR); // 
 ini_set('display_errors', 'On');
-header('Content-type: application/json; charset=UTF-8');
-header("Cache-Control: no-cache, must-revalidate");
+
+if ( !isset($_REQUEST['openpage']) ) {
+	header('Content-type: application/json; charset=UTF-8');
+	header("Cache-Control: no-cache, must-revalidate");
+}
 
 require_once ( 'quickstatements.php' ) ;
 
@@ -30,9 +33,10 @@ if ( $action == 'import' ) {
 	$username = get_request ( 'username' , '' ) ;
 	$token = get_request ( 'token' , '' ) ;
 	$temporary = get_request ( 'temporary' , false ) ;
+	$openpage = get_request ( 'openpage' , 0 ) * 1 ;
 	$submit = get_request ( 'submit' , false ) ;
 	$data = get_request ( 'data' , '' ) ;
-	$compress = get_request ( 'compress' , 0 ) * 1 ;
+	$compress = get_request ( 'compress' , 1 ) * 1 ;
 	$out = $qs->importData ( $data , $format , false ) ;
 	if ( $compress ) {
 		$qs->use_command_compression = true ;
@@ -47,6 +51,13 @@ if ( $action == 'import' ) {
 		fwrite($handle, json_encode($out) );
 		fclose($handle);
 		$out['data'] = preg_replace ( '/^.+\//' , '' , $filename ) ;
+
+		if ( $openpage ) {
+			$url = "./#/batch/?tempfile=" . urlencode ( $out['data'] ) ;
+			print "<html><head><meta http-equiv=\"refresh\" content=\"0;URL='{$url}'\" /></head><body></body></html>" ;
+			exit(0);
+		}
+
 		fin() ;
 	}
 
