@@ -2,71 +2,25 @@
 <html><head>
 <META NAME="ROBOTS" CONTENT="NOINDEX, NOFOLLOW">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<link rel="stylesheet" href="//tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/4.0.0-alpha.3/css/bootstrap.min.css">
-<link rel="stylesheet" href="//tools-static.wmflabs.org/cdnjs/ajax/libs/tether/1.3.3/css/tether.min.css">
-<link rel="stylesheet" href="//tools-static.wmflabs.org/cdnjs/ajax/libs/datatables/1.10.12/css/dataTables.bootstrap4.min.css">
-<!--<link rel="stylesheet" type="text/css" href="//tools-static.wmflabs.org/magnustools/resources/css/common.css">-->
+<title tt="toolname"></title>
+<link rel="stylesheet" href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/4.0.0/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://tools-static.wmflabs.org/magnustools/resources/html/wikimedia.css">
+<link rel="stylesheet" href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/leaflet/1.3.1/leaflet.css">
+<script src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/4.0.0/js/bootstrap.bundle.min.js"></script>
+<script src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/vue/2.5.13/vue.min.js"></script>
+<script src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/vue-router/3.0.1/vue-router.min.js"></script>
+<script src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/leaflet/1.3.1/leaflet.js"></script>
+<script src="https://tools-static.wmflabs.org/tooltranslate/tt.js"></script>
+<script src="https://tools-static.wmflabs.org/magnustools/resources/js/wikidata.js"></script>
+<script src="https://tools-static.wmflabs.org/magnustools/resources/vue/shared.js"></script>
 
-<link rel="prefetch" href="https://tools-static.wmflabs.org/tooltranslate/data/quickstatements/toolinfo.json" />
-<link rel="prefetch" href="https://tools-static.wmflabs.org/tooltranslate/data/quickstatements/en.json" />
-<link rel="prefetch" href="https://tools-static.wmflabs.org/tooltranslate/data/languages.json" />
-<link rel="prefetch" href="./config.json" />
-
-<script src='//tools-static.wmflabs.org/cdnjs/ajax/libs/jquery/2.2.4/jquery.min.js'></script>
-<script src='//tools-static.wmflabs.org/cdnjs/ajax/libs/tether/1.3.3/js/tether.min.js'></script>
-<script src='//tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/4.0.0-alpha.2/js/bootstrap.min.js'></script>
-<script src='//tools-static.wmflabs.org/cdnjs/ajax/libs/datatables/1.10.12/js/jquery.dataTables.min.js'></script>
-<script src='//tools-static.wmflabs.org/cdnjs/ajax/libs/datatables/1.10.12/js/dataTables.bootstrap4.min.js'></script>
-<script src="//tools-static.wmflabs.org/tooltranslate/tt.js"></script>
-<script src="./quickstatements.js"></script>
-
-<style type="text/css">
-#logged_in_actions {
-	display:none;
-	text-align:center;
+<style>
+.navthing {
+	padding-top:0.3rem;
+	padding-left:0.2rem;
 }
-#table_container {
-	margin-top:20px;
-	margin-bottom:10px;
-}
-div.pq_container {
-	white-space:nowrap;
-}
-div.pq_value {
-	display:inline;
-}
-div.pq_button {
-	display:inline;
-	margin-left:5px;
-	cursor:pointer;
-}
-div.pq_form {
-	display:none;
-}
-a.red {
-	color:red;
-}
-#stop_buttons {
-	display:none;
-}
-#run_status {
-	margin-left:20px;
-}
-#run_status_wrapper {
-	display:none;
-}
-#single_batch_busy {
-	display:none;
-	padding:2px;
-	margin:2px;
-	color:white;
-	background-color:#FF4848;
-	float:right;
-}
-#mode_batch {
-	display:none;
-}
-#mode_batches {
+#working {
 	display:none;
 }
 </style>
@@ -74,186 +28,34 @@ a.red {
 </head>
 
 <body>
-
-<nav class="navbar navbar-light bg-faded">
-  <a class="navbar-brand" href="/quickstatements/" tt='tooltitle'></a>
-  <ul class="nav navbar-nav">
-<!--    <li class="nav-item active">
-      <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link" href="#">Link</a>
-    </li>
-    <li class="nav-item">
-      <a id="link_import_qs1" class="nav-link" href="#">Import version 1 commands</a>
-    </li>-->
-
-    <li class="nav-item dropdown">
-      <a class="nav-link dropdown-toggle" href="#" id="supportedContentDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" tt='show_modes'></a>
-      <div class="dropdown-menu" aria-labelledby="supportedContentDropdown">
-        <a class="dropdown-item" href="#" tt='show_command_interface' onclick='QuickStatements.switchMode("commands");return false'></a>
-        <a class="dropdown-item" href="#" tt='show_last_batches' onclick='QuickStatements.showLastBatches();return false'></a>
-        <a class="dropdown-item" href="#" tt='show_your_last_batches' style='display:none'></a>
-<!--        <a class="dropdown-item" href="#">Another action</a>-->
-      </div>
-    </li>
-
-
-    <li class="nav-item dropdown">
-      <a class="nav-link dropdown-toggle" href="#" id="supportedContentDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" tt='import_commands'></a>
-      <div class="dropdown-menu" aria-labelledby="supportedContentDropdown">
-        <a id="link_import_qs1" class="dropdown-item" href="#" tt='v1_format'></a>
-        <a id="link_import_csv" class="dropdown-item" href="#" tt='format_csv'></a>
-<!--        <a class="dropdown-item" href="#">Another action</a>-->
-      </div>
-    </li>
-    <li class="nav-item">
-      <a target='_blank' class="nav-link" href="https://phabricator.wikimedia.org/diffusion/2010/" tt='git'></a>
-    </li>
-    <li class="nav-item">
-      <a target='_blank' class="nav-link" href="https://www.wikidata.org/wiki/User:Magnus_Manske/quick_statements2" tt='brainstorming'></a>
-    </li>
-    <li class="nav-item">
-      <b><a target='_blank' class="nav-link" href="https://www.wikidata.org/wiki/Help:QuickStatements" tt='help'></a></b>
-    </li>
-  </ul>
-  
-  <ul class="nav navbar-nav pull-xs-right">
-    <li class="nav-item">
-	  <span class="nav-link" id='userinfo'><small style='color:#DDD' tt='checking_user_info'></small></span>
-    </li>
-    <li class="nav-item">
-	    <div id='interface_language_wrapper'></div>
-    </li>
-  </ul>
-
-</nav>
-
-
-<div id='mode_token' class="container-fluid mode">
-
-<div class='row'>
-<div class='col-xs-12'>
-<div>
-<p>Your token:</p>
-<tt id='token'></tt>
-</div>
-</div>
-</div>
-
-</div>
-
-<div id='mode_batch' class="container-fluid mode">
-
-<div class='row'>
-<div class='col-xs-12'>
-<div id='single_batch_busy' tt='busy'></div>
-<h1>Batch #<span id='single_batch_number'></span></h1>
-<div id='single_batch_status'></div>
-</div>
-</div>
-
-</div>
-
-<div id='mode_batches' class="container-fluid mode">
-
-<div class='row'>
-<div class='col-xs-12'>
-<h1>Batches</h1>
-<div id='multi_batch_status'></div>
-</div>
-</div>
-
-</div>
-
-
-
-<div id='mode_commands' class="container-fluid mode">
-
-<div class='row'>
-<div class='col-xs-12'>
-<div id='table_container'>
-<table id='main_table' class='table table-condensed table-striped'>
-<thead>
-<th tt='status' style='min-width:50px'></th>
-<th tt='command' style='min-width:150px'></th>
-<th tt='item'></th>
-<th tt='property'></th>
-<th tt='value'></th>
-<th tt='other'></th>
-</thead>
-<tbody
-</tbody>
-</table>
-</div>
-</div>
-</div>
-
-<div class='row' id='logged_in_actions'>
-<span id='run_buttons'>
-<button class='btn btn-lg btn-primary' id='run' tt='run'></button>
-<button class='btn btn-lg btn-outline-primary' id='run_background' tt='run_background'></button>
-</span>
-<span id='stop_buttons'>
-<button class='btn btn-lg btn-danger' id='stop' tt='stop'></button>
-</span>
-<span id='run_status_wrapper'>
-<div id='run_status' class='alert alert-info'></div>
-</span>
-</div>
-
-</div>
-
-
-
-<!-- V1 import dialog -->
-<div id='import_v1_dialog' class="modal fade hidden">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-        <h4 class="modal-title" tt='dialog_import_v1'></h4>
-      </div>
-      <div class="modal-body">
-      	<div>
-      	<small tt='dialog_import_v1_intro'></small>
-      	</div>
-      	<textarea id='v1_commands' style='width:100%' rows='20'></textarea>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal" tt='close'></button>
-        <button type="button" class="btn btn-primary" id='v1_import' tt='do_import_v1'></button>
-      </div>
-    </div><!-- /.modal-content -->
-  </div><!-- /.modal-dialog -->
-</div><!-- /.modal -->
-
-<!-- CSV import dialog -->
-<div id='import_csv_dialog' class="modal fade hidden">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-        <h4 class="modal-title" tt='dialog_import_csv'></h4>
-      </div>
-      <div class="modal-body">
-      	<div>
-      	<small tt='dialog_import_csv_intro'></small>
-      	</div>
-      	<textarea id='csv_input' style='width:100%' rows='20'></textarea>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal" tt='close'></button>
-        <button type="button" class="btn btn-primary" id='csv_import' tt='do_import_csv'></button>
-      </div>
-    </div><!-- /.modal-content -->
-  </div><!-- /.modal-dialog -->
-</div><!-- /.modal -->
-
-
+	<div id='app' class='container-fluid'>
+		<tool-navbar>
+			<template slot='left'>
+				<li class="nav-item navthing">
+					<router-link class='btn btn-outline-primary' to='/batch/new' tt='new_batch'></router-link>
+				</li>
+				<li class="nav-item navthing">
+					<router-link class='btn btn-outline-secondary' to='/batches' tt="show_last_batches"></router-link>
+				</li>
+				<li class="nav-item navthing">
+					<a class='btn btn-outline-secondary' target='_blank' href='https://www.wikidata.org/wiki/User:Magnus_Manske/quick_statements2' tt='brainstorming'></a>
+				</li>
+				<li class="nav-item navthing">
+					<a class='btn btn-outline-secondary' target='_blank' href='https://phabricator.wikimedia.org/diffusion/2010/' tt='git'></a>
+				</li>
+				<li class="nav-item navthing">
+					<a class='btn btn-outline-info' target='_blank' href='https://www.wikidata.org/wiki/Help:QuickStatements' tt='help'></a>
+				</li>
+				<li class="nav-item navthing" id='working'>
+					<img src='https://upload.wikimedia.org/wikipedia/commons/c/cd/Vector_Loading_fallback.gif' />
+				</li>
+			</template>
+			<template slot='right'><user></user></template>
+		</tool-navbar>
+		<router-view :key="$route.path"><i tt='loading'></i></router-view>
+	</div>
 </body>
+
+<script src="vue.js"></script>
+
 </html>

@@ -1,1 +1,2 @@
 * 22 * * * jsub -l release=trusty -mem 4g -N bot -once -continuous /data/project/quickstatements/bot.php
+* 2 * * * jsub -N old_tmp -once -quite /data/project/quickstatements/clean_old_tmp_files.sh
