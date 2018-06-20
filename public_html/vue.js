@@ -20,6 +20,7 @@ $(document).ready ( function () {
                 'vue_components/batch-commands.html',
                 'vue_components/batch.html',
                 'vue_components/batches.html',
+                'vue_components/user-page.html',
                 ] ) ,
             new Promise(function(resolve, reject) {
                 $.get ( './config.json' , function (d) {
@@ -38,6 +39,8 @@ $(document).ready ( function () {
           { path: '/batches/:user_name', component: BatchesPage , props:true },
           { path: '/batch', component: BatchPage , props:true },
           { path: '/batch/:batch', component: BatchPage , props:true },
+          { path: '/user', component: UserPage , props:true },
+          { path: '/user/:given_user_name', component: UserPage , props:true },
           { path: '/:url_params', component: MainPage , props:true },
         ] ;
         router = new VueRouter({routes}) ;

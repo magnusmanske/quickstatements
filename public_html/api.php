@@ -26,12 +26,14 @@ if ( isset ( $_REQUEST['oauth_verifier'] ) ) {
 
 if ( $action == 'import' ) {
 
-	$format = get_request ( 'format' , '' ) ;
+	$format = get_request ( 'format' , 'v1' ) ;
+	$username = get_request ( 'username' , '' ) ;
+	$token = get_request ( 'token' , '' ) ;
 	$temporary = get_request ( 'temporary' , false ) ;
-	$persistent = get_request ( 'persistent' , false ) ;
+	$submit = get_request ( 'submit' , false ) ;
 	$data = get_request ( 'data' , '' ) ;
 	$compress = get_request ( 'compress' , 0 ) * 1 ;
-	$out = $qs->importData ( $data , $format , $persistent ) ;
+	$out = $qs->importData ( $data , $format , false ) ;
 	if ( $compress ) {
 		$qs->use_command_compression = true ;
 		$out['data']['commands'] = $qs->compressCommands ( $out['data']['commands'] ) ;
@@ -46,6 +48,26 @@ if ( $action == 'import' ) {
 		fclose($handle);
 		$out['data'] = preg_replace ( '/^.+\//' , '' , $filename ) ;
 		fin() ;
+	}
+
+	if ( $submit ) {
+		$batchname = get_request ( 'batchname' , '' ) ;
+		$site = get_request ( 'site' , '' ) ;
+
+		if ( $site != '' ) $qs->config->site = $site ;
+		$user_id = $qs->getUserIDfromNameAndToken ( $username , $token ) ;
+		if ( !isset($user_id) ) {
+			unset ( $out['data'] ) ;
+			fin ( "User name and token do not match" ) ;
+		}
+
+		$batch_id = $qs->addBatch ( $out['data']['commands'] , $user_id , $batchname , $site ) ;
+		unset ( $out['data'] ) ;
+		if ( $batch_id === false ) {
+			$out['status'] = $qs->last_error_message ;
+		} else {
+			$out['batch_id'] = $batch_id ;
+		}
 	}
 
 } else if ( $action == 'load_temp_file' ) {
@@ -64,13 +86,14 @@ if ( $action == 'import' ) {
 
 } else if ( $action == 'get_token' ) {
 
+	$force_generate = get_request ( 'force_generate' , 0 ) * 1 ;
 	$oa = $qs->getOA() ;
-	$ili = $oa->isAuthOK() ;
+	$ili = $oa->isAuthOK() ; # Is Logged In
 	$out['data'] = (object) array() ;
 	if ( $ili ) {
 		$cr = $oa->getConsumerRights() ;
 		$user_name = $cr->query->userinfo->name ;
-		$out['data']->token = $qs->generateToken ( $user_name , false ) ;
+		$out['data']->token = $qs->generateToken ( $user_name , $force_generate ) ;
 	}
 	$out['data']->is_logged_in = $ili ;
 

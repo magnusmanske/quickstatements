@@ -283,6 +283,16 @@ class QuickStatements {
 		}
 		return $token ;
 	}
+
+	public function getUserIDfromNameAndToken ( $user_name , $token ) {
+		if ( !isset($token) or $token == '' ) return ; 
+
+		$db = $this->getDB() ;
+		$user_name = trim ( preg_replace ( '/_/' , ' ' , $user_name ) ) ;
+		$sql = "SELECT * FROM `user` WHERE name='" . $db->real_escape_string($user_name) . "' AND api_hash='" . $db->real_escape_string($token) . "'" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		while ( $o = $result->fetch_object() ) return $o->id*1 ;
+	}
 	
 	public function generateToken ( $user_name , $force_replace = false ) {
 		$user_name = trim ( str_replace ( '_' , ' ' , $user_name ) ) ;

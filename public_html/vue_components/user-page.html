@@ -1,0 +1,109 @@
+<template id='user-page-template'>
+<div class='container'>
+	<div v-if='user_name!=""'>
+		<h1>{{user_name}}</h1>
+
+		<div class="card mb-2">
+			<div class="card-header">User info</div>
+			<div class="card-body">
+	<!--			<h5 class="card-title"></h5>-->
+				<p class="card-text">
+					<ul class="list-group list-group-flush">
+						<li class="list-group-item">
+							<a :href="'https://www.wikidata.org/wiki/User:'+encodeURIComponent(user_name)" class='wikidata' target='_blank'>
+								{{user_name}}
+							</a> on Wikidata
+						</li>
+						<li class="list-group-item">
+							<router-link :to='"/batches/"+encodeURIComponent(user_name)' tt="batches_by_user"></router-link>
+						</li>
+					</ul>
+				</p>
+			</div>
+		</div>
+
+		<div class="card" v-if='is_current_user'>
+			<div class="card-header">Token management</div>
+			<div class="card-body">
+				<h5 class="card-title">Here, you can generate a token to use when submitting batch jobs programatically</h5>
+				<p class="card-text">
+					<div v-if='has_token'>
+						You currently have the following token:
+						<div class="alert alert-dark"><tt>{{token}}</tt></div>
+					</div>
+					<div>
+						<a href='#' @click.prevent='checkToken(true)'>Get a new token</a> (the old one will stop working)
+					</div>
+					<div>
+						Use the token to submit a batch to QuickStatements from your own bot (please use POST):
+					</div>
+					<div>
+						<pre>
+	./api.php
+	?action=import
+	&submit=1
+	&username={{encodeURIComponent(user.getUserName().replace(/ /g,'_'))}}
+	&token={{encodeURIComponent(token)}}
+	&format=FORMAT ["v1" or "csv"]
+	&data=COMMANDS [commands in the above format]
+	&batchname=BATCH_NAME [optional]
+	&site=SITE_KEY [optional; default:"wikidata"]
+						</pre>
+						The batch will start automatically, as if you had created it in the interface and then clicked "Run in background".<br/>
+						A JSON object will be returned: <pre style='display:inline'>{"status":"OK","batch_id":ID_OF_THE_NEW_BATCH}</pre> (or an error message in "status").
+					</div>
+				</p>
+			</div>
+		</div>
+	</div>
+	<div v-else-if='user.loaded'>
+		Please give a user name, or log in!
+	</div>
+</div>
+</template>
+
+
+<script>
+'use strict';
+
+let UserPage = Vue.extend ( {
+	props : [ 'given_user_name' ] ,
+//	mixins : [ batch_access_mixin ] ,
+	data : function () { return { user_name:'',is_current_user:false,has_token:false,token:'' } } ,
+    created : function () {
+    	var me = this ;
+    	me.user_name = '' ;
+    	if ( typeof me.given_user_name != 'undefined' ) me.user_name = $.trim(me.given_user_name.replace(/_/g,' ')) ;
+    	me.checkCurrentUser() ;
+    } ,
+    updated : function () { tt.updateInterface(this.$el) ; } ,
+    mounted : function () { tt.updateInterface(this.$el) ; } ,
+    methods : {
+    	checkCurrentUser : function () {
+    		let me = this ;
+    		if ( !user.loaded ) {
+    			setTimeout ( me.checkCurrentUser , 500 ) ;
+    			return ;
+    		}
+	    	if ( me.user_name == '' && user.is_logged_in ) me.user_name = user.getUserName() ;
+	    	if ( user.is_logged_in && me.user_name == user.getUserName() ) me.is_current_user = true ;
+	    	me.checkToken() ;
+    	} ,
+    	checkToken : function ( force_generate = false ) {
+    		var me = this ;
+    		if ( !user.loaded ) return ;
+    		if ( !me.is_current_user ) return ;
+    		$.post ( './api.php' , {
+    			action:'get_token',
+    			force_generate:force_generate?1:0
+    		} , function ( d ) {
+    			if ( typeof d == 'undefined' || d.status != 'OK' ) return ;
+    			me.token = d.data.token ;
+    			me.has_token = true ;
+    		} , 'json' ) ;
+    	}
+    } ,
+    template: '#user-page-template'
+} ) ;
+
+</script>
