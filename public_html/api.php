@@ -155,7 +155,7 @@ if ( $action == 'import' ) {
 } else if ( $action == 'run_single_command' ) {
 
 	$site = strtolower ( trim ( get_request ( 'site' , '' ) ) ) ;
-	if ( !$site != '' ) $qs->config->site = $site ;
+	if ( $site != '' ) $qs->config->site = $site ;
 
 	$qs->last_item = get_request ( 'last_item' , '' ) ;
 	$command = json_decode ( get_request ( 'command' , '' ) ) ;

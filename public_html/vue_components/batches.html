@@ -1,12 +1,9 @@
 <template id='batches-template'>
 <div>
 	<h1>
-		Latest batches
+		<span tt='show_last_batches'></span>
 		<span v-if='typeof user_name!="undefined"'>
-			for user {{user_name}}
-		</span>
-		<span v-if='working'>
-			<img src='https://upload.wikimedia.org/wikipedia/commons/2/2e/24px-spinner-black.gif' width='24px' height='24px' />
+			<span tt='for_user'></span> {{user_name}}
 		</span>
 	</h1>
 
@@ -14,8 +11,8 @@
 		<span tt='admin_hint'></span> <a href='./api.php?action=oauth_redirect'><span tt='login'></span></a>!
 	</div>
 
-	<table class='table table-striped'>
-		<thead><tr><th>#</th><th>User</th><th>Name</th><th>Status</th><th>Last change</th><th>Actions</th></tr></thead>
+	<table v-if='batches.length>0' class='table table-striped'>
+		<thead><tr><th>#</th><th tt='user'></th><th tt='name'></th><th tt='status'></th><th tt='last_change'></th><th tt='actions'></th></tr></thead>
 		<tbody>
 			<tr v-for='b in batches'>
 				<td>
@@ -57,6 +54,8 @@
 			</tr>
 		</tbody>
 	</table>
+	<div v-else-if='!working' tt='no_batches'></div>
+
 </div>
 </template>
 
@@ -65,62 +64,65 @@
 'use strict';
 
 let BatchesPage = Vue.extend ( {
-        props : ['user_name'] ,
-        data : function () { return { batches:{} , status_class:{
-        	INIT:'light',
-        	DONE:'success',
-        	ERROR:'danger',
-        	RUN:'info'
-        } , working:false , interval:'' , update_interval_ms:5000 } } ,
-        created : function () {
-        	var me = this ;
-        	me.loadBatches () ;
-        	me.interval = setInterval ( me.loadBatches , me.update_interval_ms ) ;
-        } ,
-        updated : function () { tt.updateInterface(this.$el) ; } ,
-        mounted : function () { tt.updateInterface(this.$el) ; } ,
-        methods : {
-        	formatDate : function ( d ) {
-        		return d.substr(0,4)+'-'+d.substr(4,2)+'-'+d.substr(6,2)+' '+d.substr(8,2)+':'+d.substr(10,2)+':'+d.substr(12,2) ;
-        	} ,
-        	stopBatch : function ( b ) {
-        		var me = this ;
-        		let batch_id = b.batch.id ;
-				$.post ( 'api.php' , {
-					action:'stop_batch',
-					batch:batch_id
-				} , function ( d ) {
-					if ( d.status == 'OK' ) b.batch.status = 'STOP' ;
-					else b.batch.status = '???' ;
-				} , 'json' ) ;
+    props : ['user_name'] ,
+    data : function () { return { batches:{} , status_class:{
+    	INIT:'primary',
+    	DONE:'success',
+    	ERROR:'danger',
+    	RUN:'info'
+    } , working:false , interval:'' , update_interval_ms:5000 } } ,
+    created : function () {
+    	var me = this ;
+    	me.loadBatches () ;
+    	me.interval = setInterval ( me.loadBatches , me.update_interval_ms ) ;
+    } ,
+    updated : function () { tt.updateInterface(this.$el) ; } ,
+    mounted : function () { tt.updateInterface(this.$el) ; } ,
+    beforeDestroy : function () { clearInterval ( this.interval ) } ,
+    methods : {
+    	formatDate : function ( d ) {
+    		return d.substr(0,4)+'-'+d.substr(4,2)+'-'+d.substr(6,2)+' '+d.substr(8,2)+':'+d.substr(10,2)+':'+d.substr(12,2) ;
+    	} ,
+    	stopBatch : function ( b ) {
+    		var me = this ;
+    		let batch_id = b.batch.id ;
+			$.post ( 'api.php' , {
+				action:'stop_batch',
+				batch:batch_id
+			} , function ( d ) {
+				if ( d.status == 'OK' ) b.batch.status = 'STOP' ;
+				else b.batch.status = '???' ;
+			} , 'json' ) ;
 
-        	} ,
-	        userCanStopBatch : function ( batch ) {
-	        	var me = this ;
-	            if ( user.isAdmin() ) return true ;
-	            if ( user.getUserName() == batch.user_name ) return true ;
-	            return false ;
-	        } ,
-            loadBatches : function () {
-                var me = this ;
-                me.working = true ;
-                let params = { action:'get_batches_info' } ;
-                if ( typeof me.user_name != "undefined" ) params.user = me.user_name ;
-                $.get ( './api.php' , params , function ( d ) {
-                	me.working = false ;
-                	if ( d.status != 'OK' ) {
-                		alert ( d.status ) ;
-                		return ;
-                	}
-                	let data = Object.values ( d.data ) ;
-                	data.sort ( function ( a , b ) {
-                		return b.batch.ts_last_change*1 - a.batch.ts_last_change*1 ;
-                	} ) ;
-                	//console.log(JSON.parse(JSON.stringify(data)));
-                	me.batches = data ;
-                } , 'json' ) ;
-            }
-        },
-        template:'#batches-template'
-    } ) ;
+    	} ,
+        userCanStopBatch : function ( batch ) {
+        	var me = this ;
+            if ( user.isAdmin() ) return true ;
+            if ( user.getUserName() == batch.user_name ) return true ;
+            return false ;
+        } ,
+        loadBatches : function () {
+            var me = this ;
+            me.working = true ;
+            $('#working').show() ;
+            let params = { action:'get_batches_info' } ;
+            if ( typeof me.user_name != "undefined" ) params.user = me.user_name ;
+            $.get ( './api.php' , params , function ( d ) {
+            	me.working = false ;
+            	$('#working').hide() ;
+            	if ( d.status != 'OK' ) {
+            		alert ( d.status ) ;
+            		return ;
+            	}
+            	let data = Object.values ( d.data ) ;
+            	data.sort ( function ( a , b ) {
+            		return b.batch.ts_last_change*1 - a.batch.ts_last_change*1 ;
+            	} ) ;
+            	//console.log(JSON.parse(JSON.stringify(data)));
+            	me.batches = data ;
+            } , 'json' ) ;
+        }
+    },
+    template:'#batches-template'
+} ) ;
 </script>

@@ -1,21 +1,25 @@
 <template id='main-page-template'>
-	<div>
+	<div class='container'>
         <div>
             <p tt='intro'></p>
-            <ul>
-                <li>
-                    <router-link class='btn btn-outline-primary' to='/batch'>New batch</router-link>
+            <div class="alert alert-primary" role="alert">
+                This is a new interface for QuickStatements V2.
+                Just in case, the old interface is <a href="./index_old.html" class="alert-link">here</a>.
+            </div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item">
+                    <router-link class='btn btn-outline-primary' to='/batch' tt='new_batch'></router-link>
                 </li>
-                <li>
+                <li class="list-group-item">
                     <form class='form-inline'>
-                        <input class='form-control' type='text' id='batch_id' placeholder='batch number' style='width:10em' v-model='batch_id' />
-                        <input class='btn btn-outline-primary' type='submit' value='See batch details' @click.prevent='showBatch' />
+                        <input class='form-control' type='text' id='batch_id' tt_placeholder='ph_batchnumber' style='width:10em' v-model='batch_id' />
+                        <input class='btn btn-outline-primary' type='submit' tt_value='batch_details' @click.prevent='showBatch' />
                     </form>
                 </li>
-                <li>
+                <li class="list-group-item">
                     <form class='form-inline'>
-                        <input class='form-control' type='text' id='user_name' placeholder='user name' style='width:10em' v-model='username' />
-                        <input class='btn btn-outline-primary' type='submit' value='See batches by user' @click.prevent='showBatchesByUser' />
+                        <input class='form-control' type='text' id='user_name' tt_placeholder='ph_username' style='width:10em' v-model='username' />
+                        <input class='btn btn-outline-primary' type='submit' tt_value='batches_by_user' @click.prevent='showBatchesByUser' />
                     </form>
                 </li>
             </ul>
@@ -37,7 +41,9 @@ let MainPage = Vue.extend ( {
                 } else if ( (m=this.url_params.match(/^mode=batches&user=(.+)$/))!==null ) {
                     this.$router.push ( '/batches/'+encodeURIComponent(m[1]) ) ;
                 } else if ( (m=this.url_params.match(/^v1=(.+)$/))!==null ) {
-                    this.createTemporaryBatchV1 ( m[1] ) ;
+                    this.createTemporaryBatch ( m[1] , 'v1' ) ;
+                } else if ( (m=this.url_params.match(/^csv=(.+)$/))!==null ) {
+                    this.createTemporaryBatch ( m[1] , 'csv' ) ;
                 } else {
                     console.log ( this.url_params ) ;
                 }
@@ -46,7 +52,7 @@ let MainPage = Vue.extend ( {
         updated : function () { tt.updateInterface(this.$el) ; } ,
         mounted : function () { tt.updateInterface(this.$el) ; } ,
         methods : {
-            createTemporaryBatchV1 : function ( qs ) {
+            createTemporaryBatch : function ( qs , format ) {
                 var me = this ;
                 console.log ( qs ) ;
                 $.post ( './api.php' , {
@@ -54,11 +60,10 @@ let MainPage = Vue.extend ( {
                     temporary:1,
                     data:qs,
                     compress:1,
-                    format:'v1',
+                    format:format,
                 } , function ( d ) {
-                    console.log ( d ) ;
                     if ( d.status != 'OK' ) {
-                        alert ( "Error when trying to parse V1 URL data: "+d.status ) ;
+                        alert ( "Error when trying to parse '+format.toUpperCase()+' URL data: "+d.status ) ;
                         return ;
                     }
                     me.$router.push ( '/batch/?tempfile='+encodeURIComponent(d.data) );

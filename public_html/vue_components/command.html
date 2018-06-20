@@ -119,6 +119,7 @@ div.qualifier_or_reference_column > div {
 		<div v-if='typeof command.action!="undefined"' class='command_action'>
 			<span v-if='command.action.toUpperCase()=="ADD"' class="badge badge-primary">{{command.action.toUpperCase()}}</span>
 			<span v-else-if='command.action.toUpperCase()=="CREATE"' class="badge badge-success">{{command.action.toUpperCase()}}</span>
+			<span v-else-if='command.action.toUpperCase()=="MERGE"' class="badge badge-warning">{{command.action.toUpperCase()}}</span>
 			<span v-else-if='command.action.toUpperCase()=="REMOVE"' class="badge badge-danger">{{command.action.toUpperCase()}}</span>
 			<span v-else class="badge badge-light">{{command.action.toUpperCase()}}</span>
 		</div>
@@ -173,6 +174,17 @@ div.qualifier_or_reference_column > div {
 			<div><datavalue :dv='command.qualifier.value'></datavalue></div>
 		</div>
 		<div v-else><pre>{{command}}</pre></div>
+		<div v-if='typeof command.summary!="undefined" && command.summary!=""' style='margin-left:20px;color:green;font-style:oblique;'>
+			{{command.summary}}
+		</div>
+	</div>
+	<div v-else-if='command.action=="merge" && command.type=="item"' class='command_auto_grow'>
+		<div class='command_what'>Item</div>
+		<div class='command_part'>
+			<div class='command_part2'><wd-link :item='command.item1' smallq='1'></wd-link></div>
+			<div> &rArr; </div>
+			<div class='command_part2'><wd-link :item='command.item2' smallq='1'></wd-link></div>
+		</div>
 		<div v-if='typeof command.summary!="undefined" && command.summary!=""' style='margin-left:20px;color:green;font-style:oblique;'>
 			{{command.summary}}
 		</div>

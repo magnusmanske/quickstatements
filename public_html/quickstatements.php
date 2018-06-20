@@ -404,6 +404,10 @@ class QuickStatements {
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		return true ;
 	}
+
+	protected function mergeItems ( $command ) {
+		# TODO FIXME
+	}
 	
 	protected function createNewItem ( $command ) {
 		$data = '{}' ;
@@ -894,6 +898,8 @@ exit ( 1 ) ; // Force bot restart
 		if ( isset($command->error) ) unset ( $command->error ) ;
 		if ( $command->action == 'create' ) {
 			return $this->createNewItem ( $command ) ;
+		} else if ( $command->action == 'merge' ) {
+			return $this->mergeItems ( $command ) ;
 		} else {
 
 			// Prepare
@@ -964,7 +970,7 @@ exit ( 1 ) ; // Force bot restart
 				$cols[0] = $m[1] ;
 			}
 			$first = strtoupper(trim($cols[0])) ;
-			if ( count ( $cols ) >= 3 and ( preg_match ( '/^[PQ]\d+$/' , $first ) or $first == 'LAST' ) and preg_match ( '/^([P])(\d+)$/' , $cols[1] ) ) {
+			if ( count ( $cols ) >= 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and $this->isValidItemIdentifier($cols[1]) ) {
 				$prop = strtoupper(trim($cols[1])) ;
 				$cmd = array ( 'action'=>$action , 'item'=>$first , 'property'=>$prop , 'what'=>'statement' ) ;
 				if ( $comment != '' ) $cmd['summary'] = $comment ;
@@ -1004,7 +1010,7 @@ exit ( 1 ) ; // Force bot restart
 					}
 				}
 				if ( count($cols) != 0 ) $cmd['error'] = 'Incomplete reference/qualifier list' ;
-			} else if ( count ( $cols ) === 3 and ( preg_match ( '/^([PQ])(\d+)$/' , $first ) or $first == 'LAST' ) and preg_match ( '/^([LADS])([a-z_-]+)$/i' , $cols[1] , $m ) ) {
+			} else if ( count ( $cols ) === 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and preg_match ( '/^([LADS])([a-z_-]+)$/i' , $cols[1] , $m ) ) {
 				$code = strtoupper ( $m[1] ) ;
 				$lang = strtolower ( trim ( $m[2] ) ) ;
 				$cmd = array ( 'action'=>$action , 'what'=>$this->actions_v1[$code] , 'item'=>$first ) ;
@@ -1018,6 +1024,12 @@ exit ( 1 ) ; // Force bot restart
 				}
 				$cmd['value'] = $cmd['datavalue']['value'] ;
 				unset ( $cmd['datavalue'] ) ;
+			} else if ( $first == 'MERGE' and count($cols) == 3 and $this->isValidItemIdentifier($cols[1]) and $this->isValidItemIdentifier($cols[2]) ) {
+				$q1 = $cols[1] ;
+				$q2 = $cols[2] ;
+				if ( preg_replace('/\D/','',$q1)*1 < preg_replace('/\D/','',$q2)*1 ) list($q1,$q2) = [$q2,$q1] ; // Always merge into older item
+				$cmd = array ( 'action'=>'merge' , 'type'=>'item' , 'item1' => $q1 , 'item2' => $q2 ) ;
+				if ( $comment != '' ) $cmd['summary'] = $comment ;
 			} else if ( $first == 'CREATE' ) {
 				$cmd = array ( 'action'=>'create' , 'type'=>'item' ) ;
 				if ( $comment != '' ) $cmd['summary'] = $comment ;
@@ -1030,6 +1042,10 @@ exit ( 1 ) ; // Force bot restart
 			if ( isset($cmd['action']) && !$skip_add_command ) $ret['data']['commands'][] = $cmd ;
 		}
 //		if ( $this->use_command_compression ) $ret['data']['commands'] = $this->compressCommands ( $ret['data']['commands'] ) ;
+	}
+
+	protected function isValidItemIdentifier ( $q ) {
+		return preg_match ( '/^[PQ]\d+$/' , $q ) ;
 	}
 
     protected function importDataFromCSV ( $data, &$ret ) {

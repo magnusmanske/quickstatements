@@ -27,6 +27,7 @@ var batch_access_mixin = {
 		this.meta.batch.site = config.site ;
 		this.clearData() ;
 	} ,
+    beforeDestroy : function () { clearInterval ( this.interval ) } ,
 	methods : {
 		loadBatchInfo : function ( id ) {
 			let me = this ;
@@ -38,10 +39,12 @@ var batch_access_mixin = {
 			return new Promise(function(resolve, reject) {
 	    		id *= 1 ;
 	    		if ( id == 0 ) return reject() ;
+	    		$('#working').show() ;
 				$.get ( './api.php' , {
 					action:'get_batch_info',
 					batch:id
 				} , function ( d ) {
+					$('#working').hide() ;
 //					console.log ( JSON.parse(JSON.stringify(d.data[id])) ) ;
 					let old_data = me.meta.batch.data ;
 					me.meta = d.data[id] ;

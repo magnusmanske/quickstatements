@@ -6,6 +6,7 @@ let wd = new WikiData() ;
 
 let config = {} ;
 let prop_map = {} ;
+let working = false ;
 
 $(document).ready ( function () {
     vue_components.toolname = 'quickstatements' ;

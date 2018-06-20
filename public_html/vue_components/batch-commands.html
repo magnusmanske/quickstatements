@@ -22,6 +22,10 @@ div.position_button_bar > div {
 					<button type="button" class="btn btn-outline-secondary" disabled v-else tt='bc_start'></button>
 					<button type="button" class="btn btn-outline-secondary" v-if='view.position>0 && view.filter==""' @click.prevent='setViewPosition(view.position-view.batch_size)'  tt='bc_previous'></button>
 				</div>
+				<div class="btn-group mr-1" role="group">
+					<span tt='page' style='margin-top:0.4rem;margin-right:0.2rem;'></span>
+					<input v-model='view.wanted_page' @keyup='onChangeWantedPage' class='form-control' type='number' style='width:5rem;' />
+				</div>
 				<div class="btn-group mr-2" role="group">
 					<button type="button" class="btn btn-outline-secondary" v-if='current_command_ids.length==view.batch_size' @click.prevent='setViewPosition(current_command_ids[view.batch_size-1]+1)' tt='bc_next'></button>
 					<button type="button" class="btn btn-outline-secondary" v-if='current_command_ids.length==view.batch_size' @click.prevent='setViewPosition(batch.total_commands-view.batch_size)' tt='bc_end'></button>
@@ -30,9 +34,6 @@ div.position_button_bar > div {
 			</div>
 		</div>
 		<div style='display:flex;flex-grow:1;'>
-		</div>
-		<div v-if='working' style='display:inherit'>
-			<img src='https://upload.wikimedia.org/wikipedia/commons/2/2e/24px-spinner-black.gif' width='24px' height='24px' />
 		</div>
 		<div style='display:inherit'>
 			<div style='margin-top:0.3rem;margin-right:0.2rem'>
@@ -61,7 +62,7 @@ div.position_button_bar > div {
 Vue.component ( 'batch-commands' , {
 	props : [ 'batch' ] ,
 	mixins : [ batch_helper_mixin ] ,
-	data : function () { return { current_command_ids:[] , view:{is_loaded:false,load_partially:false,position:0,batch_size:25,filter:''} , status:[] , working:false } } ,
+	data : function () { return { current_command_ids:[] , view:{is_loaded:false,load_partially:false,position:0,batch_size:10,filter:'',wanted_page:1} , status:[] , working:false } } ,
     created : function () {} ,
     updated : function () { tt.updateInterface(this.$el) ; } ,
     mounted : function () {
@@ -74,6 +75,7 @@ Vue.component ( 'batch-commands' , {
     methods : {
     	reset : function () {
     		var me = this ;
+    		me.view.wanted_page = 1 ;
     		me.view.load_partially = false ;
     		me.status = [] ;
     		me.current_command_ids = [] ;
@@ -116,15 +118,22 @@ Vue.component ( 'batch-commands' , {
 			}
 			return ret ;
     	} ,
+    	onChangeWantedPage : function () {
+    		let new_position = ((1*this.view.wanted_page)-1)*this.view.batch_size ;
+    		if ( new_position == this.view.position ) return ;
+    		this.setViewPosition ( new_position ) ;
+    	} ,
 		setCurrentViewCommandIDs : function () {
 			var me = this ;
 			if ( typeof me.batch.data == 'undefined' ) me.batch.data = {} ;
 			if ( typeof me.batch.data.commands == 'undefined' ) me.batch.data.commands = [] ;
 			if ( me.view.load_partially ) {
 				me.working = true ;
+				$('#working').show() ;
 				me.loadCommandsFromBatch ( me.view.position )
 				. then ( function () {
 					me.working = false ;
+					$('#working').hide() ;
 					me.current_command_ids = me.getDirectCommandIDs() ;
 				} ) ;
 			} else {

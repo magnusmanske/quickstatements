@@ -6,6 +6,9 @@ div.batch_status_header > div {
 	font-size:14pt;
 	padding:3px;
 }
+div.create_batch_box > div {
+	margin-top:0.2rem;
+}
 </style>
 
 <template id='batch-template'>
@@ -86,7 +89,7 @@ div.batch_status_header > div {
 					</div>
 				</div>
 			</div>
-			<div v-else-if='user.canCreateBatch()'>
+			<div v-else-if='user.canCreateBatch()' class='create_batch_box'>
 				<form class='form-inline'>
 					<span tt='create_new_batch'></span>
 					<select class='form-control' v-model='meta.batch.site' style='margin-left:10px;margin-right:10px'>
@@ -94,16 +97,32 @@ div.batch_status_header > div {
 							{{sd.label}}
 						</option>
 					</select>
-					as
-					<input type='text' class='form-control' v-model='meta.batch.name' style='margin-left:10px' placeholder='batch name' />
+					<span tt='as'></span>
+					<input type='text' class='form-control' v-model='meta.batch.name' style='margin-left:10px' tt_placeholder='ph_batch_name' />
 				</form>
 
-				<div style='margin-top:0.2rem'>
+				<div>
 					<textarea v-model='commands' rows=15 class='form-control' style='width:100%;font-family:monospace;'></textarea>
 				</div>
-				<div style='margin-top:0.2rem'>
+				<div>
 					<button class='btn btn-outline-primary' @click.prevent='importV1' tt='dialog_import_v1'></button>
 					<button class='btn btn-outline-primary' @click.prevent='importCSV' tt='dialog_import_csv'></button>
+				</div>
+
+				<hr/>
+				<div class="row">
+					<div class="col-2">
+						<div class="list-group" id="list-tab" role="tablist">
+							<a class="list-group-item list-group-item-action active" id="list-home-list" data-toggle="list" href="#help-v1" role="tab" tt='dialog_import_v1'></a>
+							<a class="list-group-item list-group-item-action" id="list-profile-list" data-toggle="list" href="#help-csv" role="tab" tt='dialog_import_csv'></a>
+						</div>
+					</div>
+					<div class="col-10">
+						<div class="tab-content" id="nav-tabContent">
+							<div class="tab-pane fade show active" id="help-v1" role="tabpanel"><h3 tt='dialog_import_v1'></h3><div tt='dialog_import_v1_intro'></div></div>
+							<div class="tab-pane fade" id="help-csv" role="tabpanel"><h3 tt='dialog_import_csv'></h3><div tt='dialog_import_csv_intro'></div></div>
+						</div>
+					</div>
 				</div>
 
 			</div>
@@ -134,8 +153,13 @@ let BatchPage = Vue.extend ( {
     	if ( typeof me.$route.query.tempfile != 'undefined' ) {
     		me.loadTempFile ( me.$route.query.tempfile ) ;
     	} else if ( typeof this.batch != 'undefined' ) {
-    		this.loadBatchInfo ( this.batch )
-    		. then ( () => me.ready = true ) ;
+    		if ( this.batch == 'new' ) {
+    			history.pushState(null, null, '#/batch'); // MWAHAHAHA!!1!
+    			me.ready = true ;
+    		} else {
+	    		this.loadBatchInfo ( this.batch )
+	    		. then ( () => me.ready = true ) ;
+	    	}
     	} else {
     		if ( 0 ) { // TEST FILE
 	    		$.get ( 'test.qs' , function(d){
@@ -163,10 +187,12 @@ let BatchPage = Vue.extend ( {
     methods : {
     	loadTempFile : function ( tmpfile ) {
     		var me = this ;
+    		$('#working').show() ;
 			$.post ( me.api , {
 				action:'load_temp_file',
 				filename:tmpfile
 			} , function ( d ) {
+				$('#working').hide() ;
 				history.pushState(null, null, '#/batch'); // MWAHAHAHA!!1!
 				me.processParsedCommands ( d ) ;
 			} , 'json' ) ;
@@ -194,6 +220,7 @@ let BatchPage = Vue.extend ( {
     	} ,
     	importV1 : function () {
     		var me = this ;
+    		$('#working').show() ;
 			$.post ( me.api , {
 				action:'import',
 				data:me.commands,
@@ -201,6 +228,7 @@ let BatchPage = Vue.extend ( {
 				format:'v1',
 				persistent:0,
 			} , function ( d ) {
+				$('#working').hide() ;
 				if ( d.data.commands.length == 0 ) {
 					alert ( "No valid commands found" ) ;
 					return ;
@@ -209,7 +237,21 @@ let BatchPage = Vue.extend ( {
 			} , 'json' ) ;
     	} ,
     	importCSV : function () {
-    		alert ( "NOT SUPPORTED YET" ) ;
+    		var me = this ;
+    		$('#working').show() ;
+			$.post ( me.api , {
+				action:'import',
+				data:me.commands,
+				format:'csv',
+				persistent:0,
+			} , function ( d ) {
+				$('#working').hide() ;
+				if ( d.data.commands.length == 0 ) {
+					alert ( "No valid commands found" ) ;
+					return ;
+				}
+				me.processParsedCommands ( d ) ;
+			} , 'json' ) ;
     	} ,
     	loadCommand : function ( v ) {
     		Vue.set ( this.meta.batch.data.commands , v.num*1 , v.json ) ;
@@ -227,10 +269,12 @@ let BatchPage = Vue.extend ( {
         	if ( me.meta.batch.id == 0 ) { // In browser
         		me.meta.batch.status = 'STOP' ;
         	} else {
+        		$('#working').show() ;
 				$.post ( me.api , {
 					action:'stop_batch',
 					batch:me.meta.batch.id
 				} , function ( d ) {
+					$('#working').hide() ;
 					me.loadBatchInfo(me.meta.batch.id) ;
 				} , 'json' ) ;
         	}
@@ -245,10 +289,12 @@ let BatchPage = Vue.extend ( {
         			cmd.meta.status = 'INIT' ;
         		} ) ;
         	} else {
+        		$('#working').show() ;
         		$.get ( me.api , {
         			action:'reset_errors',
         			batch_id:me.meta.batch.id
         		} , function ( d ) {
+        			$('#working').hide() ;
 					if ( d.status != 'OK' ) {
 						alert ( d.status ) ;
 						console.log ( d ) ;
@@ -297,12 +343,14 @@ let BatchPage = Vue.extend ( {
 			if ( typeof j.summary == 'undefined' ) j.summary = me.run.temp_id ;
 			else j.summary = me.run.temp_id + "; " + j.summary ;
 
+			$('#working').show() ;
 			$.post ( me.api , {
 				action:'run_single_command',
 				command : JSON.stringify(j) ,
 				site : me.meta.batch.site ,
 				last_item : me.run.last_item
 			} , function ( d ) {
+				$('#working').hide() ;
 				if ( typeof d.command.message != 'undefined' ) d.command.meta.message = d.command.message ;
 				d.command.summary = original_summary ; // To remove the temporary_batch
 				Vue.set( me.meta.batch.data.commands, cmdnum, d.command ) ;
@@ -341,7 +389,9 @@ let BatchPage = Vue.extend ( {
     		if ( !me.startRun(false) ) return ;
     		if ( me.meta.batch.id > 0 ) {
     			let params = { action:'start_batch' , batch:me.meta.batch.id } ;
+    			$('#working').show() ;
 				$.get ( me.api , params , function ( d ) {
+					$('#working').hide() ;
 					if ( d.status != 'OK' ) {
 						alert ( d.status ) ;
 						console.log ( d ) ;
@@ -363,7 +413,9 @@ let BatchPage = Vue.extend ( {
 				site:me.meta.batch.site,
 				commands : JSON.stringify(me.meta.batch.data.commands)
 			} ;
+			$('#working').show() ;
 			$.post ( me.api , params , function ( d ) {
+				$('#working').hide() ;
 				if ( d.status != 'OK' ) {
 					alert ( d.status ) ;
 					console.log ( d ) ;
