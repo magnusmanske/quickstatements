@@ -470,7 +470,9 @@ class QuickStatements {
 	// Return true if both datavalues are the same (for any given value of same...), or false otherwise
 	protected function compareDatavalue ( $d1 , $d2 ) {
 		if ( $d1->type != $d2->type ) return false ;
-		if ( $d1->type == 'string' ) return $d1->value == $d2->value ;
+		if ( $d1->type == 'string' ) {
+			return normalizer_normalize($d1->value,Normalizer::FORM_D) == $d2->value; # Yay Unicode!
+		}
 		if ( $d1->type == 'quantity' ) return $d1->value->amount*1 == $d2->value->amount*1 ;
 		if ( $d1->type == 'time' ) {
 			if ( $d1->value->calendarmodel != $d2->value->calendarmodel ) return false ;
