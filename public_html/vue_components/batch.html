@@ -273,6 +273,8 @@ let BatchPage = Vue.extend ( {
         			if ( cmd.action == 'CREATE' && typeof cmd.data == 'undefined' ) return ;
         			if ( typeof cmd.item != 'undefined' && cmd.item == 'LAST' ) return ;
         			cmd.meta.status = 'INIT' ;
+        			Vue.set ( me.meta.commands , 'ERROR' , (me.meta.commands.ERROR||0)-1 ) ;
+        			Vue.set ( me.meta.commands , 'INIT' , (me.meta.commands.INIT||0)+1 ) ;
         		} ) ;
         	} else {
         		$('#working').show() ;
@@ -343,7 +345,7 @@ let BatchPage = Vue.extend ( {
 //				console.log(JSON.parse(JSON.stringify(d)));
 				if ( typeof d.command.item != 'undefined' ) me.run.last_item = d.command.item ;
 				me.meta.commands.RUN-- ;
-				if ( d.status == 'OK' ) {
+				if ( d.command.status == 'done' ) {
 					me.meta.batch.data.commands[cmdnum].meta.status = 'DONE' ;
 					Vue.set ( me.meta.commands , 'DONE' , (me.meta.commands.DONE||0)+1 ) ;
 				} else {

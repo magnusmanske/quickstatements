@@ -29,6 +29,8 @@ if ( isset ( $_REQUEST['oauth_verifier'] ) ) {
 
 if ( $action == 'import' ) {
 
+	ini_set('memory_limit','1500M');
+
 	$format = get_request ( 'format' , 'v1' ) ;
 	$username = get_request ( 'username' , '' ) ;
 	$token = get_request ( 'token' , '' ) ;
