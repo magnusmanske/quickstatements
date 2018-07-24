@@ -145,7 +145,7 @@ div.create_batch_box > div {
 let BatchPage = Vue.extend ( {
 	props : [ 'batch' ] ,
 	mixins : [ batch_access_mixin ] ,
-	data : function () { return { api:'./api.php' , ready:false , commands:'' , run:{is_running_in_browser:false,last_item:'',temp_id:'',start_ts:'',last_ts:''} , direct_command_delay_ms:1000 } } ,
+	data : function () { return { api:'./api.php' , ready:false , commands:'' , run:{is_running_in_browser:false,last_item:'',temp_id:'',start_ts:'',last_ts:''} , direct_command_delay_ms:1 } } ,
     created : function () {
     	var me = this ;
     	me.run.start_ts = me.getTimestampNow() ;

@@ -640,7 +640,7 @@ class QuickStatements {
 		} catch (Exception $e) {
 			$msg = $e->getMessage() ;
 			if ( $msg == 'The save has failed.' ) {
-				sleep ( 5 ) ;
+				sleep ( 2 ) ;
 				return $this->runBotAction ( $params_orig , $attempts_left-1 ) ;
 			}
 			$this->last_result->error = (object) array ( 'info' => $msg ) ;
