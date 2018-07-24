@@ -238,7 +238,7 @@ class QuickStatements {
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 
 		// Run command
-		$summary = "[[:toollabs:quickstatements/#mode=batch&batch={$batch_id}|batch #{$batch_id}]] by [[User:{$this->user_name}|]]" ;
+		$summary = "[[:toollabs:quickstatements/#/batch/{$batch_id}|batch #{$batch_id}]] by [[User:{$this->user_name}|]]" ;
 		$cmd = json_decode ( $o->json ) ;
 		if ( !isset($cmd->summary) ) $cmd->summary = $summary ;
 		else $cmd->summary .= '; ' . $summary ;
