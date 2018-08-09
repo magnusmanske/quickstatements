@@ -724,8 +724,8 @@ exit ( 1 ) ; // Force bot restart
 	}
 	
 	protected function getSnakType ( $datavalue ) {
-		if ( $datavalue['value'] == 'novalue' || $datavalue['value'] == 'somevalue' ) {
-			return $datavalue['value'];
+		if ( $datavalue->value == 'novalue' || $datavalue->value == 'somevalue' ) {
+			return $datavalue->value ;
 		}
 		return 'value' ;
 	}
