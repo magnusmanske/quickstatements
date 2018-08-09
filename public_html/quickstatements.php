@@ -431,7 +431,7 @@ class QuickStatements {
 			'action' => 'wbmergeitems' ,
 			'fromid' => $command->item1 ,
 			'toid' => $command->item2 ,
-			'ignoreconflicts' => 'description|sitelink' ,
+			'ignoreconflicts' => 'description' ,
 			'summary' => ''
 		] , $command ) ;
 		if ( $command->status != 'done' ) return $command ;
