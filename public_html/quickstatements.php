@@ -724,7 +724,10 @@ exit ( 1 ) ; // Force bot restart
 	}
 	
 	protected function getSnakType ( $datavalue ) {
-		return 'value' ; // TODO novalue/somevalue
+		if ( $datavalue['value'] == 'novalue' || $datavalue['value'] == 'somevalue' ) {
+			return $datavalue['value'];
+		}
+		return 'value' ;
 	}
 	
 	protected function getPrefixedID ( $q ) {
@@ -739,7 +742,7 @@ exit ( 1 ) ; // Force bot restart
 		if ( isset($statement_id) ) return $this->commandDone ( $command , "Statement already exists as $statement_id" ) ;
 
 		// Execute!
-		$this->runAction ( array (
+		$action = array (
 			'action' => 'wbcreateclaim' ,
 			'entity' => $command->item ,
 			'snaktype' => $this->getSnakType ( $command->datavalue ) ,
@@ -747,7 +750,9 @@ exit ( 1 ) ; // Force bot restart
 			'value' => json_encode ( $command->datavalue->value ) ,
 			'summary' => '' ,
 			'baserevid' => $i->j->lastrevid
-		) , $command ) ;
+		) ;
+		if ( $action['snaktype'] != 'value' ) unset( $action['value'] );
+		$this->runAction ( $action , $command ) ;
 		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
 		return $command ;
 	}
@@ -759,7 +764,7 @@ exit ( 1 ) ; // Force bot restart
 		if ( !preg_match ( '/^P\d+$/' , $command->qualifier->prop ) ) return $this->commandError ( $command , "Invalid qualifier property {$command->qualifier->prop}" ) ;
 
 		// Execute!
-		$this->runAction ( array (
+		$action = array (
 			'action' => 'wbsetqualifier' ,
 			'claim' => $statement_id ,
 			'property' => $command->qualifier->prop ,
@@ -767,7 +772,9 @@ exit ( 1 ) ; // Force bot restart
 			'snaktype' => $this->getSnakType ( $command->qualifier->value ) ,
 			'summary' => '' ,
 			'baserevid' => $i->j->lastrevid
-		) , $command ) ;
+		) ;
+		if ( $action['snaktype'] != 'value' ) unset( $action['value'] );
+		$this->runAction ( $action , $command ) ;
 		if ( $command->status == 'error' and preg_match ( '/The statement has already a qualifier/' , $command->message ) ) $command->status = 'done' ;
 		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
 		return $command ;
@@ -786,6 +793,7 @@ exit ( 1 ) ; // Force bot restart
 				'property' => $source->prop ,
 				'datavalue' => $source->value
 			) ;
+			if ( $s['snaktype'] != 'value' ) unset( $s['datavalue'] ) ;
 			$snaks[$source->prop][] = $s ;
 		}
 
@@ -1251,6 +1259,11 @@ exit ( 1 ) ; // Force bot restart
 	protected function parseValueV1 ( $v , &$cmd ) {
 		$v = trim ( $v ) ;
 		
+		if ( $v == 'somevalue' || $v == 'novalue' ) {
+			$cmd['datavalue'] = array ( "value"=>$v, "type"=>$v ) ;
+			return true ;
+		}
+
 		if ( preg_match ( '/^[PQ]\d+$/i' , $v ) ) { // ITEM/PROPERTY TODO generic
 			$cmd['datavalue'] = array ( "type"=>"wikibase-entityid" , "value"=>array("entity-type"=>$this->getEntityType($v),"id"=>strtoupper($v)) ) ;
 			return true ;

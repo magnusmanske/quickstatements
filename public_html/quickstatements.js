@@ -758,6 +758,7 @@ var QuickStatements = {
 	renderValue : function ( v , ref ) {
 		var me = this ;
 		if ( typeof v.type == 'undefined' ) return "<i>" + JSON.stringify(v) + "</i>" ;
+		if ( v.type == 'novalue' || v.type == 'somevalue' ) return "<i>" + v.type + "</i>" ;
 		if ( v.type == 'wikibase-entityid' ) {
 			ref.attr += '.value.id' ;
 			return me.renderPQ ( v.value.id , ref ) ;
