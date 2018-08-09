@@ -53,6 +53,7 @@ class QuickStatements {
 	public $sleep = 0.1 ; // Number of seconds to sleep between each edit
 	public $use_command_compression = false ;
 	public $bot_config_file = '' ; // Legacy, should be in config.json
+	public $temporary_batch_id ;
 	
 	protected $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
 	protected $is_batch_run = false ;
@@ -73,6 +74,16 @@ class QuickStatements {
 		$this->is_batch_run = $is_batch ;
 	}
 */	
+
+	public function generateTemporaryBatchID () {
+		return '#temporary_batch_' . (round(microtime(true) * 1000)) ;
+	}
+
+	public function generateAndUseTemporaryBatchID () {
+		$this->temporary_batch_id = $this->generateTemporaryBatchID() ;
+		return $this->temporary_batch_id ;
+	}
+
 	protected function isBatchRun () {
 		return $this->is_batch_run ;
 	}
@@ -920,6 +931,11 @@ exit ( 1 ) ; // Force bot restart
 		if ( !isset($command) ) return $this->commandError ( $command , "Empty command" ) ;
 		$command->status = 'working' ;
 		if ( isset($command->error) ) unset ( $command->error ) ;
+		if ( isset($this->temporary_batch_id) ) {
+			if ( isset($command->summary) ) $command->summary .= ' ' . $this->temporary_batch_id ;
+			else $command->summary = $this->temporary_batch_id ;
+		}
+
 		if ( $command->action == 'create' ) {
 			return $this->createNewItem ( $command ) ;
 		} else if ( $command->action == 'merge' ) {
