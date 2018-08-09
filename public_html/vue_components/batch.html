@@ -354,7 +354,20 @@ let BatchPage = Vue.extend ( {
 				}
 				setTimeout ( function () { me.runNextCommand() } , me.direct_command_delay_ms ) ;
 				me.run.last_ts = me.getTimestampNow() ;
-			} , 'json' ) ;
+			} , 'json' )
+			. fail ( function () {
+				$('#working').hide() ;
+				if ( typeof d.command.message != 'undefined' ) d.command.meta.message = d.command.message ;
+//				d.command.summary = original_summary ; // To remove the temporary_batch
+//				Vue.set( me.meta.batch.data.commands, cmdnum, d.command ) ;
+//				if ( typeof d.command.item != 'undefined' ) me.run.last_item = d.command.item ;
+				me.meta.commands.RUN-- ;
+
+				me.meta.batch.data.commands[cmdnum].meta.status = 'ERROR' ;
+				Vue.set ( me.meta.commands , 'ERROR' , (me.meta.commands.ERROR||0)+1 ) ;
+				setTimeout ( function () { me.runNextCommand() } , me.direct_command_delay_ms ) ;
+				me.run.last_ts = me.getTimestampNow() ;
+			} ) ;
 		} ,
     	runBatchDirectly : function () {
     		var me = this ;
