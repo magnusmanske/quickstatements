@@ -148,6 +148,7 @@ let BatchPage = Vue.extend ( {
 	data : function () { return { api:'./api.php' , ready:false , commands:'' , run:{is_running_in_browser:false,last_item:'',temp_id:'',start_ts:'',last_ts:''} , direct_command_delay_ms:1 } } ,
     created : function () {
     	var me = this ;
+
     	me.run.start_ts = me.getTimestampNow() ;
     	me.run.last_ts = me.getTimestampNow() ;
     	if ( typeof me.$route.query.tempfile != 'undefined' ) {
@@ -155,12 +156,15 @@ let BatchPage = Vue.extend ( {
     	} else if ( typeof this.batch != 'undefined' ) {
     		if ( this.batch == 'new' ) {
     			history.pushState(null, null, '#/batch'); // MWAHAHAHA!!1!
+    			me.updateWDforSite() ;
     			me.ready = true ;
     		} else {
 	    		this.loadBatchInfo ( this.batch )
+	    		. then ( () => me.updateWDforSite() )
 	    		. then ( () => me.ready = true ) ;
 	    	}
     	} else {
+    		me.updateWDforSite() ;
     		if ( 0 ) { // TEST FILE
 	    		$.get ( 'test.qs' , function(d){
 	    			me.commands = d ;
@@ -174,6 +178,16 @@ let BatchPage = Vue.extend ( {
     updated : function () { tt.updateInterface(this.$el) ; } ,
     mounted : function () { tt.updateInterface(this.$el) ; } ,
     methods : {
+    	updateWDforSite : function () {
+    		var me = this ;
+    		let pb = config.sites[me.meta.batch.site].pageBase ;
+    		if ( wd_link_base == pb ) return ;
+
+			wd = new WikiData() ;
+	        wd_link_base = pb ;
+	        wd_link_wd = wd ;
+	        wd.api = config.sites[me.meta.batch.site].api + '?callback=?' ;
+    	} ,
     	loadTempFile : function ( tmpfile ) {
     		var me = this ;
     		$('#working').show() ;
@@ -203,6 +217,7 @@ let BatchPage = Vue.extend ( {
 			me.ready = true ;
 			me.meta.batch.data = d.data ;
 			me.generateTemporaryBatchId() ;
+			me.updateWDforSite() ;
     	} ,
     	importV1 : function () {
     		var me = this ;

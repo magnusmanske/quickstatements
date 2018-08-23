@@ -182,12 +182,12 @@ if ( $action == 'import' ) {
 
 } else if ( $action == 'run_single_command' ) {
 
+	$site = strtolower ( trim ( get_request ( 'site' , '' ) ) ) ;
+	if ( $site != '' ) $qs->config->site = $site ;
+
 	$oa = $qs->getOA() ;
 	$oa->delay_after_create_s = 0 ;
 	$oa->delay_after_edit_s = 0 ;
-
-	$site = strtolower ( trim ( get_request ( 'site' , '' ) ) ) ;
-	if ( $site != '' ) $qs->config->site = $site ;
 
 	$qs->last_item = get_request ( 'last_item' , '' ) ;
 	$command = json_decode ( get_request ( 'command' , '' ) ) ;
@@ -198,7 +198,6 @@ if ( $action == 'import' ) {
 		$out['command'] = $qs->runSingleCommand ( $command ) ;
 		$out['last_item'] = $qs->last_item ;
 	}
-
 
 } else if ( $action == 'start_batch' or $action == 'stop_batch' ) {
 
