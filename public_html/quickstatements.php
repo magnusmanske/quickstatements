@@ -255,8 +255,8 @@ class QuickStatements {
 		else $cmd->summary .= '; ' . $summary ;
 		$this->use_oauth = false ;
 		$this->runSingleCommand ( $cmd ) ;
-		if ( isset($cmd->item) and $cmd->item != '' ) {
-			$this->last_item = $cmd->item ;
+		if ( isset($cmd->new_item) ) {
+			$this->last_item = $cmd->new_item ;
 		}
 
 		// Update batch status
@@ -668,7 +668,7 @@ class QuickStatements {
 		if ( $this->toolname != '' ) $summary .= "; invoked by " . $this->toolname ;
 		$params->summary = $summary ;
 		$params->bot = 1 ;
-		
+
 		$result = (object) array() ;
 		$status = false ;
 		if ( $this->use_oauth ) {
@@ -686,7 +686,7 @@ class QuickStatements {
 			$command->status = 'done' ;
 			$new = 'new' ;
 			if ( $params->action == 'wbeditentity' and isset($params->$new) ) {
-				$command->item = $result->entity->id ; // "Last item"
+				$command->new_item = $command->item = $result->entity->id ; // "Last item"
 			}
 		} else {
 			$command->status = 'error' ;
@@ -740,6 +740,14 @@ exit ( 1 ) ; // Force bot restart
 	protected function commandAddStatement ( $command , $i , $statement_id ) {
 		// Paranoia
 		if ( isset($statement_id) ) return $this->commandDone ( $command , "Statement already exists as $statement_id" ) ;
+
+		// Set statement value to last item ID
+		if ( $command->datavalue->type === 'wikibase-entityid' && $command->datavalue->value->id === 'LAST') {
+			if (!$this->last_item) {
+				return $this->commandError( $command, "No last item available" );
+			}
+			$command->datavalue->value->id = $this->last_item;
+		}
 
 		// Execute!
 		$action = array (
@@ -1261,6 +1269,11 @@ exit ( 1 ) ; // Force bot restart
 		
 		if ( $v == 'somevalue' || $v == 'novalue' ) {
 			$cmd['datavalue'] = array ( "value"=>$v, "type"=>$v ) ;
+			return true ;
+		}
+
+		if ( $v == 'LAST' ) {
+			$cmd['datavalue'] = array ( "type"=>"wikibase-entityid" , "value"=>array("entity-type"=>"item", "id"=>"LAST") ) ;
 			return true ;
 		}
 
