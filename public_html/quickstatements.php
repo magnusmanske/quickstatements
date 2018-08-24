@@ -255,9 +255,6 @@ class QuickStatements {
 		else $cmd->summary .= '; ' . $summary ;
 		$this->use_oauth = false ;
 		$this->runSingleCommand ( $cmd ) ;
-		if ( isset($cmd->new_item) ) {
-			$this->last_item = $cmd->new_item ;
-		}
 
 		// Update batch status
 		$db = $this->getDB() ;
@@ -451,7 +448,11 @@ class QuickStatements {
 			'data' => $data ,
 			'summary' => ''
 		) , $command ) ;
-		if ( $command->status != 'done' ) return $command ;
+		if ( $command->status != 'done' ) {
+			$this->last_item = '' ; // Ensure subsequent commands will fail
+			return $command ;
+		}
+		$this->last_item = $command->item ;
 		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
 		return $command ;
 	}
@@ -684,9 +685,8 @@ class QuickStatements {
 		$command->run = $params ; // DEBUGGING INFO
 		if ( $status ) {
 			$command->status = 'done' ;
-			$new = 'new' ;
-			if ( $params->action == 'wbeditentity' and isset($params->$new) ) {
-				$command->new_item = $command->item = $result->entity->id ; // "Last item"
+			if ( $params->action == 'wbeditentity' and isset($params->new) ) {
+				$command->item = $result->entity->id ; // "Last item"
 			}
 		} else {
 			$command->status = 'error' ;
@@ -740,14 +740,6 @@ exit ( 1 ) ; // Force bot restart
 	protected function commandAddStatement ( $command , $i , $statement_id ) {
 		// Paranoia
 		if ( isset($statement_id) ) return $this->commandDone ( $command , "Statement already exists as $statement_id" ) ;
-
-		// Set statement value to last item ID
-		if ( $command->datavalue->type === 'wikibase-entityid' && $command->datavalue->value->id === 'LAST') {
-			if (!$this->last_item) {
-				return $this->commandError( $command, "No last item available" );
-			}
-			$command->datavalue->value->id = $this->last_item;
-		}
 
 		// Execute!
 		$action = array (
@@ -932,7 +924,6 @@ exit ( 1 ) ; // Force bot restart
 		foreach ( $commands AS $command_original ) {
 			$command = $this->array2object ( $command_original ) ;
 			$command = $this->runSingleCommand ( $command ) ;
-			if ( isset($command->item) ) $this->last_item = $command->item ;
 			if ( $command->status != 'done' ) {
 				print "<pre>" ; print_r ( $command ) ; print "</pre>" ;
 			}
@@ -978,6 +969,10 @@ exit ( 1 ) ; // Force bot restart
 				if ( $command->what == 'description' ) return $this->commandSetDescription ( $command , $i ) ;
 				if ( $command->what == 'sitelink' ) return $this->commandSetSitelink ( $command , $i ) ;
 
+				if ( ! $this->propagateLastItem ( $command ) ) {
+					return $this->commandError( $command, "No last item available" );
+				}
+
 				$statement_id = $this->getStatementID ( $command ) ;
 				if ( $command->what == 'statement' ) return $this->commandAddStatement ( $command , $i , $statement_id ) ;
 
@@ -999,9 +994,31 @@ exit ( 1 ) ; // Force bot restart
 			}
 			
 		}
-		$command->status = 'error' ;
-		$command->message = 'Incomplete or unknown command' ;
-		return $command ;
+		return $this->commandError( $command, "Incomplete or unknown command" );
+	}
+
+
+	protected function propagateLastItem ( $command ) {
+		$values = [ $command->datavalue ];
+		if ( isset($command->qualifier->value) ) {
+			$values[] = $command->qualifier->value ;
+		}
+		if ( isset($command->sources) ) {
+			foreach ( $command->sources as $source ) {
+				$values[] = $source->value;
+			}
+		}
+
+		foreach ( $values as $value ) {
+			if ( isset ( $value->type ) && $value->type === 'wikibase-entityid' && strtoupper( $value->value->id ) === 'LAST') {
+				if ( !$this->last_item ) {
+					return false ;
+				}
+				$value->value->id = $this->last_item ;
+			}
+		}
+
+		return true ;
 	}
 	
 	

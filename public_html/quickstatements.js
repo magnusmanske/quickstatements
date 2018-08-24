@@ -398,7 +398,7 @@ var QuickStatements = {
 			last_item : me.run_state.last_item
 		} , function ( d ) {
 			me.data.commands[cmdnum] = d.command ;
-			if ( typeof d.command.item != 'undefined' ) me.run_state.last_item = d.command.item ;
+			if ( typeof d.last_item != 'undefined' ) me.run_state.last_item = d.last_item ;
 			me.run_state.commands.pending-- ;
 			if ( d.status == 'OK' ) {
 				me.run_state.commands.done++ ;

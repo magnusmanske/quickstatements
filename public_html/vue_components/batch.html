@@ -358,7 +358,7 @@ let BatchPage = Vue.extend ( {
 				d.command.summary = original_summary ; // To remove the temporary_batch
 				Vue.set( me.meta.batch.data.commands, cmdnum, d.command ) ;
 //				console.log(JSON.parse(JSON.stringify(d)));
-				if ( typeof d.command.item != 'undefined' ) me.run.last_item = d.command.item ;
+				if ( typeof d.last_item != 'undefined' ) me.run.last_item = d.last_item ;
 				me.meta.commands.RUN-- ;
 				if ( d.command.status == 'done' ) {
 					me.meta.batch.data.commands[cmdnum].meta.status = 'DONE' ;
