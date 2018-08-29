@@ -483,7 +483,9 @@ class QuickStatements {
 	protected function compareDatavalue ( $d1 , $d2 ) {
 		if ( $d1->type != $d2->type ) return false ;
 		if ( $d1->type == 'string' ) {
-			return normalizer_normalize($d1->value,Normalizer::FORM_D) == $d2->value; # Yay Unicode!
+			$value1 = normalizer_normalize($d1->value,Normalizer::FORM_D);
+			$value2 = normalizer_normalize($d2->value,Normalizer::FORM_D);
+			return $value1 == $value2;
 		}
 		if ( $d1->type == 'quantity' ) return $d1->value->amount*1 == $d2->value->amount*1 ;
 		if ( $d1->type == 'time' ) {
