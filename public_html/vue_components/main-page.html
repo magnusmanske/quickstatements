@@ -42,6 +42,7 @@ let MainPage = Vue.extend ( {
         created : function () {
             if ( typeof this.url_params != 'undefined' ) {
                 let m ;
+                let r_batch = new RegExp ( /^\.2Fbatch\.2F(\d+)$/ ) ;
                 if ( this.url_params == 'mode=batches' ) {
                     this.$router.push ( '/batches/' ) ;
                 } else if ( (m=this.url_params.match(/^mode=batches&user=(.+)$/))!==null ) {
@@ -50,6 +51,9 @@ let MainPage = Vue.extend ( {
                     this.createTemporaryBatch ( m[1] , 'v1' ) ;
                 } else if ( (m=this.url_params.match(/^csv=(.+)$/))!==null ) {
                     this.createTemporaryBatch ( m[1] , 'csv' ) ;
+                } else if ( r_batch.test(this.url_params) ) {
+                    let m = this.url_params.match(r_batch) ;
+                    this.$router.push ( '/batch/'+encodeURIComponent(m[1]) ) ;
                 } else {
                     console.log ( this.url_params ) ;
                 }
