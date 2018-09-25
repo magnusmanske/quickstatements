@@ -695,7 +695,7 @@ class QuickStatements {
 			if ( !isset($result) or $result === null or $result == '' ) {
 				$command->message = 'No result received for ' . json_encode($params) ;
 			} else if ( isset($result->error) and isset($result->error->info) ) {
-				if ( $result->error->info == 'The database has been automatically locked while the slave database servers catch up to the master' ) ) {
+				if ( $result->error->info == 'The database has been automatically locked while the slave database servers catch up to the master' ) {
 					sleep ( 1 ) ;
 					$this->runAction ( $params , $command ) ;
 					return ;
