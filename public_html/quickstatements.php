@@ -55,6 +55,7 @@ class QuickStatements {
 	public $bot_config_file = '' ; // Legacy, should be in config.json
 	public $temporary_batch_id ;
 	public $retry_on_database_lock = false ;
+	public $use_user_oauth_for_batch_edits = true ;
 	
 	protected $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
 	protected $is_batch_run = false ;
@@ -254,24 +255,26 @@ class QuickStatements {
 		}
 
 		// load OAuth, if available
-		$sql = "SELECT serialized FROM batch_oauth WHERE batch_id=$batch_id" ;
-		if($result = $db->query($sql)) {
-			$oauth = $result->fetch_object() ;
-			if ( $oauth !== NULL ) {
-				$oa = unserialize($oauth->serialized) ;
-				if ( $oa === false ) {
-					$this->log( "Could not unserialize OAuth information for batch $batch_id:\n".$oauth->serialized );
-					$this->use_oauth = false ;
+		if ( $this->use_user_oauth_for_batch_edits ) {
+			$sql = "SELECT serialized FROM batch_oauth WHERE batch_id=$batch_id" ;
+			if($result = $db->query($sql)) {
+				$oauth = $result->fetch_object() ;
+				if ( $oauth !== NULL ) {
+					$oa = unserialize($oauth->serialized) ;
+					if ( $oa === false ) {
+						$this->log( "Could not unserialize OAuth information for batch $batch_id:\n".$oauth->serialized );
+						$this->use_oauth = false ;
+					} else {
+						$this->setOA( $oa ) ;
+					}
 				} else {
-					$this->setOA( $oa ) ;
+					// no OAuth information for this batch – perfectly normal for older batches, don’t log
+					$this->use_oauth = false ;
 				}
 			} else {
-				// no OAuth information for this batch – perfectly normal for older batches, don’t log
+				$this->log( "Could not load OAuth information for batch $batch_id [" . $db->error . ']' );
 				$this->use_oauth = false ;
 			}
-		} else {
-			$this->log( "Could not load OAuth information for batch $batch_id [" . $db->error . ']' );
-			$this->use_oauth = false ;
 		}
 
 		// Update status
