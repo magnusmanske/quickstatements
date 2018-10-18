@@ -108,6 +108,13 @@ class QuickStatements {
 		return $this->oa ;
 	}
 
+	public function setOA( MW_OAuth $oa ) {
+		if ( isset($this->oa) ) {
+			$this->log( 'Overriding one OAuth object with another, this is unexpected' );
+		}
+		$this->oa = $oa;
+	}
+
 	public function getBatch ( $id ) {
 		$id *= 1 ;
 		$ret = array('commands'=>array()) ;
@@ -156,6 +163,8 @@ class QuickStatements {
 		$sql = "INSERT INTO batch (name,user,site,ts_created,ts_last_change,status) VALUES ('".$db->real_escape_string($name)."',$user_id,'".$db->real_escape_string($site)."','$ts','$ts','LOADING')" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		$batch_id = $db->insert_id ;
+		$sql = "INSERT INTO batch_oauth (batch_id,serialized) VALUES ($batch_id,'".$db->real_escape_string(serialize($this->getOA()))."')" ;
+		if(!$result = $db->query($sql)) $this->log( "Could not store OAuth information for batch {$batch_id} [{$db->error}]" );
 		foreach ( $commands AS $k => $c ) {
 			$cs = json_encode ( $c ) ;
 			if ( trim($cs) == '' ) continue ; // Paranoia
@@ -244,6 +253,27 @@ class QuickStatements {
 			return true ;
 		}
 
+		// load OAuth, if available
+		$sql = "SELECT serialized FROM batch_oauth WHERE batch_id=$batch_id" ;
+		if($result = $db->query($sql)) {
+			$oauth = $result->fetch_object() ;
+			if ( $oauth !== NULL ) {
+				$oa = unserialize($oauth->serialized) ;
+				if ( $oa === false ) {
+					$this->log( "Could not unserialize OAuth information for batch $batch_id:\n".$oauth->serialized );
+					$this->use_oauth = false ;
+				} else {
+					$this->setOA( $oa ) ;
+				}
+			} else {
+				// no OAuth information for this batch – perfectly normal for older batches, don’t log
+				$this->use_oauth = false ;
+			}
+		} else {
+			$this->log( "Could not load OAuth information for batch $batch_id [" . $db->error . ']' );
+			$this->use_oauth = false ;
+		}
+
 		// Update status
 #if ( !isset($o->id) ) print_r ( $o ) ;
 		$sql = "UPDATE command SET status='RUN',ts_change='$ts',message='' WHERE id={$o->id}" ;
@@ -254,7 +284,7 @@ class QuickStatements {
 		$cmd = json_decode ( $o->json ) ;
 		if ( !isset($cmd->summary) ) $cmd->summary = $summary ;
 		else $cmd->summary .= '; ' . $summary ;
-		$this->use_oauth = false ;
+#		$this->use_oauth = false ;
 		$this->runSingleCommand ( $cmd ) ;
 
 		// Update batch status
