@@ -54,6 +54,7 @@ class QuickStatements {
 	public $use_command_compression = false ;
 	public $bot_config_file = '' ; // Legacy, should be in config.json
 	public $temporary_batch_id ;
+	public $retry_on_database_lock = false ;
 	
 	protected $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
 	protected $is_batch_run = false ;
@@ -385,7 +386,7 @@ class QuickStatements {
 	
 	protected function log ( $data ) {
 		if ( !$this->logging ) return ;
-		$out = $this->getCurrentTimestamp() . "\t" . json_encode ( $data ) ;
+		$out = $this->getCurrentTimestamp() . "\t" . json_encode ( $data ) . "\n" ;
 		file_put_contents ( $this->config->logfile , $out , FILE_APPEND ) ;
 	}
 	
@@ -695,8 +696,9 @@ class QuickStatements {
 			if ( !isset($result) or $result === null or $result == '' ) {
 				$command->message = 'No result received for ' . json_encode($params) ;
 			} else if ( isset($result->error) and isset($result->error->info) ) {
-				if ( $result->error->info == 'The database has been automatically locked while the slave database servers catch up to the master' ) {
-					sleep ( 1 ) ;
+				if ( $this->retry_on_database_lock and $result->error->info == 'The database has been automatically locked while the slave database servers catch up to the master' ) {
+					$command->status = '' ;
+					sleep ( 3 ) ;
 					$this->runAction ( $params , $command ) ;
 					return ;
 				}
