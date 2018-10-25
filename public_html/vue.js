@@ -32,6 +32,9 @@ $(document).ready ( function () {
         wd_link_base = config.sites[config.site].pageBase ;
         wd_link_wd = wd ;
         wd.api = config.sites[config.site].api + '?callback=?' ;
+        wd_ns_prefixes = {} ;
+        for ( var letter in config.sites[config.site].types )
+            wd_ns_prefixes[letter] = config.sites[config.site].types[letter].ns_prefix ;
 
         const routes = [
           { path: '/', component: MainPage , props:true },

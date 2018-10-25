@@ -11,7 +11,8 @@
 			"toolBase" : "https://tools.wmflabs.org/quickstatements" ,
 			"types" : {
 				"P" : { "type":"property" , "ns":120 , "ns_prefix":"Property:" } ,
-				"Q" : { "type":"item" , "ns":0 , "ns_prefix":"" }
+				"Q" : { "type":"item" , "ns":0 , "ns_prefix":"" },
+				"L" : { "type":"lexeme", "ns" 146, "ns_prefix":"Lexeme:" }
 			}
 		}  ,
 		"factgrid" : {

@@ -1160,7 +1160,7 @@ exit ( 1 ) ; // Force bot restart
 	}
 
 	protected function isValidItemIdentifier ( $q ) {
-		return preg_match ( '/^[PQ]\d+$/' , $q ) ;
+		return preg_match ( '/^(?:[PQL]\d+|L\d+-[FS]\d+)$/' , $q ) ;
 	}
 
     protected function importDataFromCSV ( $data, &$ret ) {
@@ -1304,7 +1304,9 @@ exit ( 1 ) ; // Force bot restart
 		$q = strtoupper ( trim ( $q ) ) ;
 		if ( preg_match ( '/^Q\d+$/' , $q ) ) return 'item' ;
 		if ( preg_match ( '/^P\d+$/' , $q ) ) return 'property' ;
-		if ( preg_match ( '/^".*"$/' , $q ) ) return 'string' ;
+		if ( preg_match ( '/^L\d+$/' , $q ) ) return 'lexeme' ;
+		if ( preg_match ( '/^L\d+-F\d+$/' , $q ) ) return 'form' ;
+		if ( preg_match ( '/^L\d+-S\d+$/' , $q ) ) return 'sense' ;
 		return 'unknown' ;
 	}
 
@@ -1336,7 +1338,7 @@ exit ( 1 ) ; // Force bot restart
 			return true ;
 		}
 
-		if ( preg_match ( '/^[PQ]\d+$/i' , $v ) ) { // ITEM/PROPERTY TODO generic
+		if ( preg_match ( '/^(?:[PQL]\d+|L\d+-[FS]\d+)$/i' , $v ) ) { // ENTITY TODO generic
 			$cmd['datavalue'] = array ( "type"=>"wikibase-entityid" , "value"=>array("entity-type"=>$this->getEntityType($v),"id"=>strtoupper($v)) ) ;
 			return true ;
 		}

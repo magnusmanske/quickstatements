@@ -488,7 +488,7 @@ var QuickStatements = {
 		$('a.wd_unlabeled').each ( function () {
 			var a = $(this) ;
 			var pq = a.attr('pq') ;
-			if ( !pq.match(/^[PQ]\d+$/i) ) return ; // Paranoia
+			if ( !pq.match(/^(?:[PQL]\d+|L\d+-[FS]\d+)$/i) ) return ; // Paranoia
 			to_update.push ( pq ) ;
 			a.removeClass('wd_unlabeled').addClass('wd_pq').attr({title:pq}) ;
 			if ( to_update.length >= 50 ) return false ; // Max
@@ -512,6 +512,21 @@ var QuickStatements = {
 						if ( typeof v.labels['en'] != 'undefined' ) {
 							label = v.labels['en'].value ;
 						}
+					}
+					if ( typeof label == 'undefined' && typeof v.lemmas != 'undefined' ) {
+						for ( var languageCode in v.lemmas ) {
+							label = v.lemmas[languageCode].value;
+							break;
+						}
+					}
+					if ( typeof label == 'undefined' && typeof v.representations != 'undefined' ) {
+						for ( var languageCode in v.representations ) {
+							label = v.representations[languageCode].value;
+							break;
+						}
+					}
+					if ( typeof label == 'undefined' && typeof v.glosses != 'undefined' && typeof v.glosses['en'] != 'undefined' ) {
+						label = v.glosses['en'].value;
 					}
 					if ( typeof label == 'undefined' ) return ;
 					$('a.wd_pq[pq="'+pq+'"]').removeClass('red').text(label) ;
@@ -665,10 +680,10 @@ var QuickStatements = {
 		var html = '???' ;
 		if ( i == 'LAST' ) {
 			html = '<i>LAST ITEM</i>' ;
-		} else if ( i.match ( /^[PQ]\d+$/i ) ) { // PQ
-			
+		} else if ( i.match ( /^(?:[PQL]\d+|L\d+-[FS]\d+)$/i ) ) { // ENTITY
 			var letter = i.substr(0,1).toUpperCase() ;
-			html = "<a class='wd_unlabeled' pq='"+i+"' href='" + me.getSitePageURL(me.types[letter].ns_prefix+i) + "' target='_blank'>" + i + "</a> <small>[" + i + "]</small>"
+			var title = me.types[letter].ns_prefix + i.replace('-', '#') ;
+			html = "<a class='wd_unlabeled' pq='"+i+"' href='" + me.getSitePageURL(title) + "' target='_blank'>" + i + "</a> <small>[" + i + "]</small>"
 
 		} else { // DUNNO
 			html = me.htmlSafe ( i ) ;
