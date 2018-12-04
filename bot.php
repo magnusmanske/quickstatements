@@ -27,7 +27,7 @@ if ( isset($argv[1]) and $argv[1] == 'single_batch' ) {
 	$min_sec_inactive = 60 * 60 ; # 1h
 	$qs = new QuickStatements ;
 	$db = $qs->getDB() ;
-	$sql = "SELECT * FROM batch WHERE status IN ('INIT','RUN') ORDER BY ts_last_change DESC LIMIT 1" ;
+	$sql = "SELECT * FROM batch WHERE status IN ('INIT','RUN') ORDER BY ts_last_change LIMIT 1" ;
 	if(!$result = $db->query($sql)) die('There was an error running the query [' . $db->error . ']');
 	$o = $result->fetch_object() ;
 	if ( !$o ) exit ( 0 ) ; # No batches left
@@ -35,8 +35,9 @@ if ( isset($argv[1]) and $argv[1] == 'single_batch' ) {
 	if ( !preg_match ( '/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/' , $ts_last_change , $m ) ) die ( "Bad time format in ts_last_change batch #{$o->id}\n" ) ;
 	$ts_last_change = $m[1].'-'.$m[2].'-'.$m[3].' '.$m[4].':'.$m[5].':'.$m[6] ;
 	$diff_sec = time() - strtotime ( $ts_last_change ) ;
+#print "{$ts_last_change}\n{$diff_sec}\n" ;
 	if ( $diff_sec < $min_sec_inactive ) exit ( 0 ) ; # Oldest batch is still too young
-#	print "Using {$o->id}\n" ;
+	print "Using {$o->id}\n" ;
 
 	if ( $o->status == 'INIT' ) {
 		if ( !$qs->startBatch ( $o->id ) ) {
