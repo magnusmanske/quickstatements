@@ -1,2 +1,2 @@
-0,5,10,15,20,25,30,35,40,45,50,55 * * * * jsub -mem 2g -N -quiet bot /data/project/quickstatements/bot.php single_batch
+0,5,10,15,20,25,30,35,40,45,50,55 * * * * jsub -mem 2g -N bot -quiet /data/project/quickstatements/bot.php single_batch
 * 2 * * * jsub -N old_tmp -once -quiet /data/project/quickstatements/clean_old_tmp_files.sh
