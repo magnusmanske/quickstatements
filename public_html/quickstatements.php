@@ -1341,7 +1341,7 @@ exit ( 1 ) ; // Force bot restart
 			return true ;
 		}
 
-		if ( isValidItemIdentifier ( $v ) ) {
+		if ( $this->isValidItemIdentifier ( $v ) ) {
 			$cmd['datavalue'] = array ( "type"=>"wikibase-entityid" , "value"=>array("entity-type"=>$this->getEntityType($v),"id"=>strtoupper($v)) ) ;
 			return true ;
 		}
