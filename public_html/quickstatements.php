@@ -633,8 +633,8 @@ class QuickStatements {
 	}
 
 	public function setSite ( $new_site ) {
-		if ( trim($new_site) == '' ) return ;
-		if ( $this->config->site == $new_site ) return ; // All is well
+		if ( trim($new_site) == '' ) return true ;
+		if ( $this->config->site == $new_site ) return true ; // All is well
 		if ( !isset($this->config->sites->$new_site ) ) return $this->setErrorMessage ( "Site '{$new_site}' not in config file" ) ;
 
 		global $wikidata_api_url ;

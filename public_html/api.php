@@ -184,7 +184,7 @@ if ( $action == 'import' ) {
 
 	$site = strtolower ( trim ( get_request ( 'site' , '' ) ) ) ;
 	if ( !$qs->setSite ( $site ) ) {
-		$out['status'] = $qs->last_error_message ;
+		$out['status'] = "Error while setting site '{$site}': " . $qs->last_error_message ;
 	} else {
 
 		$oa = $qs->getOA() ;
