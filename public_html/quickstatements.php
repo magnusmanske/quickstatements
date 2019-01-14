@@ -631,6 +631,18 @@ class QuickStatements {
 	
 		return $out ;
 	}
+
+	public function setSite ( $new_site ) {
+		if ( trim($new_site) == '' ) return ;
+		if ( $this->config->site == $new_site ) return ; // All is well
+		if ( !isset($this->config->sites->$new_site ) ) return $this->setErrorMessage ( "Site '{$new_site}' not in config file" ) ;
+
+		global $wikidata_api_url ;
+		$this->config->site = $new_site ;
+		$wikidata_api_url = $this->getSite()->api ;
+		$this->wd = new WikidataItemList () ;
+		return true ;
+	}
 	
 	protected function getSite () {
 		$site = $this->config->site ;
@@ -857,7 +869,7 @@ exit ( 1 ) ; // Force bot restart
 	protected function commandSetLabel ( $command , $i ) {
 		// Paranoia
 		if ( $i->getLabel ( $command->language , true ) == $command->value ) return $this->commandDone ( $command , 'Already has that label for {$command->language}' ) ;
-		
+
 		// Execute!
 		$this->runAction ( array (
 			'action' => 'wbsetlabel' ,
@@ -1000,7 +1012,7 @@ exit ( 1 ) ; // Force bot restart
 			if ( strtolower($q) == 'last' ) $q = $this->last_item ;
 			if ( $q == '' ) return $this->commandError ( $command , 'No last item available' ) ;
 			$command->item = $q ;
-			$to_load = array ( $q ) ;
+			$to_load = [ $q ] ;
 			if ( isset($command->property) and $this->isProperty($command->property) ) $to_load[] = $command->property ;
 			$this->wd->loadItems ( $to_load ) ;
 			if ( !$this->wd->hasItem($q) ) return $this->commandError ( $command , "Item $q is not available" ) ;
@@ -1305,9 +1317,13 @@ exit ( 1 ) ; // Force bot restart
 	
 	protected function getEntityType ( $q ) {
 		$q = strtoupper ( trim ( $q ) ) ;
-		if ( preg_match ( '/^Q\d+$/' , $q ) ) return 'item' ;
-		if ( preg_match ( '/^P\d+$/' , $q ) ) return 'property' ;
-		if ( preg_match ( '/^L\d+$/' , $q ) ) return 'lexeme' ;
+
+		# Simple cases, from config file
+		foreach ( $this->getSite()->types AS $char => $data ) {
+			if ( preg_match ( '/^'.$char.'\d+$/' , $q ) ) return $data->type ;
+		}
+
+		# Complex cases, hardcoded
 		if ( preg_match ( '/^L\d+-F\d+$/' , $q ) ) return 'form' ;
 		if ( preg_match ( '/^L\d+-S\d+$/' , $q ) ) return 'sense' ;
 		return 'unknown' ;

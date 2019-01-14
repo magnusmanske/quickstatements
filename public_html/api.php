@@ -183,20 +183,23 @@ if ( $action == 'import' ) {
 } else if ( $action == 'run_single_command' ) {
 
 	$site = strtolower ( trim ( get_request ( 'site' , '' ) ) ) ;
-	if ( $site != '' ) $qs->config->site = $site ;
-
-	$oa = $qs->getOA() ;
-	$oa->delay_after_create_s = 0 ;
-	$oa->delay_after_edit_s = 0 ;
-
-	$qs->last_item = get_request ( 'last_item' , '' ) ;
-	$command = json_decode ( get_request ( 'command' , '' ) ) ;
-	if ( $command == null ) {
-		$out['status'] = 'Bad command JSON' ;
-		$out['debug'] = get_request ( 'command' , '' ) ;
+	if ( !$qs->setSite ( $site ) ) {
+		$out['status'] = $qs->last_error_message ;
 	} else {
-		$out['command'] = $qs->runSingleCommand ( $command ) ;
-		$out['last_item'] = $qs->last_item ;
+
+		$oa = $qs->getOA() ;
+		$oa->delay_after_create_s = 0 ;
+		$oa->delay_after_edit_s = 0 ;
+
+		$qs->last_item = get_request ( 'last_item' , '' ) ;
+		$command = json_decode ( get_request ( 'command' , '' ) ) ;
+		if ( $command == null ) {
+			$out['status'] = 'Bad command JSON' ;
+			$out['debug'] = get_request ( 'command' , '' ) ;
+		} else {
+			$out['command'] = $qs->runSingleCommand ( $command ) ;
+			$out['last_item'] = $qs->last_item ;
+		}
 	}
 
 } else if ( $action == 'start_batch' or $action == 'stop_batch' ) {
