@@ -36,7 +36,7 @@ if ( isset($argv[1]) and $argv[1] == 'single_batch' ) {
 	$ts_last_change = $m[1].'-'.$m[2].'-'.$m[3].' '.$m[4].':'.$m[5].':'.$m[6] ;
 	$diff_sec = time() - strtotime ( $ts_last_change ) ;
 #print "{$ts_last_change}\n{$diff_sec}\n" ;
-	if ( $diff_sec < $min_sec_inactive ) exit ( 0 ) ; # Oldest batch is still too young
+	if ( $diff_sec < $min_sec_inactive and $o->status != 'INIT' ) exit ( 0 ) ; # Oldest batch is still too young
 	print "Using {$o->id}\n" ;
 
 	if ( $o->status == 'INIT' ) {
