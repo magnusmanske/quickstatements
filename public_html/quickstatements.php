@@ -78,7 +78,7 @@ class QuickStatements {
 */	
 
 	public function generateTemporaryBatchID () {
-		return uniqid('',true);#'#temporary_batch_' . (round(microtime(true) * 1000)) ;
+		return preg_replace('/[^0-9a-f]/','',uniqid('',true));#'#temporary_batch_' . (round(microtime(true) * 1000)) ;
 	}
 
 	public function generateAndUseTemporaryBatchID () {
