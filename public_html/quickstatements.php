@@ -686,6 +686,7 @@ class QuickStatements {
 		unset ( $params['action'] ) ;
 		
 		$params['bot'] = 1 ;
+		$params['maxlag'] = 5 ;
 
 		$api = $this->getBotAPI() ;
 		$params['token'] = $api->getToken() ;
@@ -693,7 +694,15 @@ class QuickStatements {
 		try {
 			$x = $api->postRequest( new \Mediawiki\Api\SimpleRequest( $action, $params ) );
 			if ( isset($x) ) {
-				$this->last_result = json_decode ( json_encode ( $x ) ) ; // Casting to object
+				$ret = json_decode ( json_encode ( $x ) ) ; // Casting to object
+				if ( isset($ret->error) and isset($ret->error->code) and $ret->error->code == 'maxlag' ) {
+					$lag = 5 ;
+					if ( isset($ret->error->lag) ) $lag = $ret->error->lag*1 + $maxlag ;
+					sleep ( $lag ) ;
+					return $this->runBotAction ( $params_orig , $attempts_left-1 ) ;
+				} else {
+					$this->last_result = $ret ;
+				}
 			} else {
 print "\nFALSE\n" ;
 //				return false ; // TODO is that correct?
