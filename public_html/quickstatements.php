@@ -56,6 +56,7 @@ class QuickStatements {
 	public $temporary_batch_id ;
 	public $retry_on_database_lock = false ;
 	public $use_user_oauth_for_batch_edits = true ;
+	public $auth_db = '' ;//= 's53220__quickstatements_auth' ;
 	
 	protected $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
 	protected $is_batch_run = false ;
@@ -165,7 +166,7 @@ class QuickStatements {
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		$batch_id = $db->insert_id ;
 		$serialized = serialize($this->getOA()) ;
-		$sql = "INSERT INTO batch_oauth (batch_id,serialized,serialized_json) VALUES ($batch_id,'".$db->real_escape_string($serialized)."','".$db->real_escape_string(json_encode(unserialize($serialized)))."')" ;
+		$sql = "INSERT INTO `{$this->auth_db}.batch_oauth` (batch_id,serialized,serialized_json) VALUES ($batch_id,'".$db->real_escape_string($serialized)."','".$db->real_escape_string(json_encode(unserialize($serialized)))."')" ;
 		if(!$result = $db->query($sql)) $this->log( "Could not store OAuth information for batch {$batch_id} [{$db->error}]" );
 		foreach ( $commands AS $k => $c ) {
 			$cs = json_encode ( $c ) ;
@@ -180,10 +181,18 @@ class QuickStatements {
 		return $batch_id ;
 	}
 
+	function setAuthDbName() {
+		$sql = "SELECT DATABASE() AS db" ;
+		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+		if ( $o = $result->fetch_object() ) $this->auth_db = preg_replace('/_p$/','_auth',$o->db) ;
+		else return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
+	}
+
 	public function getDB () {
 		if ( !isset($this->db) or !$this->db->ping() ) {
 			$this->db = openToolDB ( 'quickstatements_p' ) ;
 			$this->db->set_charset("utf8") ;
+			$this->setAuthDbName() ;
 		}
 		return $this->db ;
 	}
@@ -210,7 +219,7 @@ class QuickStatements {
 	public function getUsernameFromBatchID ( $batch_id ) {
 		$db = $this->getDB() ;
 		$user_name = '' ;
-		$sql = "select user.name AS `name` from `user`,batch WHERE user.id=batch.user AND batch.id=$batch_id"  ;
+		$sql = "select user.name AS `name` from `{$this->auth_db}.user`,batch WHERE user.id=batch.user AND batch.id=$batch_id"  ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		while ( $o = $result->fetch_object() ) $user_name = $o->name ;
 		return $user_name ;
@@ -238,7 +247,7 @@ class QuickStatements {
 	public function runNextCommandInBatch ( $batch_id ) {
 		$db = $this->getDB() ;
 		
-		$sql = "SELECT last_item,user.id AS user_id,user.name AS user_name FROM batch,user WHERE batch.id=$batch_id AND user.id=batch.user" ;
+		$sql = "SELECT last_item,user.id AS user_id,user.name AS user_name FROM batch,{$this->auth_db}.user WHERE batch.id=$batch_id AND user.id=batch.user" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		$o = $result->fetch_object() ;
 		$this->last_item = $o->last_item ;
@@ -257,7 +266,7 @@ class QuickStatements {
 
 		// load OAuth, if available
 		if ( $this->use_user_oauth_for_batch_edits ) {
-			$sql = "SELECT serialized FROM batch_oauth WHERE batch_id=$batch_id" ;
+			$sql = "SELECT serialized FROM `{$this->auth_db}.batch_oauth` WHERE batch_id=$batch_id" ;
 			if($result = $db->query($sql)) {
 				$oauth = $result->fetch_object() ;
 				if ( $oauth !== NULL ) {
@@ -273,7 +282,7 @@ class QuickStatements {
 					$this->use_oauth = false ;
 				}
 			} else {
-				$this->log( "Could not load OAuth information for batch $batch_id [" . $db->error . ']' );
+				$this->log( "Could not load OAuth information for batch $batch_id \[" . $db->error . ']' );
 				$this->use_oauth = false ;
 			}
 		}
@@ -318,7 +327,7 @@ class QuickStatements {
 	public function getToken ( $user_name ) {
 		$db = $this->getDB() ;
 		$token = '' ;
-		$sql = "SELECT * FROM `user` WHERE name='" . $db->real_escape_string($user_name) . "'" ;
+		$sql = "SELECT * FROM `{$this->auth_db}.user` WHERE name='" . $db->real_escape_string($user_name) . "'" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		while ( $o = $result->fetch_object() ) {
 			if ( $o->api_hash == '' ) continue ;
@@ -332,7 +341,7 @@ class QuickStatements {
 
 		$db = $this->getDB() ;
 		$user_name = trim ( preg_replace ( '/_/' , ' ' , $user_name ) ) ;
-		$sql = "SELECT * FROM `user` WHERE name='" . $db->real_escape_string($user_name) . "' AND api_hash='" . $db->real_escape_string($token) . "'" ;
+		$sql = "SELECT * FROM `{$this->auth_db}.user` WHERE name='" . $db->real_escape_string($user_name) . "' AND api_hash='" . $db->real_escape_string($token) . "'" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		while ( $o = $result->fetch_object() ) return $o->id*1 ;
 	}
@@ -353,14 +362,14 @@ class QuickStatements {
 		
 		$id = '' ;
 		$un = $db->real_escape_string($user_name) ;
-		$sql = "SELECT * FROM user WHERE name='$un'" ;
+		$sql = "SELECT * FROM {$this->auth_db}.user WHERE name='$un'" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		while ( $o = $result->fetch_object() ) $id = $o->id ;
 		
 		if ( $id == '' ) {
-			$sql = "INSERT INTO `user` (name,api_hash) VALUES ('$un','$token')" ;
+			$sql = "INSERT INTO `{$this->auth_db}.user` (name,api_hash) VALUES ('$un','$token')" ;
 		} else {
-			$sql = "UPDATE `user` set api_hash='$token' WHERE id=$id" ;
+			$sql = "UPDATE `{$this->auth_db}.user` set api_hash='$token' WHERE id=$id" ;
 		}
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		
@@ -376,7 +385,7 @@ class QuickStatements {
 		$db = $this->getDB() ;
 		$bl = implode ( ',' , $batches ) ;
 
-		$sql = "SELECT user.name AS user_name,batch.* FROM batch,user WHERE user.id=batch.user AND batch.id IN ($bl)" ;
+		$sql = "SELECT user.name AS user_name,batch.* FROM batch,{$this->auth_db}.user WHERE user.id=batch.user AND batch.id IN ($bl)" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		while ( $o = $result->fetch_object() ) {
 			$batch_id = $o->id ;
@@ -453,7 +462,7 @@ class QuickStatements {
 	
 	protected function ensureCurrentUserInDB () {
 		$db = $this->getDB() ;
-		$sql = "INSERT IGNORE INTO user (id,name) VALUES ({$this->user_id},'".$db->real_escape_string($this->user_name)."')" ;
+		$sql = "INSERT IGNORE INTO `{$this->auth_db}.user` (id,name) VALUES ({$this->user_id},'".$db->real_escape_string($this->user_name)."')" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		return true ;
 	}
