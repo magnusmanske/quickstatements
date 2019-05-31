@@ -132,7 +132,7 @@ if ( $action == 'import' ) {
 	
 	$db = $qs->getDB() ;
 	$sql = "SELECT DISTINCT batch.id AS id FROM batch" ;
-	if ( $user != '' ) $sql .= ",user" ;
+	if ( $user != '' ) $sql .= ",{$qs->auth_db}.user" ;
 
 	$conditions = array() ;
 	if ( $user != '' ) $conditions[] = "user.id=batch.user AND user.name='" . $db->real_escape_string($user) . "'" ;

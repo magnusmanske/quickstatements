@@ -27,7 +27,11 @@ if ( isset($argv[1]) and $argv[1] == 'single_batch' ) {
 	$min_sec_inactive = 60 * 60 ; # 1h
 	$qs = new QuickStatements ;
 	$db = $qs->getDB() ;
+
 	$sql = "SELECT * FROM batch WHERE status IN ('INIT','RUN') ORDER BY ts_last_change" ;
+	if ( isset($argv[2]) ) {
+		$sql = "SELECT * FROM batch WHERE id=".($argv[2]*1) ;
+	}
 	if(!$result = $db->query($sql)) die('There was an error running the query [' . $db->error . ']');
 	while ( $o = $result->fetch_object() ) {
 		$ts_last_change = $o->ts_last_change ;
