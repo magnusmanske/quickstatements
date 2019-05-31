@@ -164,7 +164,8 @@ class QuickStatements {
 		$sql = "INSERT INTO batch (name,user,site,ts_created,ts_last_change,status) VALUES ('".$db->real_escape_string($name)."',$user_id,'".$db->real_escape_string($site)."','$ts','$ts','LOADING')" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		$batch_id = $db->insert_id ;
-		$sql = "INSERT INTO batch_oauth (batch_id,serialized) VALUES ($batch_id,'".$db->real_escape_string(serialize($this->getOA()))."')" ;
+		$serialized = serialize($this->getOA()) ;
+		$sql = "INSERT INTO batch_oauth (batch_id,serialized,serialized_json) VALUES ($batch_id,'".$db->real_escape_string($serialized)."','".$db->real_escape_string(json_encode(unserialize($serialized)))."')" ;
 		if(!$result = $db->query($sql)) $this->log( "Could not store OAuth information for batch {$batch_id} [{$db->error}]" );
 		foreach ( $commands AS $k => $c ) {
 			$cs = json_encode ( $c ) ;
