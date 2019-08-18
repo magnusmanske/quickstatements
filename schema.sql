@@ -1,7 +1,7 @@
 CREATE TABLE `batch` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `user` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  `user` int(11) NOT NULL DEFAULT '',
   `ts_created` varchar(14) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
   `ts_last_change` varchar(14) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
   `status` varchar(8) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
