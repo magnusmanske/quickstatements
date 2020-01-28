@@ -10,6 +10,10 @@ if ( !isset($_REQUEST['openpage']) ) {
 
 require_once ( 'quickstatements.php' ) ;
 
+@ini_set( 'upload_max_size' , '64M' );
+@ini_set( 'post_max_size', '64M');
+#@ini_set( 'max_execution_time', '300' )
+
 function fin ( $status = '' ) {
 	global $out ;
 	if ( $status != '' ) $out['status'] = $status ;
@@ -29,7 +33,7 @@ if ( isset ( $_REQUEST['oauth_verifier'] ) ) {
 
 if ( $action == 'import' ) {
 
-	ini_set('memory_limit','1500M');
+	ini_set('memory_limit','2500M');
 
 	$format = get_request ( 'format' , 'v1' ) ;
 	$username = get_request ( 'username' , '' ) ;
@@ -39,6 +43,7 @@ if ( $action == 'import' ) {
 	$submit = get_request ( 'submit' , false ) ;
 	$data = get_request ( 'data' , '' ) ;
 	$compress = get_request ( 'compress' , 1 ) * 1 ;
+	$site = get_request ( 'site' , '' ) ;
 	$out = $qs->importData ( $data , $format , false ) ;
 	if ( $compress ) {
 		$qs->use_command_compression = true ;
@@ -56,6 +61,7 @@ if ( $action == 'import' ) {
 
 		if ( $openpage ) {
 			$url = "./#/batch/?tempfile=" . urlencode ( $out['data'] ) ;
+			if ( $site != '' ) $url .= "&site=" . urlencode($site) ;
 			print "<html><head><meta http-equiv=\"refresh\" content=\"0;URL='{$url}'\" /></head><body></body></html>" ;
 			exit(0);
 		}
@@ -65,13 +71,19 @@ if ( $action == 'import' ) {
 
 	if ( $submit ) {
 		$batchname = get_request ( 'batchname' , '' ) ;
-		$site = get_request ( 'site' , '' ) ;
 
-		if ( $site != '' ) $qs->config->site = $site ;
+		if ( $site != '' ) {
+			$qs->config->site = $site ;
+			$out['site'] = $site ;
+		}
 		$user_id = $qs->getUserIDfromNameAndToken ( $username , $token ) ;
 		if ( !isset($user_id) ) {
 			unset ( $out['data'] ) ;
 			fin ( "User name and token do not match" ) ;
+		}
+		if ( !$qs->fillOA ( $user_id ) ) {
+			unset ( $out['data'] ) ;
+			fin ( "Problem generating OAuth signature; user '{}' needs to have submitted a batch namually at least once before" ) ;
 		}
 
 		$batch_id = $qs->addBatch ( $out['data']['commands'] , $user_id , $batchname , $site ) ;

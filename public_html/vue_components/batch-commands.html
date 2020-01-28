@@ -12,7 +12,7 @@ div.position_button_bar > div {
 <div>
 <div v-if='typeof batch!="undefined" && typeof batch.data!="undefined" && typeof batch.data.commands!="undefined"'>
 	<div style='display:flex;flex-direction:column;'>
-		<command v-for='command_id in current_command_ids' :command='batch.data.commands[command_id]'></command>
+		<command v-for='command_id in current_command_ids' :command='batch.data.commands[command_id]' :site='batch.site||""'></command>
 	</div>
 	<div style='display:flex;'>
 		<div class='position_button_bar'>

@@ -350,6 +350,35 @@ class QuickStatements {
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		while ( $o = $result->fetch_object() ) return $o->id*1 ;
 	}
+
+	public function fillOA ( $user_id ) {
+		$user_id *= 1 ;
+		if ( !isset($user_id) or $user_id == 0 ) return false ; # Not a user
+		$oa = $this->getOA() ;
+		if ( isset($oa->gTokenKey) and $oa->gTokenKey!='' and isset($oa->gTokenSecret) and $oa->gTokenSecret!='' ) return true ; # Already set
+
+		$db = $this->getDB() ;
+		$sql = "SELECT id FROM batch WHERE `user`={$user_id} ORDER BY id DESC LIMIT 1" ;
+		if(!$result = $db->query($sql)) return false ;
+		$last_batch_id = 0 ;
+		while ( $o = $result->fetch_object() ) $last_batch_id = $o->id ;
+		if ( $last_batch_id == 0 ) return false ; # No batch
+
+		$db2 = openToolDB ( 'quickstatements_auth' ) ;
+		$db2->set_charset("utf8") ;
+		$sql = "SELECT * FROM batch_oauth WHERE batch_id={$last_batch_id}" ;
+		if(!$result = $db2->query($sql)) return false ;
+		$j = '' ;
+		while ( $o = $result->fetch_object() ) $j = $o->serialized_json ;
+		if ( $j == '' ) return false ; # No OAuth information for the batch
+		$j = json_decode($j) ;
+
+		if ( !isset($j->gTokenKey) or !isset($j->gTokenSecret) ) return false ; # No info in JSON
+		$oa->gTokenKey = $j->gTokenKey ;
+		$oa->gTokenSecret = $j->gTokenSecret ;
+
+		return true ;
+	}
 	
 	public function generateToken ( $user_name , $force_replace = false ) {
 		$user_name = trim ( str_replace ( '_' , ' ' , $user_name ) ) ;
@@ -693,7 +722,7 @@ class QuickStatements {
 		
 	}
 	
-	public function runBotAction ( $params_orig , $attempts_left = 3 ) {
+	public function runBotAction ( $params_orig , $attempts_left = 1000 ) {
 		if ( $attempts_left <= 0 ) return false ;
 		$params = array() ;
 		foreach ( $params_orig AS $k => $v ) $params[$k] = $v ; // Copy to array, and for safekeeping original

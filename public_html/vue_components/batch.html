@@ -210,6 +210,8 @@ let BatchPage = Vue.extend ( {
 			$.each ( d.data.commands , function ( k ,v ) {
 				d.data.commands[k].meta = { message:'' , status:'INIT' , id:k } ;
 			} ) ;
+			//if ( typeof d.site != 'undefined' ) me.meta.batch.site = d.site ;
+			if ( typeof me.$route.query.site != 'undefined' ) me.meta.batch.site = me.$route.query.site ;
 			me.meta.batch.user_name = user.getUserName() ;
 			me.meta.batch.total_commands = d.data.commands.length ;
 			me.meta.commands = { INIT:me.meta.batch.total_commands } ;

@@ -110,8 +110,18 @@ div.qualifier_or_reference_column > div {
 
 	<div class='command_auto_grow' style='flex-grow:1'>
 		<div v-if='typeof command.item!="undefined"'>
-			<wd-link v-if='command.item!="LAST"' :item='command.item' smallq='1'></wd-link>
-			<span v-else><i>Last created item</i></span>
+			<span v-if='site=="commons"'>
+				<span v-if='file_label==command.item'>
+					{{file_label.replace(/^File:/,'')}}
+				</span>
+				<a v-else class='external' :href='"https://commons.wikimedia.org/wiki/"+file_label' target='_blank'>
+					{{file_label.replace(/^File:/,'')}}
+				</a>
+			</span>
+			<span v-else>
+				<wd-link v-if='command.item!="LAST"' :item='command.item' smallq='1'></wd-link>
+				<span v-else><i>Last created item</i></span>
+			</span>
 		</div>
 	</div>
 
@@ -259,12 +269,33 @@ Vue.component ( 'datavalue' , {
 } ) ;
 
 Vue.component ( 'command' , {
-	props : [ 'command' ] ,
-	data : function () { return {} } ,
-    created : function () {} ,
+	props : [ 'command' , 'site' ] ,
+	data : function () { return { file_label:'' } } ,
+    created : function () {
+    	// HARDCODED HORROR
+    	if ( this.site == 'commons' && typeof this.command.item != 'undefined' ) {
+    		this.file_label = this.command.item ;
+    		this.get_file_label(this.command.item);
+    	}
+    } ,
     updated : function () { tt.updateInterface(this.$el) ; } ,
     mounted : function () {	tt.updateInterface(this.$el) ; } ,
     methods : {
+    	load_file_name_from_id : function ( m ) {
+    		let me = this ;
+    		let page_id = m.replace(/\D/g,'') ;
+			return new Promise(function(resolve, reject) {
+				$.getJSON('https://commons.wikimedia.org/w/api.php?callback=?&action=query&prop=info&format=json&pageids='+page_id,function(d){
+					let title = ((d.query.pages[page_id]||{}).title||m) ;
+					if ( typeof title != 'undefined' ) me.file_label = title ;
+					resolve(title)
+				})
+			});
+    	} ,
+    	get_file_label : function ( m ) {
+    		this.load_file_name_from_id(m)
+    		.then( function ( response ) { return response; } )
+    	} ,
     } ,
     template : '#command-template'
 } ) ;

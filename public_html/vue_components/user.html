@@ -52,6 +52,7 @@ Vue.component ( 'user' , {
     		return $.inArray ( 'autoconfirmed' , this.userinfo.groups ) > -1 ;
     	} ,
     	isBlocked : function () { // UNTESTED
+            console.log(JSON.parse(JSON.stringify(this.userinfo)))
     		if ( typeof this.userinfo.blockid == 'undefined' ) return false ;
     		return true ;
     	} ,
