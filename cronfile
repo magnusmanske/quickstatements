@@ -2,4 +2,6 @@
 #0,5,10,15,20,25,30,35,40,45,50,55 * * * * jsub -mem 2g -N bot1 -quiet /data/project/quickstatements/bot.php single_batch
 #3,8,13,18,23,28,33,38,43,48,53,58 * * * * jsub -mem 2g -N bot2 -quiet /data/project/quickstatements/bot.php single_batch
 * 2 * * * jsub -N old_tmp -once -quiet /data/project/quickstatements/clean_old_tmp_files.sh
-15,45 * * * * jsub -mem 4g -once -quiet -N qs_rust /data/project/quickstatements/rust/quickstatements_rs/target/release/main bot
+
+# THis now runs on the petscan vm
+#15,45 * * * * jsub -mem 4g -once -quiet -N qs_rust /data/project/quickstatements/rust/quickstatements_rs/target/release/main bot

@@ -52,6 +52,22 @@
 						</pre>
 						The batch will start automatically, as if you had created it in the interface and then clicked "Run in background".<br/>
 						A JSON object will be returned: <pre style='display:inline'>{"status":"OK","batch_id":ID_OF_THE_NEW_BATCH}</pre> (or an error message in "status").
+
+						<p>
+							<b>For this to work, you need to have run a batch (server side) before manually, so your OAuth details can be filled in.</b>
+						</p>
+					</div>
+					<div>From the shell, use <tt>curl</tt> (assuming your QS commands are in a file <tt>test.qs</tt>; <tt>batchname</tt> is optional):</div>
+					<div>
+						<pre>
+	curl https://tools.wmflabs.org/quickstatements/api.php \
+	-d action=import \
+	-d submit=1 \
+	-d username={{encodeURIComponent(user.getUserName().replace(/ /g,'_'))}} \
+	-d "batchname=THE NAME OF THE BATCH" \
+	--data-raw 'token={{token}}' \
+	--data-urlencode data@<i>test.qs</i>
+						</pre>
 					</div>
 				</p>
 			</div>

@@ -741,6 +741,9 @@ class QuickStatements {
 			$x = $api->postRequest( new \Mediawiki\Api\SimpleRequest( $action, $params ) );
 			if ( isset($x) ) {
 				$ret = json_decode ( json_encode ( $x ) ) ; // Casting to object
+				if ( isset($ret->error) and isset($ret->error->code) ) {
+					#print "ERROR: {$ret->error->code}\n" ;
+				}
 				if ( isset($ret->error) and isset($ret->error->code) and $ret->error->code == 'maxlag' ) {
 					$lag = 5 ;
 					if ( isset($ret->error->lag) ) $lag = $ret->error->lag*1 + $maxlag ;
