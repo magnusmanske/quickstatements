@@ -21,8 +21,28 @@ function fin ( $status = '' ) {
 	exit ( 0 ) ;
 }
 
+function get_origin() {
+	$origin = '' ;
+	if (array_key_exists('HTTP_ORIGIN', $_SERVER)) $origin = $_SERVER['HTTP_ORIGIN'];
+	else if (array_key_exists('HTTP_REFERER', $_SERVER)) $origin = $_SERVER['HTTP_REFERER'];
+	else $origin = $_SERVER['REMOTE_ADDR'];
+	return $origin ;
+}
+
+function validate_origin() {
+	global $qs ;
+	if ( !isset($qs->config) ) return ;
+	if ( !isset($qs->config->valid_origin) ) return ;
+	if ( $qs->config->valid_origin == '' ) return ;
+	$valid_origin = $qs->config->valid_origin ;
+	if ( !is_array($valid_origin) ) $valid_origin = [ $valid_origin ] ;
+	$origin = get_origin() ;
+	if ( in_array($origin,$valid_origin) ) return ; // OK
+	fin('Invalid origin');
+}
+
 $qs = new QuickStatements ;
-$out = array ( 'status' => 'OK' ) ;
+$out = [ 'status' => 'OK' ] ;
 $action = get_request ( 'action' , '' ) ;
 
 if ( isset ( $_REQUEST['oauth_verifier'] ) ) {
@@ -49,7 +69,9 @@ if ( $action == 'import' ) {
 		$qs->use_command_compression = true ;
 		$out['data']['commands'] = $qs->compressCommands ( $out['data']['commands'] ) ;
 	}
-
+	$out['debug']['format'] = $format ;
+	$out['debug']['temporary'] = $temporary ;
+	$out['debug']['openpage'] = $openpage ;
 	if ( $temporary ) {
 		$dir = './tmp' ;
 		if ( !file_exists($dir) ) mkdir ( $dir ) ;
@@ -57,7 +79,7 @@ if ( $action == 'import' ) {
 		$handle = fopen($filename, "w");
 		fwrite($handle, json_encode($out) );
 		fclose($handle);
-		$out['data'] = preg_replace ( '/^.+\//' , '' , $filename ) ;
+		$out['data'] = preg_replace ( '|^.+/|' , '' , $filename ) ;
 
 		if ( $openpage ) {
 			$url = "./#/batch/?tempfile=" . urlencode ( $out['data'] ) ;
@@ -98,7 +120,7 @@ if ( $action == 'import' ) {
 } else if ( $action == 'oauth_redirect' ) {
 
 	$oa = $qs->getOA() ;
-	$oa->doAuthorizationRedirect('api.php') ;
+	$oa->doAuthorizationRedirect('https://quickstatements.toolforge.org/api.php') ;
 	exit(0) ;
 
 } else if ( $action == 'get_token' ) {
@@ -106,7 +128,7 @@ if ( $action == 'import' ) {
 	$force_generate = get_request ( 'force_generate' , 0 ) * 1 ;
 	$oa = $qs->getOA() ;
 	$ili = $oa->isAuthOK() ; # Is Logged In
-	$out['data'] = (object) array() ;
+	$out['data'] = (object) [] ;
 	if ( $ili ) {
 		$cr = $oa->getConsumerRights() ;
 		$user_name = $cr->query->userinfo->name ;
@@ -118,7 +140,7 @@ if ( $action == 'import' ) {
 
 	$oa = $qs->getOA() ;
 	$ili = $oa->isAuthOK() ;
-	$out['data'] = (object) array() ;
+	$out['data'] = (object) [] ;
 	if ( $ili ) {
 		$out['data'] = $oa->getConsumerRights() ;
 	}
@@ -146,7 +168,7 @@ if ( $action == 'import' ) {
 	$sql = "SELECT DISTINCT batch.id AS id FROM batch" ;
 	if ( $user != '' ) $sql .= ",{$qs->auth_db}.user" ;
 
-	$conditions = array() ;
+	$conditions = [] ;
 	if ( $user != '' ) $conditions[] = "user.id=batch.user AND user.name='" . $db->real_escape_string($user) . "'" ;
 	if ( count($conditions) > 0 ) $sql .= ' WHERE ' . implode ( ' AND ' , $conditions ) ;
 
@@ -157,7 +179,7 @@ if ( $action == 'import' ) {
 	if(!$result = $db->query($sql)) {
 		$out['status'] = $db->error ;
 	} else {
-		$batches = array() ;
+		$batches = [] ;
 		while ( $o = $result->fetch_object() ) $batches[] = $o->id ;
 		$out['data'] = $qs->getBatchStatus ( $batches ) ;
 	}
@@ -177,14 +199,14 @@ if ( $action == 'import' ) {
 			$v = $db->real_escape_string ( trim ( strtoupper ( $v ) ) ) ;
 			$filter[$k] = $v ;
 		}
-		$sql .= " AND status IN ('" . implode("','",$filter) . "')" ;
+		$sql .= " AND `status` IN ('" . implode("','",$filter) . "')" ;
 	}
 	$sql .= " ORDER BY num LIMIT {$limit}" ;
 
 	if(!$result = $db->query($sql)) {
 		$out['status'] = $db->error ;
 	} else {
-		$batches = array() ;
+		$batches = [] ;
 		$out['data'] = [] ;
 		while ( $o = $result->fetch_object() ) {
 			$o->json = json_decode ( $o->json ) ;
@@ -194,6 +216,7 @@ if ( $action == 'import' ) {
 
 } else if ( $action == 'run_single_command' ) {
 
+	validate_origin();
 	$site = strtolower ( trim ( get_request ( 'site' , '' ) ) ) ;
 	if ( !$qs->setSite ( $site ) ) {
 		$out['status'] = "Error while setting site '{$site}': " . $qs->last_error_message ;

@@ -57,6 +57,8 @@ class QuickStatements {
 	public $retry_on_database_lock = false ;
 	public $use_user_oauth_for_batch_edits = true ;
 	public $auth_db = '' ;
+	public $debugging = false ;
+	public $maxlag = 5 ;
 	
 	protected $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
 	protected $is_batch_run = false ;
@@ -722,8 +724,9 @@ class QuickStatements {
 		
 	}
 	
-	public function runBotAction ( $params_orig , $attempts_left = 1000 ) {
+	public function runBotAction ( $params_orig , $attempts_left = 1000 , $lag = 0 ) {
 		if ( $attempts_left <= 0 ) return false ;
+		if ( $lag == 0 ) $lag = $this->maxlag ;
 		$params = array() ;
 		foreach ( $params_orig AS $k => $v ) $params[$k] = $v ; // Copy to array, and for safekeeping original
 		$this->last_result = (object) array() ;
@@ -732,7 +735,8 @@ class QuickStatements {
 		unset ( $params['action'] ) ;
 		
 		$params['bot'] = 1 ;
-		$params['maxlag'] = 5 ;
+		$params['maxlag'] = intval($lag) ;
+		if ( $this->debugging ) print "\nTRYING WITH MAXLAG {$lag}\n" ;
 
 		$api = $this->getBotAPI() ;
 		$params['token'] = $api->getToken() ;
@@ -741,14 +745,17 @@ class QuickStatements {
 			$x = $api->postRequest( new \Mediawiki\Api\SimpleRequest( $action, $params ) );
 			if ( isset($x) ) {
 				$ret = json_decode ( json_encode ( $x ) ) ; // Casting to object
+				if ( $this->debugging ) {
+					print "\n=== RET\n" ;
+					print_r ( $ret ) ;
+				}
 				if ( isset($ret->error) and isset($ret->error->code) ) {
 					#print "ERROR: {$ret->error->code}\n" ;
 				}
 				if ( isset($ret->error) and isset($ret->error->code) and $ret->error->code == 'maxlag' ) {
-					$lag = 5 ;
-					if ( isset($ret->error->lag) ) $lag = $ret->error->lag*1 + $maxlag ;
+					if ( isset($ret->error->lag) ) $lag = $ret->error->lag*1 + $lag ;
 					sleep ( $lag ) ;
-					return $this->runBotAction ( $params_orig , $attempts_left-1 ) ;
+					return $this->runBotAction ( $params_orig , $attempts_left-1 , $lag ) ;
 				} else {
 					$this->last_result = $ret ;
 				}
@@ -758,11 +765,23 @@ print "\nFALSE\n" ;
 			}
 		} catch (Exception $e) {
 			$msg = $e->getMessage() ;
+			if ( $this->debugging ) print "\n=== EXCEPTION : {$msg}\n" ;
 			if ( $msg == 'The save has failed.' ) {
 				sleep ( 2 ) ;
 				return $this->runBotAction ( $params_orig , $attempts_left-1 ) ;
 			}
-			$this->last_result->error = (object) array ( 'info' => $msg ) ;
+			# This should have been handled above but postRequest just throws an exception instead of returning the errror
+			if ( preg_match ( '|([0-9.]+) seconds lagged|' , $msg , $m ) ) {
+				$lag = $m[1]*1 + $lag ;
+				if ( $this->debugging ) print "SLEEPING {$lag} sec...\n" ;
+				sleep ( $lag ) ;
+				return $this->runBotAction ( $params_orig , $attempts_left-1 , $lag ) ;
+			}
+			if ( preg_match ( '|The database has been automatically locked while the slave database servers catch up to the master|' , $msg ) ) {
+				sleep ( 30 ) ;
+				return $this->runBotAction ( $params_orig , $attempts_left-1 ) ;
+			}
+			$this->last_result->error = (object) [ 'info' => $msg ] ;
 			return false ;
 		}
 		return true ;
@@ -796,6 +815,16 @@ print "\nFALSE\n" ;
 				$command->item = $result->entity->id ; // "Last item"
 			}
 		} else {
+			/*
+			if ( $this->debugging ) {
+				print "\n==== PARAMS\n" ;
+				print "API: " . $this->getAPI() . "\n" ;
+				print_r ( $params ) ;
+				print "==== RESULT\n" ;
+				print_r ( $result ) ;
+				print "====\n" ;
+			}
+			*/
 			$command->status = 'error' ;
 			if ( !isset($result) or $result === null or $result == '' ) {
 				$command->message = 'No result received for ' . json_encode($params) ;

@@ -2,13 +2,14 @@
 	"site" : "wikidata" ,
 	"bot_config_file" : "/data/project/quickstatements/bot.ini" ,
 	"logfile" : "/data/project/quickstatements/tool.log" ,
+	"valid_origin" : "https://quickstatements.toolforge.org" ,
 	"sites" : {
 		"wikidata" : {
 			"oauth" : { "language":"wikidata" , "project":"wikidata" , "ini_file":"/data/project/quickstatements/oauth.ini" , "mwOAuthUrl":"https://www.mediawiki.org/w/index.php?title=Special:OAuth" , "mwOAuthIW":"mw" } ,
 			"server" : "www.wikidata.org" ,
 			"api" : "https://www.wikidata.org/w/api.php" ,
 			"pageBase" : "https://www.wikidata.org/wiki/" ,
-			"toolBase" : "https://tools.wmflabs.org/quickstatements" ,
+			"toolBase" : "https://quickstatements.toolforge.org" ,
 			"types" : {
 				"P" : { "type":"property" , "ns":120 , "ns_prefix":"Property:" } ,
 				"Q" : { "type":"item" , "ns":0 , "ns_prefix":"" },
