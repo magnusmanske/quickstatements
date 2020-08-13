@@ -120,7 +120,7 @@ if ( $action == 'import' ) {
 } else if ( $action == 'oauth_redirect' ) {
 
 	$oa = $qs->getOA() ;
-	$oa->doAuthorizationRedirect('https://quickstatements.toolforge.org/api.php') ;
+	$oa->doAuthorizationRedirect($qs->getToolBase() . 'api.php') ;
 	exit(0) ;
 
 } else if ( $action == 'get_token' ) {
