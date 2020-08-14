@@ -39,10 +39,10 @@ div.create_batch_box > div {
 					</div>
 					<div v-if='(meta.commands.DONE||0)>0'>
 						<span v-if='meta.batch.id==0'>
-							<a target='_blank' class='external' :href='"https://tools.wmflabs.org/editgroups/b/QSv2T/"+encodeURIComponent(run.temp_id.replace(/\D/g,""))' tt='revert_batch'></a>
+							<a target='_blank' class='external' :href='"https://editgroups.toolforge.org/b/QSv2T/"+encodeURIComponent(run.temp_id.replace(/\D/g,""))' tt='revert_batch'></a>
 						</span>
 						<span v-else>
-							<a target='_blank' class='external' :href='"https://tools.wmflabs.org/editgroups/b/QSv2/"+meta.batch.id' tt='revert_batch'></a>
+							<a target='_blank' class='external' :href='"https://editgroups.toolforge.org/b/QSv2/"+meta.batch.id' tt='revert_batch'></a>
 						</span>
 					</div>
 					<div style='flex-grow:1'></div>
