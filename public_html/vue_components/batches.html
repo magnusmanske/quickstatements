@@ -20,7 +20,7 @@
 				</td>
 				<td>
 					<div>
-						<a :href='"https://www.wikidata.org/wiki/User:"+b.batch.user_name' class='wikidata' target="_blank">{{b.batch.user_name}}</a>
+						<a :href='config.sites[config.site].pageBase+"User:"+b.batch.user_name' class='wikidata' target="_blank">{{b.batch.user_name}}</a>
 					</div>
 					<div v-if='b.batch.user_name!=user.getUserName()'>
 						[<router-link :to='"/batches/"+b.batch.user_name' tt='batches'></router-link>]

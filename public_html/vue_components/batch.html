@@ -32,7 +32,7 @@ div.create_batch_box > div {
 					</div>
 					<div>
 						<span tt='by'></span>
-						<a :href="'https://www.wikidata.org/wiki/User:'+encodeURIComponent(meta.batch.user_name)" target='_blank' class='wikidata'>
+						<a :href="config.sites[config.site].pageBase + 'User:'+encodeURIComponent(meta.batch.user_name)" target='_blank' class='wikidata'>
 							{{meta.batch.user_name.replace(/_/g,' ')}}
 						</a>
 						[<router-link :to='"/batches/"+meta.batch.user_name' tt='batches'></router-link>]

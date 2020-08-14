@@ -10,7 +10,7 @@
 				<p class="card-text">
 					<ul class="list-group list-group-flush">
 						<li class="list-group-item">
-							<a :href="'https://www.wikidata.org/wiki/User:'+encodeURIComponent(user_name)" class='wikidata' target='_blank'>
+							<a :href="config.sites[config.site].pageBase+'User:'+encodeURIComponent(user_name)" class='wikidata' target='_blank'>
 								{{user_name}}
 							</a> on Wikidata
 						</li>
