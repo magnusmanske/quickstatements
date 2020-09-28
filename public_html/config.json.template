@@ -9,6 +9,7 @@
 			"server" : "www.wikidata.org" ,
 			"api" : "https://www.wikidata.org/w/api.php" ,
 			"pageBase" : "https://www.wikidata.org/wiki/" ,
+			"entityBase" : "http://www.wikidata.org/entity/" ,
 			"toolBase" : "https://quickstatements.toolforge.org" ,
 			"types" : {
 				"P" : { "type":"property" , "ns":120 , "ns_prefix":"Property:" } ,
@@ -20,6 +21,7 @@
 			"oauth" : { "language":"wikidata" , "project":"wikidata" , "ini_file":"/home/factgrid/quickstatements/oauth.ini" , "mwOAuthUrl":"https://database.factgrid.de/index.php?title=Special:OAuth" , "mwOAuthIW":"" } ,
 			"api" : "https://database.factgrid.de/api.php" ,
 			"pageBase" : "https://database.factgrid.de/index.php/" ,
+			"entityBase" : "https://database.factgrid.de/entity/" ,
 			"toolBase" : "https://database.factgrid.de/quickstatements" ,
 			"types" : {
 				"P" : { "type":"property" , "ns":122 , "ns_prefix":"Property:" } ,
