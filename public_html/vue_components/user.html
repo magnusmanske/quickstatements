@@ -51,6 +51,10 @@ Vue.component ( 'user' , {
     		if ( !this.is_logged_in ) return '' ;
     		return $.inArray ( 'autoconfirmed' , this.userinfo.groups ) > -1 ;
     	} ,
+       isConfirmed : function () {
+		if ( !this.is_logged_in ) return '' ;
+		return $.inArray ( 'confirmed' , this.userinfo.groups ) > -1 ;
+	} ,
     	isBlocked : function () { // UNTESTED
             console.log(JSON.parse(JSON.stringify(this.userinfo)))
     		if ( typeof this.userinfo.blockid == 'undefined' ) return false ;
@@ -63,7 +67,7 @@ Vue.component ( 'user' , {
             return this.canCreateBatch() ;
         } ,
     	canCreateBatch : function () {
-    		return this.is_logged_in && this.isAutoconfirmed() && !this.isBlocked() ;
+            return this.is_logged_in && ( this.isAutoconfirmed() || this.isConfirmed() ) && !this.isBlocked() ;
     	} ,
     	getUserName : function () {
     		if ( !this.is_logged_in ) return '' ;
