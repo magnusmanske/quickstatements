@@ -129,7 +129,7 @@ div.create_batch_box > div {
 			<div v-else>
 				You can't create a new batch, because you are
 				<span v-if='!user.is_logged_in'>not logged in</span>
-				<span v-if='!user.isAutoconfirmed()'>not autoconfirmed</span>
+				<span v-if='!user.isAutoconfirmed() || !user.isConfirmed()'>not autoconfirmed</span>
 				<span v-if='user.isBlocked()'>blocked on Wikidata</span>
 			</div>
 		</div>
