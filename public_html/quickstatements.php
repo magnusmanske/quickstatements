@@ -555,9 +555,19 @@ class QuickStatements {
 		$i = $this->wd->getItem ( $q ) ;
 		$claims = $i->getClaims ( $command->property ) ;
 		foreach ( $claims AS $c ) {
-			if ( !isset($c->mainsnak) or !isset($c->mainsnak->datavalue) ) continue ;
-			if ( !isset($command->datavalue) ) continue ;
-			if ( $this->compareDatavalue ( $c->mainsnak->datavalue , $command->datavalue ) ) return $c->id ;
+			// when snaktype is somevalue/novalue, $c->mainsnak->datavalue doesn't exist (since the value is unknown or not existing)
+			if ( $c->mainsnak->snaktype === "somevalue" || $c->mainsnak->snaktype === "novalue" ) {
+
+				$lackingValueType = $c->mainsnak->snaktype ;
+				if ( $lackingValueType === $command->datavalue->type ) return $c->id ;
+
+			} else {
+
+				if ( !isset($c->mainsnak) or !isset($c->mainsnak->datavalue) ) continue ;
+				if ( !isset($command->datavalue) ) continue ;
+				if ( $this->compareDatavalue ( $c->mainsnak->datavalue , $command->datavalue ) ) return $c->id ;
+
+			}
 		}
 	}
 	
