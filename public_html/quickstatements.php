@@ -209,7 +209,7 @@ class QuickStatements {
 	}
 
 	public function getToolBase () {
-	       return $this->getSite()->toolBase ;
+	       return rtrim($this->getSite()->toolBase, '/') . '/' ;
 	}
 	
 	public function isUserBlocked ( $username ) {
