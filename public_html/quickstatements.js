@@ -77,7 +77,7 @@ var QuickStatements = {
 
 	getSiteAPI : function () {
 		var me = this ;
-		return me.sites[me.site].api ;
+		return me.sites[me.site].publicApi || me.sites[me.site].api ;
 	} ,
 	
 	getSitePageURL : function ( page ) {

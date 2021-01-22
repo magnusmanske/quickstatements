@@ -183,10 +183,11 @@ let BatchPage = Vue.extend ( {
     		let pb = config.sites[me.meta.batch.site].pageBase ;
     		if ( wd_link_base == pb ) return ;
 
+			const apiUrl = config.sites[me.meta.batch.site].publicApi || config.sites[me.meta.batch.site].api ;
 			wd = new WikiData() ;
 	        wd_link_base = pb ;
 	        wd_link_wd = wd ;
-	        wd.api = config.sites[me.meta.batch.site].api + '?callback=?' ;
+	        wd.api = apiUrl + '?callback=?' ;
     	} ,
     	loadTempFile : function ( tmpfile ) {
     		var me = this ;

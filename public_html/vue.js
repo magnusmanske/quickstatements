@@ -29,12 +29,14 @@ $(document).ready ( function () {
                 } , 'json' ) ;
             } )
     ] ) .then ( () => {
-        wd_link_base = config.sites[config.site].pageBase ;
+        const siteConfig = config.sites[config.site] ;
+        const apiUrl = siteConfig.publicApi || siteConfig.api ;
+        wd_link_base = siteConfig.pageBase ;
         wd_link_wd = wd ;
-        wd.api = config.sites[config.site].api + '?callback=?' ;
+        wd.api = apiUrl + '?callback=?' ;
         wd_ns_prefixes = {} ;
-        for ( var letter in config.sites[config.site].types )
-            wd_ns_prefixes[letter] = config.sites[config.site].types[letter].ns_prefix ;
+        for ( var letter in siteConfig.types )
+            wd_ns_prefixes[letter] = siteConfig.types[letter].ns_prefix ;
 
         const routes = [
           { path: '/', component: MainPage , props:true },
