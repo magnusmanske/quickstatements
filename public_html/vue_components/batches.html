@@ -20,7 +20,7 @@
 				</td>
 				<td>
 					<div>
-						<a :href='"https://www.wikidata.org/wiki/User:"+b.batch.user_name' class='wikidata' target="_blank">{{b.batch.user_name}}</a>
+						<a :href='config.sites[config.site].pageBase+"User:"+b.batch.user_name' class='wikidata' target="_blank">{{b.batch.user_name}}</a>
 					</div>
 					<div v-if='b.batch.user_name!=user.getUserName()'>
 						[<router-link :to='"/batches/"+b.batch.user_name' tt='batches'></router-link>]
@@ -45,7 +45,7 @@
 				</td>
 				<td style='display:flex;flex-direction:row'>
 					<div>
-						<a target='_blank' class='btn btn-outline-dark' :href='"https://tools.wmflabs.org/editgroups/b/QSv2/"+b.batch.id' tt='revert_batch'></a>
+						<a target='_blank' class='btn btn-outline-dark' :href='"https://editgroups.toolforge.org/b/QSv2/"+b.batch.id' tt='revert_batch'></a>
 					</div>
 					<div v-if='(b.batch.status=="RUN"||b.batch.status=="INIT") && userCanStopBatch(b.batch)'>
 						<button class='btn btn-outline-danger' tt='stop' @click='stopBatch(b)'></button>

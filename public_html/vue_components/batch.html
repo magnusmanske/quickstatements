@@ -32,17 +32,17 @@ div.create_batch_box > div {
 					</div>
 					<div>
 						<span tt='by'></span>
-						<a :href="'https://www.wikidata.org/wiki/User:'+encodeURIComponent(meta.batch.user_name)" target='_blank' class='wikidata'>
+						<a :href="config.sites[config.site].pageBase + 'User:'+encodeURIComponent(meta.batch.user_name)" target='_blank' class='wikidata'>
 							{{meta.batch.user_name.replace(/_/g,' ')}}
 						</a>
 						[<router-link :to='"/batches/"+meta.batch.user_name' tt='batches'></router-link>]
 					</div>
 					<div v-if='(meta.commands.DONE||0)>0'>
 						<span v-if='meta.batch.id==0'>
-							<a target='_blank' class='external' :href='"https://tools.wmflabs.org/editgroups/b/QSv2T/"+encodeURIComponent(run.temp_id.replace(/\D/g,""))' tt='revert_batch'></a>
+							<a target='_blank' class='external' :href='"https://editgroups.toolforge.org/b/QSv2T/"+encodeURIComponent(run.temp_id.replace(/\D/g,""))' tt='revert_batch'></a>
 						</span>
 						<span v-else>
-							<a target='_blank' class='external' :href='"https://tools.wmflabs.org/editgroups/b/QSv2/"+meta.batch.id' tt='revert_batch'></a>
+							<a target='_blank' class='external' :href='"https://editgroups.toolforge.org/b/QSv2/"+meta.batch.id' tt='revert_batch'></a>
 						</span>
 					</div>
 					<div style='flex-grow:1'></div>

@@ -10,7 +10,7 @@
 				<p class="card-text">
 					<ul class="list-group list-group-flush">
 						<li class="list-group-item">
-							<a :href="'https://www.wikidata.org/wiki/User:'+encodeURIComponent(user_name)" class='wikidata' target='_blank'>
+							<a :href="config.sites[config.site].pageBase+'User:'+encodeURIComponent(user_name)" class='wikidata' target='_blank'>
 								{{user_name}}
 							</a> on Wikidata
 						</li>
@@ -60,7 +60,7 @@
 					<div>From the shell, use <tt>curl</tt> (assuming your QS commands are in a file <tt>test.qs</tt>; <tt>batchname</tt> is optional):</div>
 					<div>
 						<pre>
-	curl https://tools.wmflabs.org/quickstatements/api.php \
+	curl https://quickstatements.toolforge.org/api.php \
 	-d action=import \
 	-d submit=1 \
 	-d username={{encodeURIComponent(user.getUserName().replace(/ /g,'_'))}} \

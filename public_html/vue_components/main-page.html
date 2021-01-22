@@ -65,7 +65,7 @@ let MainPage = Vue.extend ( {
             showTemporaryBatch : function () {
                 var me = this ;
                 let id = me.temp_batch_id.replace ( /\D/g , '' ) ;
-                let url = 'https://tools.wmflabs.org/editgroups/b/QSv2T/'+encodeURIComponent(id) ;
+                let url = 'https://editgroups.toolforge.org/b/QSv2T/'+encodeURIComponent(id) ;
                 window.open(url, '_blank') ;
             } ,
             createTemporaryBatch : function ( qs , format ) {
