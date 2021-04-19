@@ -997,6 +997,22 @@ exit ( 1 ) ; // Force bot restart
 		return $command ;
 	}
 	
+	protected function commandRemoveAlias ( $command , $i ) {
+		// Paranoia TODO
+
+		// Execute!
+		$this->runAction ( array (
+			'action' => 'wbsetaliases' ,
+			'id' => $command->item ,
+			'language' => $command->language ,
+			'remove' => $command->value ,
+			'summary' => '' ,
+			'baserevid' => $i->j->lastrevid
+		) , $command ) ;
+		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
+		return $command ;
+	}
+	
 	protected function commandSetDescription ( $command , $i ) {
 		// Paranoia
 		if ( $i->getDesc ( $command->language , true ) == $command->value ) return $this->commandDone ( $command , 'Already has that description for {$command->language}' ) ;
@@ -1148,6 +1164,8 @@ exit ( 1 ) ; // Force bot restart
 					return $this->commandRemoveStatement ( $command ) ;
 				} else if ( $command->what == 'sitelink' ) {
 					return $this->commandRemoveSitelink ( $command, $i ) ;
+				}else if ( $command->what == 'alias' ) {
+					return $this->commandRemoveAlias ( $command, $i ) ;
 				}
 			
 			}
