@@ -1265,6 +1265,19 @@ exit ( 1 ) ; // Force bot restart
 			} else if ( $first == 'CREATE' ) {
 				$cmd = array ( 'action'=>'create' , 'type'=>'item' ) ;
 				if ( $comment != '' ) $cmd['summary'] = $comment ;
+			} else if ( $first == 'CREATE_PROPERTY' and count ( $cols ) >= 2) {
+				$cmd = array ( 'action'=>'create' , 'type'=>'property' , 'data'=>'' ) ;
+				$datatype = trim($cols[1]) ;
+				$datatype = strtolower($datatype) ;
+				if ($datatype == "commonsmedia") {
+					$datatype = "commonsMedia" ;
+				}
+				if (!in_array($datatype,array("commonsMedia","globe-coordinate","wikibase-item","wikibase-property","string","monolingualtext","external-id","quantity","time","url","math","geo-shape","musical-notation","tabular-data","wikibase-lexeme","wikibase-form","wikibase-sense")) ) {
+					$cmd['error'] = 'Unknown datatype: "'.$datatype.'".' ;
+					//continue ;
+				}
+				$cmd['data'] = array ( 'datatype'=>$datatype );
+				if ( $comment != '' ) $cmd['summary'] = $comment ;
 			} else if ( $first == 'STATEMENT' and count($cols) == 2 ) {
 				$id = trim ( $cols[1] ) ;
 				$cmd = array ( 'action'=>$action , 'what'=>'statement' , 'id'=>$id ) ;
