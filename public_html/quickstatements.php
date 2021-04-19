@@ -971,7 +971,7 @@ exit ( 1 ) ; // Force bot restart
 		// Execute!
 		$this->runAction ( array (
 			'action' => 'wbsetlabel' ,
-			'id' => $this->getPrefixedID ( $command->item ) ,
+			'id' => $command->item ,
 			'language' => $command->language ,
 			'value' => $command->value ,
 			'summary' => '' ,
@@ -987,7 +987,7 @@ exit ( 1 ) ; // Force bot restart
 		// Execute!
 		$this->runAction ( array (
 			'action' => 'wbsetaliases' ,
-			'id' => $this->getPrefixedID ( $command->item ) ,
+			'id' => $command->item ,
 			'language' => $command->language ,
 			'add' => $command->value ,
 			'summary' => '' ,
@@ -1004,7 +1004,7 @@ exit ( 1 ) ; // Force bot restart
 		// Execute!
 		$this->runAction ( array (
 			'action' => 'wbsetdescription' ,
-			'id' => $this->getPrefixedID ( $command->item ) ,
+			'id' => $command->item ,
 			'language' => $command->language ,
 			'value' => $command->value ,
 			'summary' => '' ,
