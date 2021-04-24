@@ -971,7 +971,7 @@ exit ( 1 ) ; // Force bot restart
 		// Execute!
 		$this->runAction ( array (
 			'action' => 'wbsetlabel' ,
-			'id' => $this->getPrefixedID ( $command->item ) ,
+			'id' => $command->item ,
 			'language' => $command->language ,
 			'value' => $command->value ,
 			'summary' => '' ,
@@ -987,9 +987,25 @@ exit ( 1 ) ; // Force bot restart
 		// Execute!
 		$this->runAction ( array (
 			'action' => 'wbsetaliases' ,
-			'id' => $this->getPrefixedID ( $command->item ) ,
+			'id' => $command->item ,
 			'language' => $command->language ,
 			'add' => $command->value ,
+			'summary' => '' ,
+			'baserevid' => $i->j->lastrevid
+		) , $command ) ;
+		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
+		return $command ;
+	}
+	
+	protected function commandRemoveAlias ( $command , $i ) {
+		// Paranoia TODO
+
+		// Execute!
+		$this->runAction ( array (
+			'action' => 'wbsetaliases' ,
+			'id' => $command->item ,
+			'language' => $command->language ,
+			'remove' => $command->value ,
 			'summary' => '' ,
 			'baserevid' => $i->j->lastrevid
 		) , $command ) ;
@@ -1004,7 +1020,7 @@ exit ( 1 ) ; // Force bot restart
 		// Execute!
 		$this->runAction ( array (
 			'action' => 'wbsetdescription' ,
-			'id' => $this->getPrefixedID ( $command->item ) ,
+			'id' => $command->item ,
 			'language' => $command->language ,
 			'value' => $command->value ,
 			'summary' => '' ,
@@ -1148,6 +1164,8 @@ exit ( 1 ) ; // Force bot restart
 					return $this->commandRemoveStatement ( $command ) ;
 				} else if ( $command->what == 'sitelink' ) {
 					return $this->commandRemoveSitelink ( $command, $i ) ;
+				}else if ( $command->what == 'alias' ) {
+					return $this->commandRemoveAlias ( $command, $i ) ;
 				}
 			
 			}
@@ -1264,6 +1282,19 @@ exit ( 1 ) ; // Force bot restart
 				if ( $comment != '' ) $cmd['summary'] = $comment ;
 			} else if ( $first == 'CREATE' ) {
 				$cmd = array ( 'action'=>'create' , 'type'=>'item' ) ;
+				if ( $comment != '' ) $cmd['summary'] = $comment ;
+			} else if ( $first == 'CREATE_PROPERTY' and count ( $cols ) >= 2) {
+				$cmd = array ( 'action'=>'create' , 'type'=>'property' , 'data'=>'' ) ;
+				$datatype = trim($cols[1]) ;
+				$datatype = strtolower($datatype) ;
+				if ($datatype == "commonsmedia") {
+					$datatype = "commonsMedia" ;
+				}
+				if (!in_array($datatype,array("commonsMedia","globe-coordinate","wikibase-item","wikibase-property","string","monolingualtext","external-id","quantity","time","url","math","geo-shape","musical-notation","tabular-data","wikibase-lexeme","wikibase-form","wikibase-sense")) ) {
+					$cmd['error'] = 'Unknown datatype: "'.$datatype.'".' ;
+					//continue ;
+				}
+				$cmd['data'] = array ( 'datatype'=>$datatype );
 				if ( $comment != '' ) $cmd['summary'] = $comment ;
 			} else if ( $first == 'STATEMENT' and count($cols) == 2 ) {
 				$id = trim ( $cols[1] ) ;
