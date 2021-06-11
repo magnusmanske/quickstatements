@@ -13,7 +13,7 @@ var batch_helper_mixin = {
 					if ( typeof j.json != 'undefined' ) j = j.json ;
 					if ( typeof j.item != 'undefined' ) to_cache[j.item] = 1 ;
 					if ( typeof j.property != 'undefined' ) to_cache[j.property] = 1 ;
-					if ( typeof j.datavalue != 'undefined' && j.datavalue.type == 'wikibase-entityid' ) to_cache[j.datavalue.value.id] = 1 ;
+					if ( typeof j.datavalue != 'undefined' && j.datavalue!=null && j.datavalue.type == 'wikibase-entityid' ) to_cache[j.datavalue.value.id] = 1 ;
 				} ) ;
 				wd.getItemBatch ( Object.keys(to_cache) , resolve )
 			} ) ;
