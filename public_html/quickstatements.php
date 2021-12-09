@@ -650,25 +650,32 @@ class QuickStatements {
 						) {
 					
 						if ( $commands[$pos2]['what'] == 'sources' ) {
-							if ( !isset($claim['references']) ) $claim['references'] = array(  ) ;
-						
-							$refs = array('snaks'=>array()) ;
+							if ( !isset($claim['references']) ) $claim['references'] = [] ;
+							
+							$refs = ['snaks'=>[]] ;
 							foreach ( $commands[$pos2]['sources'] AS $s ) {
-								$source = array (
+								if ( $s['new_source_group'] ) {
+									# Create new reference group
+									if ( count($refs['snaks'])>0 ) {
+										$claim['references'][] = $refs ;
+										$refs = ['snaks'=>[]] ;
+									}
+								}
+								$source = [
 									'snaktype' => 'value' ,
 									'property' => $s['prop'] ,
 									'datavalue' => $s['value']
-								) ;
+								] ;
 								$refs['snaks'][$s['prop']][] = $source ;
 							}
 
 							$claim['references'][] = $refs ;
 						} else if ( $commands[$pos2]['what'] == 'qualifier' ) {
-							$qual = array (
+							$qual = [
 								'property' => $commands[$pos2]['qualifier']['prop'] ,
 								'snaktype' => 'value' ,
 								'datavalue' => $commands[$pos2]['qualifier']['value']
-							) ;
+							] ;
 							$claim['qualifiers'][] = $qual ;
 						}
 					
@@ -1236,8 +1243,9 @@ exit ( 1 ) ; // Force bot restart
 					$key = array_shift ( $cols ) ;
 					$key = strtoupper ( trim ( $key ) ) ;
 					$value = array_shift ( $cols ) ;
-					if ( preg_match ( '/^([SP])(\d+)$/i' , $key , $m ) ) {
-						$what = $m[1] == 'S' ? 'sources' : 'qualifier' ;
+					if ( preg_match ( '/^(S|P|!S)(\d+)$/i' , $key , $m ) ) {
+						$is_new_source_group = $m[1]=='!S' ;
+						$what = in_array($m[1], ['S','!S']) ? 'sources' : 'qualifier' ;
 						$num = $m[2] ;
 						
 						// Store previous one, and reset
@@ -1245,11 +1253,12 @@ exit ( 1 ) ; // Force bot restart
 						$skip_add_command = false ;
 						$last_command = $ret['data']['commands'][count($ret['data']['commands'])-1] ;
 						
-						$cmd = array ( 'action'=>$action , 'item'=>$first , 'property'=>$prop , 'what'=>$what , 'datavalue'=>$last_command['datavalue'] ) ;
-						$dummy = array() ;
+						$cmd = [ 'action'=>$action , 'item'=>$first , 'property'=>$prop , 'what'=>$what , 'datavalue'=>$last_command['datavalue'] ] ;
+						$dummy = [] ;
 						$this->parseValueV1 ( $value , $dummy ) ; // TODO transfer error message
-						$dv = array ( 'prop' => 'P'.$num , 'value' => $dummy['datavalue'] ) ;
-						if ( $what == 'sources' ) $cmd[$what] = array($dv) ;
+						$dv = [ 'prop' => 'P'.$num , 'value' => $dummy['datavalue'] ] ;
+						if ( $is_new_source_group ) $dv['new_source_group'] = 1 ;
+						if ( $what == 'sources' ) $cmd[$what] = [$dv] ;
 						else $cmd[$what] = $dv ;
 //$ret['debug'][] = array ( $what , $last_command['what'] ) ;
 						if ( $what == 'sources' and $last_command['what'] == $what ) {
