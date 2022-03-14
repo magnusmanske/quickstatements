@@ -217,7 +217,7 @@ if ( $action == 'import' ) {
 } else if ( $action == 'run_single_command' ) {
 
 	validate_origin();
-	$site = strtolower ( trim ( get_request ( 'site' , '' ) ) ) ;
+	$site = get_request ( 'site' , '' ) ;
 	if ( !$qs->setSite ( $site ) ) {
 		$out['status'] = "Error while setting site '{$site}': " . $qs->last_error_message ;
 	} else {
