@@ -548,27 +548,30 @@ class QuickStatements {
 	protected function getStatementID ( $command ) {
 		if ( !$this->isProperty ( $command->property ) ) return ;
 		if ( !isset($command->datavalue) ) return ;
+		if ( isset($command->new_statement) and $command->new_statement ) return ;
 		$q = $command->item ;
 
 		$this->wd->loadItem ( $q ) ;
 		if ( !$this->wd->hasItem($q) ) return ;
 		$i = $this->wd->getItem ( $q ) ;
 		$claims = $i->getClaims ( $command->property ) ;
+		$last_claim_id = null ;
 		foreach ( $claims AS $c ) {
 			// when snaktype is somevalue/novalue, $c->mainsnak->datavalue doesn't exist (since the value is unknown or not existing)
 			if ( $c->mainsnak->snaktype === "somevalue" || $c->mainsnak->snaktype === "novalue" ) {
 
 				$lackingValueType = $c->mainsnak->snaktype ;
-				if ( $lackingValueType === $command->datavalue->type ) return $c->id ;
+				if ( $lackingValueType === $command->datavalue->type ) $last_claim_id = $c->id ; // return $c->id ;
 
 			} else {
 
 				if ( !isset($c->mainsnak) or !isset($c->mainsnak->datavalue) ) continue ;
 				if ( !isset($command->datavalue) ) continue ;
-				if ( $this->compareDatavalue ( $c->mainsnak->datavalue , $command->datavalue ) ) return $c->id ;
+				if ( $this->compareDatavalue ( $c->mainsnak->datavalue , $command->datavalue ) ) $last_claim_id = $c->id ; // return $c->id ;
 
 			}
 		}
+		return $last_claim_id ;
 	}
 	
 	// Return true if both datavalues are the same (for any given value of same...), or false otherwise
@@ -632,7 +635,8 @@ class QuickStatements {
 						'mainsnak' => array (
 							'snaktype' => 'value' ,
 							'property' => $commands[$pos]['property'] ,
-							'datavalue' => $commands[$pos]['datavalue']
+							'datavalue' => $commands[$pos]['datavalue'],
+							'new_statement' => $commands[$pos]['new_statement']
 						) ,
 						'type' => 'statement' ,
 						'rank' => 'normal'
@@ -1227,9 +1231,14 @@ exit ( 1 ) ; // Force bot restart
 				$cols[0] = $m[1] ;
 			}
 			$first = strtoupper(trim($cols[0])) ;
-			if ( count ( $cols ) >= 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and $this->isValidItemIdentifier($cols[1]) ) {
-				$prop = strtoupper(trim($cols[1])) ;
-				$cmd = array ( 'action'=>$action , 'item'=>$first , 'property'=>$prop , 'what'=>'statement' ) ;
+			if ( count ( $cols ) >= 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and ( $this->isValidItemIdentifier($cols[1]) or preg_match ( '/^(!P)(\d+)$/i' , $cols[1] ) ) ) {
+        			$prop = strtoupper(trim($cols[1])) ;
+	        		$is_new_statement = 0 ;
+        			if ( $prop[0] == '!') {
+	        		        $is_new_statement = 1 ;
+		        	        $prop = substr($prop, 1) ;
+        			}
+				$cmd = array ( 'action'=>$action , 'item'=>$first , 'property'=>$prop , 'what'=>'statement', 'new_statement'=>$is_new_statement ) ;
 				if ( $comment != '' ) $cmd['summary'] = $comment ;
 				$this->parseValueV1 ( $cols[2] , $cmd ) ;
 
