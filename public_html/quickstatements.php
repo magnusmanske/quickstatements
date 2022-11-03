@@ -59,14 +59,15 @@ class QuickStatements {
 	public $auth_db = '' ;
 	public $debugging = false ;
 	public $maxlag = 5 ;
+	public $verbose = false ;
+	public $logging = true ;
 	
 	protected $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
 	protected $is_batch_run = false ;
 	protected $user_name = '' ;
 	protected $user_id = 0 ;
-	protected $user_groups = array() ;
+	protected $user_groups = [] ;
 	protected $db ;
-	protected $logging = true ;
 	
 	public function __construct () {
 		global $wikidata_api_url ;
@@ -654,7 +655,7 @@ class QuickStatements {
 							
 							$refs = ['snaks'=>[]] ;
 							foreach ( $commands[$pos2]['sources'] AS $s ) {
-								if ( $s['new_source_group'] ) {
+								if ( isset($s['new_source_group']) ) {
 									# Create new reference group
 									if ( count($refs['snaks'])>0 ) {
 										$claim['references'][] = $refs ;
@@ -910,9 +911,11 @@ exit ( 1 ) ; // Force bot restart
 			'snaktype' => $this->getSnakType ( $command->datavalue ) ,
 			'property' => $command->property ,
 			'value' => json_encode ( $command->datavalue->value ) ,
-			'summary' => '' ,
-			'baserevid' => $i->j->lastrevid
+			'summary' => ''
 		) ;
+		if ( isset($i->j) and isset($i->j->lastrevid) ) {
+			$action['baserevid'] = $i->j->lastrevid ;
+		}
 		if ( $action['snaktype'] != 'value' ) unset( $action['value'] );
 		$this->runAction ( $action , $command ) ;
 		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
@@ -1102,7 +1105,7 @@ exit ( 1 ) ; // Force bot restart
 		foreach ( $commands AS $command_original ) {
 			$command = $this->array2object ( $command_original ) ;
 			$command = $this->runSingleCommand ( $command ) ;
-			if ( $command->status != 'done' ) {
+			if ( $command->status != 'done' and $this->verbose ) {
 				print "<pre>" ; print_r ( $command ) ; print "</pre>" ;
 			}
 			// TODO proper error handling
