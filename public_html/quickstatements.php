@@ -1526,16 +1526,21 @@ exit ( 1 ) ; // Force bot restart
 			return true ;
 		}
 
-		if ( preg_match ( '/^([+-]{0,1})(\d+)-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)Z\/{0,1}(\d*)$/i' , $v , $m ) ) { // TIME
+		if ( preg_match ( '/^([+-]{0,1})(\d+)-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)Z\/{0,1}(\d*)(\/J){0,1}$/i' , $v , $m ) ) { // TIME
 			$prec = 9 ;
 			if ( $m[8] != '' ) $prec = $m[8]*1 ;
+			$is_julian = false ;
+			if ( count($m) == 10 ) {
+			    $is_julian = true ;
+			    $v = preg_replace ( '/\/J$/', '', $v ) ;
+                        }
 			$cmd['datavalue'] = array ( "type"=>"time" , "value"=>array(
 				'time' => preg_replace ( '/\/\d+$/' , '' , $v ) ,
 				'timezone' => 0 ,
 				'before' => 0 ,
 				'after' => 0 ,
 				'precision' => $prec ,
-				'calendarmodel' => 'http://www.wikidata.org/entity/Q1985727'
+				'calendarmodel' => $is_julian ? 'http://www.wikidata.org/entity/Q1985786' : 'http://www.wikidata.org/entity/Q1985727'
 			) ) ;
 			return true ;
 		}
