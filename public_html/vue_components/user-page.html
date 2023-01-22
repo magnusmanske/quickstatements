@@ -57,12 +57,13 @@
 							<b>For this to work, you need to have run a batch (server side) before manually, so your OAuth details can be filled in.</b>
 						</p>
 					</div>
-					<div>From the shell, use <tt>curl</tt> (assuming your QS commands are in a file <tt>test.qs</tt>; <tt>batchname</tt> is optional):</div>
+					<div>From the shell, use <tt>curl</tt> (assuming your QS commands are in a file <tt>test.qs</tt>; <tt>format</tt> can be "v1" or "csv"; <tt>batchname</tt> is optional):</div>
 					<div>
 						<pre>
 	curl https://quickstatements.toolforge.org/api.php \
 	-d action=import \
 	-d submit=1 \
+	-d format=FORMAT \
 	-d username={{encodeURIComponent(user.getUserName().replace(/ /g,'_'))}} \
 	-d "batchname=THE NAME OF THE BATCH" \
 	--data-raw 'token={{token}}' \
