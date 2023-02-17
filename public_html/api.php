@@ -1,6 +1,6 @@
 <?PHP
 
-error_reporting(E_ERROR|E_CORE_ERROR|E_ALL|E_COMPILE_ERROR); // 
+error_reporting(E_ALL ^ E_DEPRECATED); //
 ini_set('display_errors', 'On');
 
 if ( !isset($_REQUEST['openpage']) ) {
