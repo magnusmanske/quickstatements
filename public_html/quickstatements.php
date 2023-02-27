@@ -907,6 +907,7 @@ exit ( 1 ) ; // Force bot restart
 	protected function commandAddStatement ( $command , $i , $statement_id ) {
 		// Paranoia
 		if ( isset($statement_id) ) return $this->commandDone ( $command , "Statement already exists as $statement_id" ) ;
+		if ( !isset($command->datavalue->value) ) return $this->commandError ( $command, "Incomplete command parameters" ) ;
 
 		// Execute!
 		$action = array (
@@ -931,6 +932,7 @@ exit ( 1 ) ; // Force bot restart
 		if ( !isset($command->qualifier) ) return $this->commandError ( $command , "Incomplete command parameters" ) ;
 		if ( !isset($command->qualifier->prop) ) return $this->commandError ( $command , "Incomplete command parameters" ) ;
 		if ( !preg_match ( '/^P\d+$/' , $command->qualifier->prop ) ) return $this->commandError ( $command , "Invalid qualifier property {$command->qualifier->prop}" ) ;
+		if ( !isset($command->qualifier->value->value) ) return $this->commandError ( $command, "Incomplete command parameters" ) ;
 
 		// Execute!
 		$action = array (
@@ -957,6 +959,7 @@ exit ( 1 ) ; // Force bot restart
 		// Prep
 		$snaks = array() ;
 		foreach ( $command->sources AS $source ) {
+			if ( !isset($source->value->value) ) return $this->commandError ( $command, "Incomplete command parameters" ) ;
 			$s = array(
 				'snaktype' => $this->getSnakType ( $source->value ) ,
 				'property' => $source->prop ,
