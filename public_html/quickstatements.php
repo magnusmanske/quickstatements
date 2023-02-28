@@ -1382,6 +1382,7 @@ exit ( 1 ) ; // Force bot restart
                 if ( $instruction[0] === 'P' ) {
                     $command += [
                         'what' => 'statement',
+                        'new_statement' => 0,
                         'property' => $instruction
                     ];
                     $this->parseValueV1( $value, $command );
