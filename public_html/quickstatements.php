@@ -165,7 +165,7 @@ class QuickStatements {
 		if ( $this->use_command_compression ) $commands = $this->compressCommands ( $commands ) ;
 		$db = $this->getDB() ;
 		$ts = $this->getCurrentTimestamp() ;
-		$sql = "INSERT INTO batch (name,user,site,ts_created,ts_last_change,status) VALUES ('".$db->real_escape_string($name)."',$user_id,'".$db->real_escape_string($site)."','$ts','$ts','LOADING')" ;
+		$sql = "INSERT INTO batch (name,user,site,ts_created,ts_last_change,status,message) VALUES ('".$db->real_escape_string($name)."',$user_id,'".$db->real_escape_string($site)."','$ts','$ts','LOADING','')" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		$batch_id = $db->insert_id ;
 		$serialized = serialize($this->getOA()) ;
@@ -181,7 +181,7 @@ class QuickStatements {
 			if ( trim($cs) == '' ) continue ; // Paranoia
 			$status = 'INIT' ;
 			if ( isset($c->status) and trim($c->status) != '' ) $status = strtoupper(trim($c->status)) ;
-			$sql = "INSERT INTO command (batch_id,num,json,status,ts_change) VALUES ($batch_id,$k,'".$db->real_escape_string($cs)."','".$db->real_escape_string($status)."','$ts')" ;
+			$sql = "INSERT INTO command (batch_id,num,json,status,ts_change,message) VALUES ($batch_id,$k,'".$db->real_escape_string($cs)."','".$db->real_escape_string($status)."','$ts','')" ;
 			if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		}
 		$sql = "UPDATE batch SET status='INIT' WHERE id=$batch_id" ;
