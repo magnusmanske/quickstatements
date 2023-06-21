@@ -746,7 +746,7 @@ class QuickStatements {
 		
 	}
 	
-	public function runBotAction ( $params_orig , $attempts_left = 1000 , $lag = 0 ) {
+	public function runBotAction ( $params_orig , $attempts_left = 10 , $lag = 0 ) {
 		if ( $attempts_left <= 0 ) return false ;
 		if ( $lag == 0 ) $lag = $this->maxlag ;
 		$params = array() ;
