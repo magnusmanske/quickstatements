@@ -894,16 +894,6 @@ exit ( 1 ) ; // Force bot restart
 		return 'value' ;
 	}
 	
-	protected function getPrefixedID ( $q ) {
-		$q = trim ( strtoupper ( $q ) ) ;
-		
-		foreach ( $this->getSite()->types AS $char => $data ) {
-			if ( !isset($data->ns_prefix) or $data->ns_prefix == '' ) continue ;
-			if ( preg_match ( '/^'.$char.'\d+$/' , $q ) ) return $data->ns_prefix.$q ;
-		}
-		return $q ;
-	}
-	
 	protected function commandAddStatement ( $command , $i , $statement_id ) {
 		// Paranoia
 		if ( isset($statement_id) ) return $this->commandDone ( $command , "Statement already exists as $statement_id" ) ;
@@ -1055,7 +1045,7 @@ exit ( 1 ) ; // Force bot restart
 		// Execute!
 		$this->runAction ( array (
 			'action' => 'wbsetsitelink' ,
-			'id' => $this->getPrefixedID ( $command->item ) ,
+			'id' => $command->item ,
 			'linksite' => $command->site ,
 			'linktitle' => $command->value ,
 			'summary' => '' ,
