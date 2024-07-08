@@ -287,11 +287,12 @@ let BatchPage = Vue.extend ( {
         	var me = this ;
         	if ( me.meta.batch.id == 0 ) { // In browser
         		$.each ( me.meta.batch.data.commands , function ( k , cmd ) {
-        			if ( typeof cmd.meta == 'undefined' || typeof cmd.meta.status == 'undefined' || cmd.meta.status != 'ERROR' ) return ;
+        			if ( typeof cmd.meta == 'undefined' || typeof cmd.meta.status == 'undefined' || (cmd.meta.status != 'ERROR' && cmd.meta.status != 'RUN') ) return ;
         			if ( cmd.action == 'CREATE' && typeof cmd.data == 'undefined' ) return ;
         			if ( typeof cmd.item != 'undefined' && cmd.item == 'LAST' ) return ;
+        			let old_status = cmd.meta.status;
         			cmd.meta.status = 'INIT' ;
-        			Vue.set ( me.meta.commands , 'ERROR' , (me.meta.commands.ERROR||0)-1 ) ;
+        			Vue.set ( me.meta.commands , old_status , (me.meta.commands.ERROR||0)-1 ) ;
         			Vue.set ( me.meta.commands , 'INIT' , (me.meta.commands.INIT||0)+1 ) ;
         		} ) ;
         	} else {
