@@ -482,7 +482,7 @@ class QuickStatements {
 		if ( $batch->user == $this->user_id ) return true ; // User who submitted the batch
 		
 		foreach ( $this->user_groups AS $k => $v ) {
-			if ( $v == 'administrator' ) return true ;
+			if ( $v == 'sysop' ) return true ;
 		}
 		
 		return false ;
