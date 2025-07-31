@@ -34,6 +34,7 @@ $(document).ready ( function () {
         wd_link_base = siteConfig.pageBase ;
         wd_link_wd = wd ;
         wd.api = apiUrl + '?callback=?' ;
+        wd.main_languages.unshift( tt.language ) ;
         wd_ns_prefixes = {} ;
         for ( var letter in siteConfig.types )
             wd_ns_prefixes[letter] = siteConfig.types[letter].ns_prefix ;
