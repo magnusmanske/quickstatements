@@ -14,10 +14,18 @@ require_once ( 'quickstatements.php' ) ;
 @ini_set( 'post_max_size', '64M');
 #@ini_set( 'max_execution_time', '300' )
 
+$allow_callback = false;
+
 function fin ( $status = '' ) {
-	global $out ;
+	global $out , $allow_callback , $callback ;
 	if ( $status != '' ) $out['status'] = $status ;
+	if ( $allow_callback and $callback!='' ) {
+		print "{$callback}(";
+	}
 	print json_encode ( $out ) ; // , JSON_PRETTY_PRINT 
+	if ( $allow_callback and $callback!='' ) {
+		print ")";
+	}
 	exit ( 0 ) ;
 }
 
@@ -44,6 +52,7 @@ function validate_origin() {
 $qs = new QuickStatements ;
 $out = [ 'status' => 'OK' ] ;
 $action = get_request ( 'action' , '' ) ;
+$callback  = get_request ( 'callback' , '' ) ;
 
 if ( isset ( $_REQUEST['oauth_verifier'] ) ) {
 	$oa = $qs->getOA() ; // Answer to OAuth
@@ -145,6 +154,7 @@ if ( $action == 'import' ) {
 		$out['data'] = $oa->getConsumerRights() ;
 	}
 	$out['data']->is_logged_in = $ili ;
+	$allow_callback = true;
 
 } else if ( $action == 'get_batch_info' ) {
 
