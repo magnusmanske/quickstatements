@@ -584,7 +584,7 @@ class QuickStatementsTest extends TestCase
         );
     }
 
-    public function validItemIdentifierProvider(): array
+    public static function validItemIdentifierProvider(): array
     {
         return [
             'item Q123'          => ['Q123'],
@@ -609,7 +609,7 @@ class QuickStatementsTest extends TestCase
         );
     }
 
-    public function invalidItemIdentifierProvider(): array
+    public static function invalidItemIdentifierProvider(): array
     {
         return [
             'empty string'            => [''],

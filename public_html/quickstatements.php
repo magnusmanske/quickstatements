@@ -43,31 +43,34 @@ require_once ( __DIR__ . '/../vendor/autoload.php' ) ;
 
 class QuickStatements {
 
-	public $last_item = '' ;
-	public $wd ;
-	public $oa ;
-	public $config ;
-	public $use_oauth = true ;
-	public $last_error_message = '' ;
-	public $toolname = '' ; // To be set if used directly by another tool
-	public $sleep = 0.1 ; // Number of seconds to sleep between each edit
-	public $use_command_compression = false ;
-	public $bot_config_file = '' ; // Legacy, should be in config.json
-	public $temporary_batch_id ;
-	public $retry_on_database_lock = false ;
-	public $use_user_oauth_for_batch_edits = true ;
-	public $auth_db = '' ;
-	public $debugging = false ;
-	public $maxlag = 5 ;
-	public $verbose = false ;
-	public $logging = true ;
+	public string $last_item = '' ;
+	public ?object $wd = null ;
+	public ?object $oa = null ;
+	public ?object $config = null ;
+	public bool $use_oauth = true ;
+	public string $last_error_message = '' ;
+	public string $toolname = '' ; // To be set if used directly by another tool
+	public float $sleep = 0.1 ; // Number of seconds to sleep between each edit
+	public bool $use_command_compression = false ;
+	public string $bot_config_file = '' ; // Legacy, should be in config.json
+	public ?string $temporary_batch_id = null ;
+	public bool $retry_on_database_lock = false ;
+	public bool $use_user_oauth_for_batch_edits = true ;
+	public string $auth_db = '' ;
+	public bool $debugging = false ;
+	public int $maxlag = 5 ;
+	public bool $verbose = false ;
+	public bool $logging = true ;
 
-	protected $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
-	protected $is_batch_run = false ;
-	protected $user_name = '' ;
-	protected $user_id = 0 ;
-	protected $user_groups = [] ;
-	protected $db ;
+	protected array $actions_v1 = array ( 'L'=>'label' , 'D'=>'description' , 'A'=>'alias' , 'S'=>'sitelink' ) ;
+	protected bool $is_batch_run = false ;
+	protected string $user_name = '' ;
+	protected int $user_id = 0 ;
+	protected array $user_groups = [] ;
+	protected ?\mysqli $db = null ;
+	protected ?object $bot_api = null ;
+	protected ?object $last_result = null ;
+	protected static ?object $global_bot_api = null ;
 
 	public function __construct () {
 		global $wikidata_api_url ;
@@ -171,8 +174,8 @@ class QuickStatements {
 		$serialized = serialize($this->getOA()) ;
 
 		$db2 = openToolDB ( 'quickstatements_auth' ) ;
-		$db2->set_charset("utf8") ;
-		$sql = "INSERT INTO `batch_oauth` (batch_id,serialized,serialized_json) VALUES ($batch_id,'".$db2->real_escape_string($serialized)."','".$db2->real_escape_string(json_encode(unserialize($serialized)))."')" ;
+		$db2->set_charset("utf8mb4") ;
+		$sql = "INSERT INTO `batch_oauth` (batch_id,serialized,serialized_json) VALUES ($batch_id,'".$db2->real_escape_string($serialized)."','".$db2->real_escape_string(json_encode(unserialize($serialized, ['allowed_classes' => true])))."')" ;
 		if(!$result = $db2->query($sql)) $this->log( "Could not store OAuth information for batch {$batch_id} [{$db->error}]" );
 		$db2->close();
 
@@ -197,9 +200,16 @@ class QuickStatements {
 	}
 
 	public function getDB () {
-		if ( !isset($this->db) or !$this->db->ping() ) {
+		if ( $this->db !== null ) {
+			try {
+				if ( !$this->db->query('SELECT 1') ) $this->db = null ;
+			} catch ( \Exception $e ) {
+				$this->db = null ;
+			}
+		}
+		if ( $this->db === null ) {
 			$this->db = openToolDB ( 'quickstatements_p' ) ;
-			$this->db->set_charset("utf8") ;
+			$this->db->set_charset("utf8mb4") ;
 			$this->setAuthDbName() ;
 		}
 		return $this->db ;
@@ -235,8 +245,8 @@ class QuickStatements {
 
 	public function startBatch ( $batch_id ) {
 		$batch_id *= 1 ;
-		if ( isset ( $qs_global_bot_api ) ) unset ( $qs_global_bot_api ) ;
-		if ( isset ( $this->bot_api ) ) unset ( $this->bot_api ) ;
+		self::$global_bot_api = null ;
+		$this->bot_api = null ;
 		$db = $this->getDB() ;
 
 		$user_name = $this->getUsernameFromBatchID ( $batch_id ) ;
@@ -278,7 +288,7 @@ class QuickStatements {
 			if($result = $db->query($sql)) {
 				$oauth = $result->fetch_object() ;
 				if ( $oauth !== NULL ) {
-					$oa = unserialize($oauth->serialized) ;
+					$oa = unserialize($oauth->serialized, ['allowed_classes' => true]) ;
 					if ( $oa === false ) {
 						$this->log( "Could not unserialize OAuth information for batch $batch_id:\n".$oauth->serialized );
 						$this->use_oauth = false ;
@@ -368,7 +378,7 @@ class QuickStatements {
 		if ( $last_batch_id == 0 ) return false ; # No batch
 
 		$db2 = openToolDB ( 'quickstatements_auth' ) ;
-		$db2->set_charset("utf8") ;
+		$db2->set_charset("utf8mb4") ;
 		$sql = "SELECT * FROM batch_oauth WHERE batch_id={$last_batch_id}" ;
 		if(!$result = $db2->query($sql)) return false ;
 		$j = '' ;
@@ -394,7 +404,7 @@ class QuickStatements {
 
 		// None to use, generate new one
 		$db = $this->getDB() ;
-		$token = password_hash ( rand() . $user_name . rand() . rand() , PASSWORD_DEFAULT ) ;
+		$token = password_hash ( random_int(0, PHP_INT_MAX) . $user_name . random_int(0, PHP_INT_MAX) . random_int(0, PHP_INT_MAX) , PASSWORD_DEFAULT ) ;
 		$token = substr ( $token , 0 , 60 ) ;
 
 		$id = '' ;
@@ -500,7 +510,7 @@ class QuickStatements {
 	protected function ensureCurrentUserInDB () {
 		//$db = $this->getDB() ;
 		$db2 = openToolDB ( 'quickstatements_auth' ) ;
-		$db2->set_charset("utf8") ;
+		$db2->set_charset("utf8mb4") ;
 		$sql = "INSERT IGNORE INTO `user` (id,name) VALUES ({$this->user_id},'".$db2->real_escape_string($this->user_name)."')" ;
 			if(!$result = $db2->query($sql)) {
 				$db2->close() ;
@@ -729,9 +739,8 @@ class QuickStatements {
 	}
 
 	protected function getBotAPI ( $force_login = false ) {
-		global $qs_global_bot_api ;
-		if ( !isset($this->bot_api) and isset($qs_global_bot_api) ) $this->bot_api = $qs_global_bot_api ;
-		if ( !$force_login and isset($this->bot_api) and $this->bot_api->isLoggedIn() ) return $this->bot_api ;
+		if ( $this->bot_api === null and self::$global_bot_api !== null ) $this->bot_api = self::$global_bot_api ;
+		if ( !$force_login and $this->bot_api !== null and $this->bot_api->isLoggedIn() ) return $this->bot_api ;
 
 		$bot_config = $this->getBotConfig() ;
 		$api = new \Mediawiki\Api\MediawikiApi( $this->getAPI() );
@@ -744,7 +753,7 @@ class QuickStatements {
 			$x = $api->login( new \Mediawiki\Api\ApiUser( $username, $password ) );
 			if ( !$x ) return false ;
 		}
-		if ( !isset($qs_global_bot_api) ) $qs_global_bot_api = $api ;
+		if ( self::$global_bot_api === null ) self::$global_bot_api = $api ;
 		$this->bot_api = $api ;
 		return $api ;
 
@@ -868,8 +877,8 @@ class QuickStatements {
 				}
 				$command->message = $result->error->info ;
 				if ( preg_match ( '/Invalid CSRF token/' , $result->error->info ) ) {
-						if ( isset ( $qs_global_bot_api ) ) unset ( $qs_global_bot_api ) ;
-					if ( isset ( $this->bot_api ) ) unset ( $this->bot_api ) ;
+					self::$global_bot_api = null ;
+					$this->bot_api = null ;
 					$this->getBotAPI ( true ) ;
 				}
 			} else $command->message = json_encode ( $result ) ;

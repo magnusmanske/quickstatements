@@ -295,7 +295,7 @@ if ( $action == 'import' ) {
 
 	$ids = [] ;
 	while ( $o = $result->fetch_object() ) {
-		if ( stristr($o->message,'no-such-entity') ) continue ; // No such item exists, no point in re-trying
+		if ( str_contains($o->message,'no-such-entity') ) continue ; // No such item exists, no point in re-trying
 		if ( !isset($o->json) ) continue ; // No actual command
 		$j = @json_decode ( $o->json ) ;
 		if ( !isset($j) or $j === null ) continue ; // Bad JSON
