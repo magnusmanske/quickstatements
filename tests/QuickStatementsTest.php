@@ -82,6 +82,102 @@ class TestableQuickStatements extends QuickStatements
 }
 
 /**
+ * Further subclass that stubs out runAction so we can test command execution
+ * logic (LAST propagation, routing, etc.) without hitting any real API.
+ *
+ * Every call to runAction marks the command as "done" and, for the create
+ * actions, fakes the entity / form / sense ID that the API would return.
+ */
+class MockableQuickStatements extends TestableQuickStatements
+{
+    /** @var int Counter used to generate fake entity IDs. */
+    private $nextId = 1;
+
+    /** @var array Every params object passed to runAction, for inspection. */
+    public $actionLog = [];
+
+    public function __construct()
+    {
+        parent::__construct();
+        // Provide a mock WikidataItemList so commands that go through the
+        // loadItems → hasItem → getItem path don't hit null references.
+        $this->wd = new class {
+            public function loadItems($list) {}
+            public function loadItem($q) {}
+            public function hasItem($q) { return true; }
+            public function getItem($q) {
+                return new class {
+                    public $j;
+                    public function __construct() {
+                        $this->j = (object) ['lastrevid' => 1];
+                    }
+                    public function getClaims($prop) { return []; }
+                    public function getLabel($lang, $fallback = false) { return ''; }
+                    public function getDesc($lang, $fallback = false) { return ''; }
+                    public function getSitelink($site) { return null; }
+                };
+            }
+            public function updateItem($q) {}
+        };
+    }
+
+    protected function runAction($params, &$command)
+    {
+        $params = (object) $params;
+        $this->actionLog[] = clone $params;
+
+        // Simulate success
+        $command->status = 'done';
+
+        // Fake the entity ID that the real API would return
+        if ($params->action == 'wbeditentity' && isset($params->new)) {
+            $type = $params->new;
+            if ($type == 'item') {
+                $command->item = 'Q' . (9000 + $this->nextId++);
+            } elseif ($type == 'property') {
+                $command->item = 'P' . (9000 + $this->nextId++);
+            } elseif ($type == 'lexeme') {
+                $command->item = 'L' . (9000 + $this->nextId++);
+            }
+        }
+        if ($params->action == 'wbladdform') {
+            // Real API returns the form ID under $result->form->id;
+            // runAction then sets $command->item.  We simulate that here.
+            $lexemeId = $params->lexemeId;
+            $command->item = $lexemeId . '-F' . $this->nextId++;
+        }
+        if ($params->action == 'wbladdsense') {
+            $lexemeId = $params->lexemeId;
+            $command->item = $lexemeId . '-S' . $this->nextId++;
+        }
+    }
+
+    /**
+     * Import V1, convert to objects, and run every command sequentially,
+     * exactly like runCommandArray / runNextCommandInBatch would.
+     *
+     * @return object[] The executed command objects, in order.
+     */
+    public function importAndRun(string $v1): array
+    {
+        $result = $this->importData($v1, 'v1');
+        $commands = $result['data']['commands'];
+        $executed = [];
+        foreach ($commands as $cmd) {
+            $cmd = $this->array2object($cmd);
+            $cmd = $this->runSingleCommand($cmd);
+            $executed[] = $cmd;
+        }
+        return $executed;
+    }
+
+    public function getLastItem(): string
+    {
+        return $this->last_item;
+    }
+}
+
+/**
  * Unit tests for the QuickStatements class.
  *
  * These tests exercise pure / near-pure methods that do not require a
@@ -1573,6 +1669,219 @@ class QuickStatementsTest extends TestCase
         $this->assertSame('create', $cmd['action']);
         $this->assertSame('lexeme', $cmd['type']);
         $this->assertSame('adding water lexeme', $cmd['summary']);
+    }
+
+    // =========================================================================
+    //  Lexeme — LAST propagation during execution (MockableQuickStatements)
+    // =========================================================================
+
+    /**
+     * Reproduces the exact scenario from T220985#11744261:
+     *
+     *   CREATE_LEXEME  Q12107  Q147276  br:"Montroulez"
+     *   LAST  P12846  "m/montroulez/"
+     *   LAST  ADD_FORM  br:"Montroulez"  Q110786
+     *   LAST  ADD_SENSE  fr:"commune française"
+     *   LAST  P5137  Q202368
+     *
+     * After ADD_FORM, LAST must still be the lexeme so that ADD_SENSE and
+     * the final statement target the lexeme, not the form.
+     *
+     * @group unit
+     */
+    public function testLastPropagation_Phab_T220985(): void
+    {
+        $mqs = new MockableQuickStatements();
+        $cmds = $mqs->importAndRun(implode("\n", [
+            "CREATE_LEXEME\tQ12107\tQ147276\tbr:\"Montroulez\"",
+            "LAST\tP12846\t\"m/montroulez/\"",
+            "LAST\tADD_FORM\tbr:\"Montroulez\"\tQ110786",
+            "LAST\tADD_SENSE\tfr:\"commune française\"",
+            "LAST\tP5137\tQ202368",
+        ]));
+
+        // All five must succeed
+        foreach ($cmds as $i => $c) {
+            $this->assertSame('done', $c->status, "Command $i failed: " . ($c->message ?? ''));
+        }
+
+        // 0: CREATE_LEXEME → item = L9001
+        $lexemeId = $cmds[0]->item;
+        $this->assertMatchesRegularExpression('/^L\d+$/', $lexemeId);
+
+        // 1: statement on the lexeme
+        $this->assertSame($lexemeId, $cmds[1]->item);
+
+        // 2: ADD_FORM → command's own item is the form ID, but LAST stays on lexeme
+        $this->assertMatchesRegularExpression('/^L\d+-F\d+$/', $cmds[2]->item);
+
+        // 3: ADD_SENSE must target the LEXEME, not the form
+        $senseItem = $cmds[3]->item;
+        $this->assertMatchesRegularExpression('/^L\d+-S\d+$/', $senseItem);
+        // The lexemeId passed to wbladdsense must be the lexeme, not the form
+        $senseAction = $mqs->actionLog[3];
+        $this->assertSame('wbladdsense', $senseAction->action);
+        $this->assertSame($lexemeId, $senseAction->lexemeId);
+
+        // 4: final statement must target the lexeme
+        $this->assertSame($lexemeId, $cmds[4]->item);
+    }
+
+    /**
+     * After CREATE_LEXEME + multiple ADD_FORMs, LAST stays on the lexeme.
+     *
+     * @group unit
+     */
+    public function testLastPropagation_MultipleForms(): void
+    {
+        $mqs = new MockableQuickStatements();
+        $cmds = $mqs->importAndRun(implode("\n", [
+            "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\"",
+            "LAST\tADD_FORM\ten:\"water\"\tQ110786",
+            "LAST\tADD_FORM\ten:\"waters\"\tQ146786",
+            "LAST\tADD_SENSE\ten:\"transparent liquid\"",
+        ]));
+
+        $lexemeId = $cmds[0]->item;
+
+        // Both forms must have been added to the lexeme
+        $this->assertSame('wbladdform', $mqs->actionLog[1]->action);
+        $this->assertSame($lexemeId, $mqs->actionLog[1]->lexemeId);
+        $this->assertSame('wbladdform', $mqs->actionLog[2]->action);
+        $this->assertSame($lexemeId, $mqs->actionLog[2]->lexemeId);
+
+        // Sense also targets the lexeme
+        $this->assertSame('wbladdsense', $mqs->actionLog[3]->action);
+        $this->assertSame($lexemeId, $mqs->actionLog[3]->lexemeId);
+
+        // LAST is still the lexeme
+        $this->assertSame($lexemeId, $mqs->getLastItem());
+    }
+
+    /**
+     * After CREATE_LEXEME + ADD_SENSE, LAST stays on the lexeme so a
+     * following statement targets the lexeme.
+     *
+     * @group unit
+     */
+    public function testLastPropagation_SenseThenStatement(): void
+    {
+        $mqs = new MockableQuickStatements();
+        $cmds = $mqs->importAndRun(implode("\n", [
+            "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\"",
+            "LAST\tADD_SENSE\ten:\"transparent liquid\"",
+            "LAST\tP31\tQ5",
+        ]));
+
+        $lexemeId = $cmds[0]->item;
+
+        // The statement must target the lexeme, not the sense
+        $this->assertSame($lexemeId, $cmds[2]->item);
+    }
+
+    /**
+     * A plain CREATE (item) followed by LAST still works: LAST is the
+     * new Q-ID.  Regression guard.
+     *
+     * @group unit
+     */
+    public function testLastPropagation_CreateItemStillWorks(): void
+    {
+        $mqs = new MockableQuickStatements();
+        $cmds = $mqs->importAndRun(implode("\n", [
+            "CREATE",
+            "LAST\tLen\t\"Test item\"",
+        ]));
+
+        $this->assertSame('done', $cmds[0]->status);
+        $this->assertSame('done', $cmds[1]->status);
+        $itemId = $cmds[0]->item;
+        $this->assertMatchesRegularExpression('/^Q\d+$/', $itemId);
+        $this->assertSame($itemId, $cmds[1]->item);
+    }
+
+    /**
+     * Explicit lexeme ID (not LAST) for ADD_FORM still works.
+     *
+     * @group unit
+     */
+    public function testLastPropagation_ExplicitLexemeIdForForm(): void
+    {
+        $mqs = new MockableQuickStatements();
+        $cmds = $mqs->importAndRun("L999\tADD_FORM\ten:\"running\"\tQ1");
+
+        $this->assertSame('done', $cmds[0]->status);
+        $this->assertSame('wbladdform', $mqs->actionLog[0]->action);
+        $this->assertSame('L999', $mqs->actionLog[0]->lexemeId);
+        // LAST should be L999, not the form ID
+        $this->assertSame('L999', $mqs->getLastItem());
+    }
+
+    /**
+     * Explicit lexeme ID for ADD_SENSE still works.
+     *
+     * @group unit
+     */
+    public function testLastPropagation_ExplicitLexemeIdForSense(): void
+    {
+        $mqs = new MockableQuickStatements();
+        $cmds = $mqs->importAndRun("L999\tADD_SENSE\ten:\"some gloss\"");
+
+        $this->assertSame('done', $cmds[0]->status);
+        $this->assertSame('wbladdsense', $mqs->actionLog[0]->action);
+        $this->assertSame('L999', $mqs->actionLog[0]->lexemeId);
+        $this->assertSame('L999', $mqs->getLastItem());
+    }
+
+    /**
+     * Lemma, lexical_category, language, representation, gloss, and
+     * grammatical_feature commands all call the correct API actions.
+     *
+     * @group unit
+     */
+    public function testExecution_LexemeEditCommands(): void
+    {
+        $mqs = new MockableQuickStatements();
+        $cmds = $mqs->importAndRun(implode("\n", [
+            "L100\tLemma_en\t\"water\"",
+            "L100\tLEXICAL_CATEGORY\tQ1084",
+            "L100\tLANGUAGE\tQ7725",
+            "L100-F1\tRep_en\t\"running\"",
+            "L100-F1\tGRAMMATICAL_FEATURE\tQ1,Q2",
+            "L100-S1\tGloss_en\t\"act of running\"",
+        ]));
+
+        foreach ($cmds as $i => $c) {
+            $this->assertSame('done', $c->status, "Command $i failed");
+        }
+
+        // Lemma → wbeditentity
+        $this->assertSame('wbeditentity', $mqs->actionLog[0]->action);
+        $this->assertSame('L100', $mqs->actionLog[0]->id);
+        $data = json_decode($mqs->actionLog[0]->data, true);
+        $this->assertSame('water', $data['lemmas']['en']['value']);
+
+        // Lexical category → wbeditentity
+        $this->assertSame('wbeditentity', $mqs->actionLog[1]->action);
+        $data = json_decode($mqs->actionLog[1]->data, true);
+        $this->assertSame('Q1084', $data['lexicalCategory']);
+
+        // Language → wbeditentity
+        $data = json_decode($mqs->actionLog[2]->data, true);
+        $this->assertSame('Q7725', $data['language']);
+
+        // Representation → wbleditformelements
+        $this->assertSame('wbleditformelements', $mqs->actionLog[3]->action);
+        $this->assertSame('L100-F1', $mqs->actionLog[3]->formId);
+
+        // Grammatical feature → wbleditformelements
+        $this->assertSame('wbleditformelements', $mqs->actionLog[4]->action);
+        $data = json_decode($mqs->actionLog[4]->data, true);
+        $this->assertSame(['Q1', 'Q2'], $data['grammaticalFeatures']);
+
+        // Gloss → wbleditsenseelements
+        $this->assertSame('wbleditsenseelements', $mqs->actionLog[5]->action);
+        $this->assertSame('L100-S1', $mqs->actionLog[5]->senseId);
     }
 
     // =========================================================================

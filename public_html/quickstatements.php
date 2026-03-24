@@ -1091,6 +1091,7 @@ class QuickStatements {
 			$this->last_item = '' ;
 			return $this->commandError ( $command , 'No last item available' ) ;
 		}
+		$lexeme_id = $q ; // Remember the lexeme ID before runAction overwrites $command->item
 		$command->item = $q ;
 		$data = '{}' ;
 		if ( isset($command->data) ) $data = json_encode ( $this->array2object ( $command->data ) ) ;
@@ -1104,7 +1105,9 @@ class QuickStatements {
 			$this->last_item = '' ;
 			return $command ;
 		}
-		$this->last_item = $command->item ;
+		// Keep LAST pointing at the lexeme, not the form — subsequent
+		// ADD_FORM / ADD_SENSE / statements should target the lexeme.
+		$this->last_item = $lexeme_id ;
 		return $command ;
 	}
 
@@ -1115,6 +1118,7 @@ class QuickStatements {
 			$this->last_item = '' ;
 			return $this->commandError ( $command , 'No last item available' ) ;
 		}
+		$lexeme_id = $q ; // Remember the lexeme ID before runAction overwrites $command->item
 		$command->item = $q ;
 		$data = '{}' ;
 		if ( isset($command->data) ) $data = json_encode ( $this->array2object ( $command->data ) ) ;
@@ -1128,7 +1132,9 @@ class QuickStatements {
 			$this->last_item = '' ;
 			return $command ;
 		}
-		$this->last_item = $command->item ;
+		// Keep LAST pointing at the lexeme, not the sense — subsequent
+		// ADD_FORM / ADD_SENSE / statements should target the lexeme.
+		$this->last_item = $lexeme_id ;
 		return $command ;
 	}
 
