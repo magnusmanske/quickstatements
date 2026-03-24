@@ -3,3 +3,4 @@
 /vendor
 /public_html/php
 /public_html/resources
+.phpunit.result.cache
