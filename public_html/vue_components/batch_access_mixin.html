@@ -1,75 +1,89 @@
 <script>
-'use strict';
+	'use strict';
 
-var batch_helper_mixin = {
-	methods : {
-    	precacheLabels : function ( data ) {
-    		var me = this ;
-			return new Promise(function(resolve, reject) {
-				let to_cache = {} ;
-				$.each ( data , function ( dummy , cmd ) {
-					if ( typeof cmd == 'undefined' ) return ;
-					let j = cmd ;
-					if ( typeof j.json != 'undefined' ) j = j.json ;
-					if ( typeof j.item != 'undefined' ) to_cache[j.item] = 1 ;
-					if ( typeof j.property != 'undefined' ) to_cache[j.property] = 1 ;
-					if ( typeof j.datavalue != 'undefined' && j.datavalue!=null && j.datavalue.type == 'wikibase-entityid' ) to_cache[j.datavalue.value.id] = 1 ;
-				} ) ;
-				wd.getItemBatch ( Object.keys(to_cache) , resolve )
-			} ) ;
-    	} ,
-	}
-} ;
+	var batch_helper_mixin = {
+		methods: {
+			precacheLabels: function (data) {
+				var me = this;
+				return new Promise(function (resolve, reject) {
+					let to_cache = {};
+					$.each(data, function (dummy, cmd) {
+						if (typeof cmd == 'undefined') return;
+						let j = cmd;
+						if (typeof j.json != 'undefined') j = j.json;
+						if (typeof j.item != 'undefined') to_cache[j.item] = 1;
+						if (typeof j.property != 'undefined') to_cache[j.property] = 1;
+						if (typeof j.datavalue != 'undefined' && j.datavalue != null && j.datavalue.type == 'wikibase-entityid') to_cache[j.datavalue.value.id] = 1;
+						// Lexeme: lexical_category and language store a Q-ID in value
+						if ((j.what == 'lexical_category' || j.what == 'language') && typeof j.value == 'string' && j.value.match(/^Q\d+$/i)) to_cache[j.value] = 1;
+						// Lexeme: grammatical_feature stores an array of Q-IDs in value
+						if (j.what == 'grammatical_feature' && Array.isArray(j.value)) {
+							$.each(j.value, function (dummy, feat) {if (typeof feat == 'string' && feat.match(/^Q\d+$/i)) to_cache[feat] = 1;});
+						}
+						// Lexeme: create lexeme/form/sense have entity IDs in data
+						if (j.action == 'create' && typeof j.data != 'undefined' && j.data != null) {
+							if (typeof j.data.language == 'string' && j.data.language.match(/^Q\d+$/i)) to_cache[j.data.language] = 1;
+							if (typeof j.data.lexicalCategory == 'string' && j.data.lexicalCategory.match(/^Q\d+$/i)) to_cache[j.data.lexicalCategory] = 1;
+							if (Array.isArray(j.data.grammaticalFeatures)) {
+								$.each(j.data.grammaticalFeatures, function (dummy, feat) {if (typeof feat == 'string' && feat.match(/^Q\d+$/i)) to_cache[feat] = 1;});
+							}
+						}
+					});
+					wd.getItemBatch(Object.keys(to_cache), resolve)
+				});
+			},
+		}
+	};
 
-var batch_access_mixin = {
-	data : function () { return { batch_exists:false , meta:{batch:{site:'',name:'',id:0,data:{commands:[]},total_commands:0} , commands:{INIT:0,BLOCKED:0,DONE:0,INACTIVE:0,LOCKED:0,STOP:0} } , interval:'' } } ,
-	created : function () {
-		this.meta.batch.site = config.site ;
-		this.clearData() ;
-	} ,
-    beforeDestroy : function () { clearInterval ( this.interval ) } ,
-	methods : {
-		loadBatchInfo : function ( id ) {
-			let me = this ;
-			if ( me.meta.batch.id != id ) me.clearData() ;
-			if ( me.meta.batch.id != 0 && id != 0 && me.interval != '' ) {
-				clearInterval ( me.interval ) ;
-				me.interval = '' ;
+	var batch_access_mixin = {
+		data: function () {return {batch_exists: false, meta: {batch: {site: '', name: '', id: 0, data: {commands: []}, total_commands: 0}, commands: {INIT: 0, BLOCKED: 0, DONE: 0, INACTIVE: 0, LOCKED: 0, STOP: 0}}, interval: ''}},
+		created: function () {
+			this.meta.batch.site = config.site;
+			this.clearData();
+		},
+		beforeDestroy: function () {clearInterval(this.interval)},
+		methods: {
+			loadBatchInfo: function (id) {
+				let me = this;
+				if (me.meta.batch.id != id) me.clearData();
+				if (me.meta.batch.id != 0 && id != 0 && me.interval != '') {
+					clearInterval(me.interval);
+					me.interval = '';
+				}
+				return new Promise(function (resolve, reject) {
+					id *= 1;
+					if (id == 0) return reject();
+					$('#working').show();
+					$.get('./api.php', {
+						action: 'get_batch_info',
+						batch: id
+					}, function (d) {
+						$('#working').hide();
+						//					console.log ( JSON.parse(JSON.stringify(d.data[id])) ) ;
+						let old_data = me.meta.batch.data;
+						me.meta = d.data[id];
+						me.meta.batch.data = old_data;
+						me.meta.batch.total_commands = 0;
+						$.each(me.meta.commands, function (k, v) {me.meta.batch.total_commands += v * 1});
+						me.batch_exists = true;
+						if (me.meta.batch.status != 'DONE') me.startStatusUpdate();
+						resolve();
+					}, 'json');
+				});
+			},
+			startStatusUpdate: function () {
+				let me = this;
+				let seconds = 5;
+				if (me.interval != '') return;
+				me.interval = setInterval(function () {
+					me.loadBatchInfo(me.meta.batch.id);
+				}, seconds * 1000);
+			},
+			clearData: function () {
+				this.meta.site = config.site;
+				this.batch_exists = false;
 			}
-			return new Promise(function(resolve, reject) {
-	    		id *= 1 ;
-	    		if ( id == 0 ) return reject() ;
-	    		$('#working').show() ;
-				$.get ( './api.php' , {
-					action:'get_batch_info',
-					batch:id
-				} , function ( d ) {
-					$('#working').hide() ;
-//					console.log ( JSON.parse(JSON.stringify(d.data[id])) ) ;
-					let old_data = me.meta.batch.data ;
-					me.meta = d.data[id] ;
-					me.meta.batch.data = old_data ;
-					me.meta.batch.total_commands = 0 ;
-					$.each ( me.meta.commands , function ( k , v ) { me.meta.batch.total_commands += v*1 } ) ;
-		    		me.batch_exists = true ;
-		    		if ( me.meta.batch.status != 'DONE' ) me.startStatusUpdate() ;
-					resolve() ;
-				} , 'json' ) ;
-			} ) ;
-		} ,
-		startStatusUpdate : function () {
-			let me = this ;
-			let seconds = 5 ;
-			if ( me.interval != '' ) return ;
-			me.interval = setInterval ( function () {
-				me.loadBatchInfo ( me.meta.batch.id ) ;
-			} , seconds*1000 ) ;
-		} ,
-		clearData : function () {
-	    	this.meta.site = config.site ;
-	    	this.batch_exists = false ;
 		}
 	}
-}
 
 </script>
