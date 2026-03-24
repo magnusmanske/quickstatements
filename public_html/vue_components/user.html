@@ -1,79 +1,79 @@
 <template id='user-template'>
-<div>
-	<span v-if='is_logged_in'>
-        <router-link class="btn btn-outline-dark" to='/user'>{{getUserName()}}</router-link>
-        <router-link class="btn btn-outline-dark" :to='"/batches/"+getUserName()' tt="show_your_last_batches"></router-link>
-	</span>
-	<span v-else>
-		<a href='./api.php?action=oauth_redirect'><span tt='login'></span></a>
-	</span>
-</div>
+	<div>
+		<span v-if='is_logged_in'>
+			<router-link class="btn btn-outline-dark" to='/user'>{{getUserName()}}</router-link>
+			<router-link class="btn btn-outline-dark" :to='"/batches/"+getUserName()'
+				tt="show_your_last_batches"></router-link>
+		</span>
+		<span v-else>
+			<a href='./api.php?action=oauth_redirect'><span tt='login'></span></a>
+		</span>
+	</div>
 </template>
 
 
 <script>
-'use strict';
+	'use strict';
 
-let user ;
+	let user;
 
-Vue.component ( 'user' , {
-	data : function () { return { userinfo:{} , loaded:false , is_logged_in:false } } ,
-    created : function () {
-   		user = this ; // Global object
-    	this.loadData() ;
-    } ,
-    updated : function () { tt.updateInterface(this.$el) ; } ,
-    mounted : function () { tt.updateInterface(this.$el) ; } ,
-    methods : {
-    	loadData : function () {
-    		let me = this ;
-    		$.get ( './api.php' , {
-    			action:'is_logged_in'
-    		} , function ( d ) {
-// 				console.log(JSON.parse(JSON.stringify(d)));
-    			if ( d.data.is_logged_in ) {
-    				me.userinfo = d.data.query.userinfo ;
-    				me.is_logged_in = true ;
-    			} else {
-    				me.is_logged_in = false ;
-    			}
-    			me.loaded = true ;
-    		} , 'json' ) ;
-    	} ,
-        isLoggedIn : function () {
-            return this.is_logged_in ;
-        } ,
-    	isAdmin : function () {
-    		if ( !this.is_logged_in ) return '' ;
-    		return $.inArray ( 'sysop' , this.userinfo.groups ) > -1 ;
-    	} ,
-    	isAutoconfirmed : function () {
-    		if ( !this.is_logged_in ) return '' ;
-    		return $.inArray ( 'autoconfirmed' , this.userinfo.groups ) > -1 ;
-    	} ,
-       isConfirmed : function () {
-		if ( !this.is_logged_in ) return '' ;
-		return $.inArray ( 'confirmed' , this.userinfo.groups ) > -1 ;
-	} ,
-    	isBlocked : function () { // UNTESTED
-            console.log(JSON.parse(JSON.stringify(this.userinfo)))
-    		if ( typeof this.userinfo.blockid == 'undefined' ) return false ;
-    		return true ;
-    	} ,
-        canSubmitBatch : function () {
-            return this.canCreateBatch() ;
-        } ,
-        canRunBatch : function () {
-            return this.canCreateBatch() ;
-        } ,
-    	canCreateBatch : function () {
-            return this.is_logged_in && ( this.isAutoconfirmed() || this.isConfirmed() ) && !this.isBlocked() ;
-    	} ,
-    	getUserName : function () {
-    		if ( !this.is_logged_in ) return '' ;
-    		return this.userinfo.name ;
-    	}
-    },
-	template : '#user-template'
-} ) ;
+	Vue.component('user', {
+		data: function () {return {userinfo: {}, loaded: false, is_logged_in: false}},
+		created: function () {
+			user = this; // Global object
+			this.loadData();
+		},
+		updated: function () {tt.updateInterface(this.$el);},
+		mounted: function () {tt.updateInterface(this.$el);},
+		methods: {
+			loadData: function () {
+				let me = this;
+				$.get('./api.php', {
+					action: 'is_logged_in'
+				}, function (d) {
+					// 				console.log(JSON.parse(JSON.stringify(d)));
+					if (d.data.is_logged_in) {
+						me.userinfo = d.data.query.userinfo;
+						me.is_logged_in = true;
+					} else {
+						me.is_logged_in = false;
+					}
+					me.loaded = true;
+				}, 'json');
+			},
+			isLoggedIn: function () {
+				return this.is_logged_in;
+			},
+			isAdmin: function () {
+				if (!this.is_logged_in) return '';
+				return $.inArray('sysop', this.userinfo.groups) > -1;
+			},
+			isAutoconfirmed: function () {
+				if (!this.is_logged_in) return '';
+				return $.inArray('autoconfirmed', this.userinfo.groups) > -1;
+			},
+			isConfirmed: function () {
+				if (!this.is_logged_in) return '';
+				return $.inArray('confirmed', this.userinfo.groups) > -1;
+			},
+			isBlocked: function () {
+				if (typeof this.userinfo.blockid == 'undefined') return false;
+				return true;
+			},
+			canSubmitBatch: function () {
+				return this.canCreateBatch();
+			},
+			canRunBatch: function () {
+				return this.canCreateBatch();
+			},
+			canCreateBatch: function () {
+				return this.is_logged_in && (this.isAutoconfirmed() || this.isConfirmed()) && !this.isBlocked();
+			},
+			getUserName: function () {
+				if (!this.is_logged_in) return '';
+				return this.userinfo.name;
+			}
+		},
+		template: '#user-template'
+	});
 </script>

@@ -22,7 +22,7 @@ function fin ( $status = '' ) {
 	if ( $allow_callback and $callback!='' ) {
 		print "{$callback}(";
 	}
-	print json_encode ( $out ) ; // , JSON_PRETTY_PRINT 
+	print json_encode ( $out ) ; // , JSON_PRETTY_PRINT
 	if ( $allow_callback and $callback!='' ) {
 		print ")";
 	}
@@ -114,7 +114,7 @@ if ( $action == 'import' ) {
 		}
 		if ( !$qs->fillOA ( $user_id ) ) {
 			unset ( $out['data'] ) ;
-			fin ( "Problem generating OAuth signature; user '{}' needs to have submitted a batch namually at least once before" ) ;
+			fin ( "Problem generating OAuth signature; user '{$username}' needs to have submitted a batch manually at least once before" ) ;
 		}
 
 		$batch_id = $qs->addBatch ( $out['data']['commands'] , $user_id , $batchname , $site ) ;
@@ -169,11 +169,11 @@ if ( $action == 'import' ) {
 } else if ( $action == 'get_batches_info' ) {
 
 	$out['debug'] = $_REQUEST ;
-	
+
 	$user = get_request ( 'user' , '' ) ;
 	$limit = get_request ( 'limit' , '20' ) * 1 ;
 	$offset = get_request ( 'offset' , '0' ) * 1 ;
-	
+
 	$db = $qs->getDB() ;
 	$sql = "SELECT DISTINCT batch.id AS id FROM batch" ;
 	if ( $user != '' ) $sql .= ",{$qs->auth_db}.user" ;
@@ -250,11 +250,11 @@ if ( $action == 'import' ) {
 } else if ( $action == 'start_batch' or $action == 'stop_batch' ) {
 
 	$batch_id = get_request ( 'batch' , 0 ) * 1 ;
-	
+
 	$res = false ;
 	if ( $action == 'start_batch' ) $res = $qs->userChangeBatchStatus ( $batch_id , 'INIT' ) ;
 	if ( $action == 'stop_batch' )  $res = $qs->userChangeBatchStatus ( $batch_id , 'STOP' ) ;
-	
+
 	if ( !$res ) {
 		$out['status'] = $qs->last_error_message ;
 	}

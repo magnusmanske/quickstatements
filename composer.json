@@ -1,5 +1,13 @@
 {
-    "require": {
-        "addwiki/mediawiki-api": "~2.0"
-    }
+	"require": {
+		"addwiki/mediawiki-api": "~2.0"
+	},
+	"require-dev": {
+		"phpunit/phpunit": "^9.5"
+	},
+	"autoload": {
+		"classmap": [
+			"public_html/quickstatements.php"
+		]
+	}
 }
