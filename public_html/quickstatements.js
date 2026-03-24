@@ -788,7 +788,14 @@ var QuickStatements = {
 
 	renderAction: function (cmd) {
 		var ret = cmd.action.toUpperCase();
-		if (typeof cmd.what != 'undefined' && cmd.what != 'statement') ret += " " + cmd.what.toUpperCase();
+		if (typeof cmd.what != 'undefined' && cmd.what != 'statement') {
+			var whatLabels = {
+				'lexical_category': 'LEXICAL CATEGORY',
+				'grammatical_feature': 'GRAMMATICAL FEATURE'
+			};
+			var label = whatLabels[cmd.what] || cmd.what.toUpperCase();
+			ret += " " + label;
+		}
 		return ret;
 	},
 
@@ -860,9 +867,36 @@ var QuickStatements = {
 				tabs[3] = me.renderString(cmd.language, { cmdnum: cmdnum, attr: 'language' });
 			}
 			tabs[4] = me.renderString(cmd.value, { cmdnum: cmdnum, attr: 'value' });
+		} else if ((cmd.action == 'add' || cmd.action == 'remove') && (cmd.what == 'lemma' || cmd.what == 'representation' || cmd.what == 'gloss')) {
+			tabs[1] = me.renderAction(cmd);
+			tabs[2] = me.renderPQ(cmd.item, { cmdnum: cmdnum, attr: 'item' });
+			tabs[3] = me.renderString(cmd.language, { cmdnum: cmdnum, attr: 'language' });
+			tabs[4] = me.renderString(cmd.value, { cmdnum: cmdnum, attr: 'value' });
+		} else if ((cmd.action == 'add') && (cmd.what == 'lexical_category' || cmd.what == 'language')) {
+			tabs[1] = me.renderAction(cmd);
+			tabs[2] = me.renderPQ(cmd.item, { cmdnum: cmdnum, attr: 'item' });
+			tabs[4] = me.renderPQ(cmd.value, { cmdnum: cmdnum, attr: 'value' });
+		} else if ((cmd.action == 'add') && cmd.what == 'grammatical_feature') {
+			tabs[1] = me.renderAction(cmd);
+			tabs[2] = me.renderPQ(cmd.item, { cmdnum: cmdnum, attr: 'item' });
+			var fhtml = '';
+			if (Array.isArray(cmd.value)) {
+				$.each(cmd.value, function (k, v) {
+					if (k > 0) fhtml += ', ';
+					fhtml += me.renderPQ(v, { cmdnum: cmdnum, attr: 'value.' + k });
+				});
+			}
+			tabs[4] = fhtml;
 		} else if (cmd.action == 'create') {
 			tabs[1] = me.renderAction(cmd);
 			tabs[2] = cmd.type;
+			if ((cmd.type == 'form' || cmd.type == 'sense') && typeof cmd.item != 'undefined') {
+				tabs[2] = me.renderPQ(cmd.item, { cmdnum: cmdnum, attr: 'item' });
+				tabs[3] = cmd.type;
+				if (cmd.data) tabs[5] = '<small>' + me.htmlSafe(JSON.stringify(cmd.data)) + '</small>';
+			} else if (cmd.type == 'lexeme' && cmd.data) {
+				tabs[5] = '<small>' + me.htmlSafe(JSON.stringify(cmd.data)) + '</small>';
+			}
 		} else { // Unknown
 			tabs[5] = JSON.stringify(cmd);
 		}

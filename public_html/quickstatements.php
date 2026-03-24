@@ -839,6 +839,12 @@ class QuickStatements {
 			if ( $params->action == 'wbeditentity' and isset($params->new) ) {
 				$command->item = $result->entity->id ; // "Last item"
 			}
+			if ( $params->action == 'wbladdform' and isset($result->form) ) {
+				$command->item = $result->form->id ;
+			}
+			if ( $params->action == 'wbladdsense' and isset($result->sense) ) {
+				$command->item = $result->sense->id ;
+			}
 		} else {
 			/*
 			if ( $this->debugging ) {
@@ -1078,6 +1084,126 @@ class QuickStatements {
 		return $this->commandSetSitelink ( $command, $i );
 	}
 
+	protected function createNewForm ( $command ) {
+		$q = trim($command->item) ;
+		if ( strtolower($q) == 'last' ) $q = $this->last_item ;
+		if ( $q == '' ) {
+			$this->last_item = '' ;
+			return $this->commandError ( $command , 'No last item available' ) ;
+		}
+		$command->item = $q ;
+		$data = '{}' ;
+		if ( isset($command->data) ) $data = json_encode ( $this->array2object ( $command->data ) ) ;
+		$this->runAction ( array (
+			'action' => 'wbladdform' ,
+			'lexemeId' => $q ,
+			'data' => $data ,
+			'summary' => ''
+		) , $command ) ;
+		if ( $command->status != 'done' ) {
+			$this->last_item = '' ;
+			return $command ;
+		}
+		$this->last_item = $command->item ;
+		return $command ;
+	}
+
+	protected function createNewSense ( $command ) {
+		$q = trim($command->item) ;
+		if ( strtolower($q) == 'last' ) $q = $this->last_item ;
+		if ( $q == '' ) {
+			$this->last_item = '' ;
+			return $this->commandError ( $command , 'No last item available' ) ;
+		}
+		$command->item = $q ;
+		$data = '{}' ;
+		if ( isset($command->data) ) $data = json_encode ( $this->array2object ( $command->data ) ) ;
+		$this->runAction ( array (
+			'action' => 'wbladdsense' ,
+			'lexemeId' => $q ,
+			'data' => $data ,
+			'summary' => ''
+		) , $command ) ;
+		if ( $command->status != 'done' ) {
+			$this->last_item = '' ;
+			return $command ;
+		}
+		$this->last_item = $command->item ;
+		return $command ;
+	}
+
+	protected function commandSetLemma ( $command ) {
+		$data = array ( 'lemmas' => array (
+			$command->language => array ( 'language' => $command->language , 'value' => $command->value )
+		) ) ;
+		$this->runAction ( array (
+			'action' => 'wbeditentity' ,
+			'id' => $command->item ,
+			'data' => json_encode ( $data ) ,
+			'summary' => ''
+		) , $command ) ;
+		return $command ;
+	}
+
+	protected function commandSetLexicalCategory ( $command ) {
+		$data = array ( 'lexicalCategory' => $command->value ) ;
+		$this->runAction ( array (
+			'action' => 'wbeditentity' ,
+			'id' => $command->item ,
+			'data' => json_encode ( $data ) ,
+			'summary' => ''
+		) , $command ) ;
+		return $command ;
+	}
+
+	protected function commandSetLexemeLanguage ( $command ) {
+		$data = array ( 'language' => $command->value ) ;
+		$this->runAction ( array (
+			'action' => 'wbeditentity' ,
+			'id' => $command->item ,
+			'data' => json_encode ( $data ) ,
+			'summary' => ''
+		) , $command ) ;
+		return $command ;
+	}
+
+	protected function commandSetRepresentation ( $command ) {
+		$data = array ( 'representations' => array (
+			$command->language => array ( 'language' => $command->language , 'value' => $command->value )
+		) ) ;
+		$this->runAction ( array (
+			'action' => 'wbleditformelements' ,
+			'formId' => $command->item ,
+			'data' => json_encode ( $data ) ,
+			'summary' => ''
+		) , $command ) ;
+		return $command ;
+	}
+
+	protected function commandSetGrammaticalFeature ( $command ) {
+		$data = array ( 'grammaticalFeatures' => $command->value ) ;
+		$this->runAction ( array (
+			'action' => 'wbleditformelements' ,
+			'formId' => $command->item ,
+			'data' => json_encode ( $data ) ,
+			'summary' => ''
+		) , $command ) ;
+		return $command ;
+	}
+
+	protected function commandSetGloss ( $command ) {
+		$data = array ( 'glosses' => array (
+			$command->language => array ( 'language' => $command->language , 'value' => $command->value )
+		) ) ;
+		$this->runAction ( array (
+			'action' => 'wbleditsenseelements' ,
+			'senseId' => $command->item ,
+			'data' => json_encode ( $data ) ,
+			'summary' => ''
+		) , $command ) ;
+		return $command ;
+	}
+
 	public function array2object_recursive($array) {
 		$obj = new stdClass;
 		foreach($array as $k => $v) {
@@ -1128,6 +1254,8 @@ class QuickStatements {
 		}
 
 		if ( $command->action == 'create' ) {
+			if ( isset($command->type) and $command->type == 'form' ) return $this->createNewForm ( $command ) ;
+			if ( isset($command->type) and $command->type == 'sense' ) return $this->createNewSense ( $command ) ;
 			return $this->createNewItem ( $command ) ;
 		} else if ( $command->action == 'merge' ) {
 			return $this->mergeItems ( $command ) ;
@@ -1139,6 +1267,17 @@ class QuickStatements {
 			if ( strtolower($q) == 'last' ) $q = $this->last_item ;
 			if ( $q == '' ) return $this->commandError ( $command , 'No last item available' ) ;
 			$command->item = $q ;
+
+			// Lexeme-specific operations that use the API directly
+			if ( $command->action == 'add' ) {
+				if ( $command->what == 'lemma' ) return $this->commandSetLemma ( $command ) ;
+				if ( $command->what == 'lexical_category' ) return $this->commandSetLexicalCategory ( $command ) ;
+				if ( $command->what == 'language' ) return $this->commandSetLexemeLanguage ( $command ) ;
+				if ( $command->what == 'representation' ) return $this->commandSetRepresentation ( $command ) ;
+				if ( $command->what == 'grammatical_feature' ) return $this->commandSetGrammaticalFeature ( $command ) ;
+				if ( $command->what == 'gloss' ) return $this->commandSetGloss ( $command ) ;
+			}
+
 			$to_load = [ $q ] ;
 			if ( isset($command->property) and $this->isProperty($command->property) ) $to_load[] = $command->property ;
 			$this->wd->loadItems ( $to_load ) ;
@@ -1276,6 +1415,93 @@ class QuickStatements {
 					}
 				}
 				if ( count($cols) != 0 ) $cmd['error'] = 'Incomplete reference/qualifier list' ;
+
+			// Lexeme: set lemma
+			} else if ( count ( $cols ) >= 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and preg_match ( '/^Lemma_([a-z_-]+)$/i' , $cols[1] , $m ) ) {
+				$lang = strtolower ( $m[1] ) ;
+				$cmd = array ( 'action'=>$action , 'what'=>'lemma' , 'item'=>$first , 'language'=>$lang ) ;
+				if ( $comment != '' ) $cmd['summary'] = $comment ;
+				$this->parseValueV1 ( $cols[2] , $cmd ) ;
+				if ( !isset($cmd['datavalue']) or !isset($cmd['datavalue']['value']) ) {
+					$cmd['error'] = 'Broken command' ;
+					continue ;
+				}
+				$cmd['value'] = $cmd['datavalue']['value'] ;
+				unset ( $cmd['datavalue'] ) ;
+
+			// Form: set representation
+			} else if ( count ( $cols ) >= 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and preg_match ( '/^Rep_([a-z_-]+)$/i' , $cols[1] , $m ) ) {
+				$lang = strtolower ( $m[1] ) ;
+				$cmd = array ( 'action'=>$action , 'what'=>'representation' , 'item'=>$first , 'language'=>$lang ) ;
+				if ( $comment != '' ) $cmd['summary'] = $comment ;
+				$this->parseValueV1 ( $cols[2] , $cmd ) ;
+				if ( !isset($cmd['datavalue']) or !isset($cmd['datavalue']['value']) ) {
+					$cmd['error'] = 'Broken command' ;
+					continue ;
+				}
+				$cmd['value'] = $cmd['datavalue']['value'] ;
+				unset ( $cmd['datavalue'] ) ;
+
+			// Sense: set gloss
+			} else if ( count ( $cols ) >= 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and preg_match ( '/^Gloss_([a-z_-]+)$/i' , $cols[1] , $m ) ) {
+				$lang = strtolower ( $m[1] ) ;
+				$cmd = array ( 'action'=>$action , 'what'=>'gloss' , 'item'=>$first , 'language'=>$lang ) ;
+				if ( $comment != '' ) $cmd['summary'] = $comment ;
+				$this->parseValueV1 ( $cols[2] , $cmd ) ;
+				if ( !isset($cmd['datavalue']) or !isset($cmd['datavalue']['value']) ) {
+					$cmd['error'] = 'Broken command' ;
+					continue ;
+				}
+				$cmd['value'] = $cmd['datavalue']['value'] ;
+				unset ( $cmd['datavalue'] ) ;
+
+			// Lexeme: set lexical category
+			} else if ( count ( $cols ) === 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and strtoupper(trim($cols[1])) == 'LEXICAL_CATEGORY' ) {
+				$cmd = array ( 'action'=>$action , 'what'=>'lexical_category' , 'item'=>$first , 'value'=>strtoupper(trim($cols[2])) ) ;
+				if ( $comment != '' ) $cmd['summary'] = $comment ;
+
+			// Lexeme: set language
+			} else if ( count ( $cols ) === 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and strtoupper(trim($cols[1])) == 'LANGUAGE' ) {
+				$cmd = array ( 'action'=>$action , 'what'=>'language' , 'item'=>$first , 'value'=>strtoupper(trim($cols[2])) ) ;
+				if ( $comment != '' ) $cmd['summary'] = $comment ;
+
+			// Form: set grammatical features
+			} else if ( count ( $cols ) === 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and strtoupper(trim($cols[1])) == 'GRAMMATICAL_FEATURE' ) {
+				$features = array_map ( function($f) { return strtoupper(trim($f)) ; } , explode ( ',' , trim($cols[2]) ) ) ;
+				$cmd = array ( 'action'=>$action , 'what'=>'grammatical_feature' , 'item'=>$first , 'value'=>$features ) ;
+				if ( $comment != '' ) $cmd['summary'] = $comment ;
+
+			// Lexeme: add form
+			} else if ( ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and count ( $cols ) >= 3 and strtoupper(trim($cols[1])) == 'ADD_FORM' ) {
+				$representations = [] ;
+				$features = [] ;
+				for ( $ci = 2 ; $ci < count($cols) ; $ci++ ) {
+					$col = trim($cols[$ci]) ;
+					if ( preg_match ( '/^([a-z_-]+):"(.*)"$/i' , $col , $cm ) ) {
+						$lang = strtolower($cm[1]) ;
+						$representations[$lang] = array ( 'value'=>$this->enforceStringEncoding($cm[2]) , 'language'=>$lang ) ;
+					} else if ( preg_match ( '/^[Q]\d+(,[Q]\d+)*$/i' , $col ) ) {
+						$features = array_map ( function($f) { return strtoupper(trim($f)) ; } , explode ( ',' , $col ) ) ;
+					}
+				}
+				$cmd = array ( 'action'=>'create' , 'type'=>'form' , 'item'=>$first ) ;
+				$cmd['data'] = array ( 'representations'=>$representations , 'grammaticalFeatures'=>$features ) ;
+				if ( $comment != '' ) $cmd['summary'] = $comment ;
+
+			// Lexeme: add sense
+			} else if ( ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and count ( $cols ) >= 3 and strtoupper(trim($cols[1])) == 'ADD_SENSE' ) {
+				$glosses = [] ;
+				for ( $ci = 2 ; $ci < count($cols) ; $ci++ ) {
+					$col = trim($cols[$ci]) ;
+					if ( preg_match ( '/^([a-z_-]+):"(.*)"$/i' , $col , $cm ) ) {
+						$lang = strtolower($cm[1]) ;
+						$glosses[$lang] = array ( 'value'=>$this->enforceStringEncoding($cm[2]) , 'language'=>$lang ) ;
+					}
+				}
+				$cmd = array ( 'action'=>'create' , 'type'=>'sense' , 'item'=>$first ) ;
+				$cmd['data'] = array ( 'glosses'=>$glosses ) ;
+				if ( $comment != '' ) $cmd['summary'] = $comment ;
+
 			} else if ( count ( $cols ) === 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and preg_match ( '/^([LADS])([a-z_-]+)$/i' , $cols[1] , $m ) ) {
 				$code = strtoupper ( $m[1] ) ;
 				$lang = strtolower ( trim ( $m[2] ) ) ;
@@ -1298,6 +1524,24 @@ class QuickStatements {
 				if ( $comment != '' ) $cmd['summary'] = $comment ;
 			} else if ( $first == 'CREATE' ) {
 				$cmd = array ( 'action'=>'create' , 'type'=>'item' ) ;
+				if ( $comment != '' ) $cmd['summary'] = $comment ;
+			} else if ( $first == 'CREATE_LEXEME' ) {
+				if ( count($cols) < 4 ) {
+					$cmd = array ( 'action'=>'create' , 'type'=>'lexeme' , 'error'=>'CREATE_LEXEME requires at least: language, lexical category, and one lemma' ) ;
+				} else {
+					$language_item = strtoupper(trim($cols[1])) ;
+					$lexcat = strtoupper(trim($cols[2])) ;
+					$lemmas = [] ;
+					for ( $ci = 3 ; $ci < count($cols) ; $ci++ ) {
+						$col = trim($cols[$ci]) ;
+						if ( preg_match ( '/^([a-z_-]+):"(.*)"$/i' , $col , $cm ) ) {
+							$lang = strtolower($cm[1]) ;
+							$lemmas[$lang] = array ( 'value'=>$this->enforceStringEncoding($cm[2]) , 'language'=>$lang ) ;
+						}
+					}
+					$cmd = array ( 'action'=>'create' , 'type'=>'lexeme' ) ;
+					$cmd['data'] = array ( 'language'=>$language_item , 'lexicalCategory'=>$lexcat , 'lemmas'=>$lemmas ) ;
+				}
 				if ( $comment != '' ) $cmd['summary'] = $comment ;
 			} else if ( $first == 'CREATE_PROPERTY' and count ( $cols ) >= 2) {
 				$cmd = array ( 'action'=>'create' , 'type'=>'property' , 'data'=>'' ) ;

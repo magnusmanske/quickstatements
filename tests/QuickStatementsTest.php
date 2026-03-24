@@ -66,6 +66,19 @@ class TestableQuickStatements extends QuickStatements
         $site = $this->config->site;
         return $this->config->sites->$site;
     }
+
+    public function exposedImportDataFromV1(string $data): array
+    {
+        return $this->importData($data, 'v1');
+    }
+
+    public function exposedCompressCommands(array $commands): array
+    {
+        $this->use_command_compression = true;
+        $result = $this->compressCommands($commands);
+        $this->use_command_compression = false;
+        return $result;
+    }
 }
 
 /**
@@ -1187,5 +1200,1043 @@ class QuickStatementsTest extends TestCase
 
         // Both have same entity-type but no id or numeric-id, so returns false
         $this->assertFalse($this->qs->exposedCompareDatavalue($d1, $d2));
+    }
+
+    // =========================================================================
+    //  Lexeme support — V1 import parsing
+    // =========================================================================
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_CreateLexeme(): void
+    {
+        $data = "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('create', $cmd['action']);
+        $this->assertSame('lexeme', $cmd['type']);
+        $this->assertSame('Q7725', $cmd['data']['language']);
+        $this->assertSame('Q1084', $cmd['data']['lexicalCategory']);
+        $this->assertSame('water', $cmd['data']['lemmas']['en']['value']);
+        $this->assertSame('en', $cmd['data']['lemmas']['en']['language']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_CreateLexemeMultipleLemmas(): void
+    {
+        $data = "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\"\tfr:\"eau\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('create', $cmd['action']);
+        $this->assertSame('lexeme', $cmd['type']);
+        $this->assertSame('water', $cmd['data']['lemmas']['en']['value']);
+        $this->assertSame('eau', $cmd['data']['lemmas']['fr']['value']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_CreateLexemeTooFewColumns(): void
+    {
+        $data = "CREATE_LEXEME\tQ7725";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertArrayHasKey('error', $cmd);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_SetLemma(): void
+    {
+        $data = "L123\tLemma_en\t\"water\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('add', $cmd['action']);
+        $this->assertSame('lemma', $cmd['what']);
+        $this->assertSame('L123', $cmd['item']);
+        $this->assertSame('en', $cmd['language']);
+        $this->assertSame('water', $cmd['value']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_SetLemmaWithLAST(): void
+    {
+        $data = "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\"\nLAST\tLemma_fr\t\"eau\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(2, $result['data']['commands']);
+        $cmd = $result['data']['commands'][1];
+        $this->assertSame('add', $cmd['action']);
+        $this->assertSame('lemma', $cmd['what']);
+        $this->assertSame('LAST', $cmd['item']);
+        $this->assertSame('fr', $cmd['language']);
+        $this->assertSame('eau', $cmd['value']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_SetLexicalCategory(): void
+    {
+        $data = "L123\tLEXICAL_CATEGORY\tQ1084";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('add', $cmd['action']);
+        $this->assertSame('lexical_category', $cmd['what']);
+        $this->assertSame('L123', $cmd['item']);
+        $this->assertSame('Q1084', $cmd['value']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_SetLanguage(): void
+    {
+        $data = "L123\tLANGUAGE\tQ7725";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('add', $cmd['action']);
+        $this->assertSame('language', $cmd['what']);
+        $this->assertSame('L123', $cmd['item']);
+        $this->assertSame('Q7725', $cmd['value']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_AddForm(): void
+    {
+        $data = "L123\tADD_FORM\ten:\"running\"\tQ1,Q2";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('create', $cmd['action']);
+        $this->assertSame('form', $cmd['type']);
+        $this->assertSame('L123', $cmd['item']);
+        $this->assertSame('running', $cmd['data']['representations']['en']['value']);
+        $this->assertSame('en', $cmd['data']['representations']['en']['language']);
+        $this->assertSame(['Q1', 'Q2'], $cmd['data']['grammaticalFeatures']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_AddFormNoFeatures(): void
+    {
+        $data = "L123\tADD_FORM\ten:\"running\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('create', $cmd['action']);
+        $this->assertSame('form', $cmd['type']);
+        $this->assertSame('L123', $cmd['item']);
+        $this->assertSame('running', $cmd['data']['representations']['en']['value']);
+        $this->assertSame([], $cmd['data']['grammaticalFeatures']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_AddFormMultipleRepresentations(): void
+    {
+        $data = "L123\tADD_FORM\ten:\"color\"\ten-gb:\"colour\"\tQ1";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('create', $cmd['action']);
+        $this->assertSame('form', $cmd['type']);
+        $this->assertSame('color', $cmd['data']['representations']['en']['value']);
+        $this->assertSame('colour', $cmd['data']['representations']['en-gb']['value']);
+        $this->assertSame(['Q1'], $cmd['data']['grammaticalFeatures']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_AddSense(): void
+    {
+        $data = "L123\tADD_SENSE\ten:\"act of running\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('create', $cmd['action']);
+        $this->assertSame('sense', $cmd['type']);
+        $this->assertSame('L123', $cmd['item']);
+        $this->assertSame('act of running', $cmd['data']['glosses']['en']['value']);
+        $this->assertSame('en', $cmd['data']['glosses']['en']['language']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_AddSenseMultipleGlosses(): void
+    {
+        $data = "L123\tADD_SENSE\ten:\"water\"\tfr:\"eau\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('create', $cmd['action']);
+        $this->assertSame('sense', $cmd['type']);
+        $this->assertSame('water', $cmd['data']['glosses']['en']['value']);
+        $this->assertSame('eau', $cmd['data']['glosses']['fr']['value']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_SetFormRepresentation(): void
+    {
+        $data = "L123-F1\tRep_en\t\"running\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('add', $cmd['action']);
+        $this->assertSame('representation', $cmd['what']);
+        $this->assertSame('L123-F1', $cmd['item']);
+        $this->assertSame('en', $cmd['language']);
+        $this->assertSame('running', $cmd['value']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_SetGrammaticalFeature(): void
+    {
+        $data = "L123-F1\tGRAMMATICAL_FEATURE\tQ1,Q2,Q3";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('add', $cmd['action']);
+        $this->assertSame('grammatical_feature', $cmd['what']);
+        $this->assertSame('L123-F1', $cmd['item']);
+        $this->assertSame(['Q1', 'Q2', 'Q3'], $cmd['value']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_SetSenseGloss(): void
+    {
+        $data = "L123-S1\tGloss_en\t\"act of running\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('add', $cmd['action']);
+        $this->assertSame('gloss', $cmd['what']);
+        $this->assertSame('L123-S1', $cmd['item']);
+        $this->assertSame('en', $cmd['language']);
+        $this->assertSame('act of running', $cmd['value']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_AddFormWithLAST(): void
+    {
+        $data = "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\"\nLAST\tADD_FORM\ten:\"waters\"\tQ146786";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(2, $result['data']['commands']);
+
+        $cmd0 = $result['data']['commands'][0];
+        $this->assertSame('create', $cmd0['action']);
+        $this->assertSame('lexeme', $cmd0['type']);
+
+        $cmd1 = $result['data']['commands'][1];
+        $this->assertSame('create', $cmd1['action']);
+        $this->assertSame('form', $cmd1['type']);
+        $this->assertSame('LAST', $cmd1['item']);
+        $this->assertSame(['Q146786'], $cmd1['data']['grammaticalFeatures']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_AddSenseWithLAST(): void
+    {
+        $data = "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\"\nLAST\tADD_SENSE\ten:\"transparent liquid\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(2, $result['data']['commands']);
+
+        $cmd1 = $result['data']['commands'][1];
+        $this->assertSame('create', $cmd1['action']);
+        $this->assertSame('sense', $cmd1['type']);
+        $this->assertSame('LAST', $cmd1['item']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_LexemeStatementsStillWork(): void
+    {
+        $data = "L123\tP31\tQ5";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('add', $cmd['action']);
+        $this->assertSame('statement', $cmd['what']);
+        $this->assertSame('L123', $cmd['item']);
+        $this->assertSame('P31', $cmd['property']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_FormStatementsWork(): void
+    {
+        $data = "L123-F1\tP31\tQ5";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('add', $cmd['action']);
+        $this->assertSame('statement', $cmd['what']);
+        $this->assertSame('L123-F1', $cmd['item']);
+        $this->assertSame('P31', $cmd['property']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_SenseStatementsWork(): void
+    {
+        $data = "L123-S1\tP31\tQ5";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('add', $cmd['action']);
+        $this->assertSame('statement', $cmd['what']);
+        $this->assertSame('L123-S1', $cmd['item']);
+        $this->assertSame('P31', $cmd['property']);
+    }
+
+    /**
+     * @group unit
+     */
+    public function testImportV1_CreateLexemeWithComment(): void
+    {
+        $data = "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\" /* adding water lexeme */";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('create', $cmd['action']);
+        $this->assertSame('lexeme', $cmd['type']);
+        $this->assertSame('adding water lexeme', $cmd['summary']);
+    }
+
+    // =========================================================================
+    //  Lexeme — LANGUAGE keyword must not shadow existing Len (label) syntax
+    // =========================================================================
+
+    /**
+     * "Len" must still parse as set-label-in-English, not get swallowed by the
+     * LANGUAGE handler. The LANGUAGE branch requires an exact keyword match on
+     * col[1]; Len matches the older [LADS] regex instead.
+     *
+     * @group unit
+     */
+    public function testImportV1_LenStillParsesAsLabel(): void
+    {
+        $data = "Q42\tLen\t\"Douglas Adams\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('add', $cmd['action']);
+        $this->assertSame('label', $cmd['what']);
+        $this->assertSame('Q42', $cmd['item']);
+        $this->assertSame('en', $cmd['language']);
+        $this->assertSame('Douglas Adams', $cmd['value']);
+    }
+
+    /**
+     * Same test but on a lexeme entity — "Len" on L123 is a label, not the
+     * LANGUAGE keyword.
+     *
+     * @group unit
+     */
+    public function testImportV1_LenOnLexemeIsStillLabel(): void
+    {
+        $data = "L123\tLen\t\"some label\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('label', $cmd['what']);
+        $this->assertSame('en', $cmd['language']);
+    }
+
+    /**
+     * Verify that "Den" is still parsed as set-description-in-English,
+     * not confused with any new lexeme keyword.
+     *
+     * @group unit
+     */
+    public function testImportV1_DenStillParsesAsDescription(): void
+    {
+        $data = "Q42\tDen\t\"English author\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('description', $cmd['what']);
+        $this->assertSame('en', $cmd['language']);
+        $this->assertSame('English author', $cmd['value']);
+    }
+
+    /**
+     * Alias "Aen" must still work.
+     *
+     * @group unit
+     */
+    public function testImportV1_AenStillParsesAsAlias(): void
+    {
+        $data = "Q42\tAen\t\"DNA\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('alias', $cmd['what']);
+    }
+
+    /**
+     * Sitelink "Senwiki" must still work.
+     *
+     * @group unit
+     */
+    public function testImportV1_SitelinkStillWorks(): void
+    {
+        $data = "Q42\tSenwiki\t\"Douglas Adams\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('sitelink', $cmd['what']);
+        $this->assertSame('enwiki', $cmd['site']);
+    }
+
+    // =========================================================================
+    //  Lexeme — JSON round-trip (simulates DB storage and retrieval)
+    // =========================================================================
+
+    /**
+     * Commands are stored as JSON in the command table and decoded with
+     * json_decode before being passed to runSingleCommand.  Verify that
+     * a CREATE_LEXEME command survives the encode→decode cycle.
+     *
+     * @group unit
+     */
+    public function testJsonRoundtrip_CreateLexeme(): void
+    {
+        $data = "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\"\tfr:\"eau\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+        $cmd = $result['data']['commands'][0];
+
+        // Simulate DB storage: json_encode then json_decode (as object)
+        $json = json_encode($cmd);
+        $decoded = json_decode($json);
+
+        $this->assertSame('create', $decoded->action);
+        $this->assertSame('lexeme', $decoded->type);
+        $this->assertSame('Q7725', $decoded->data->language);
+        $this->assertSame('Q1084', $decoded->data->lexicalCategory);
+        $this->assertSame('water', $decoded->data->lemmas->en->value);
+        $this->assertSame('en', $decoded->data->lemmas->en->language);
+        $this->assertSame('eau', $decoded->data->lemmas->fr->value);
+    }
+
+    /**
+     * Verify that ADD_FORM commands survive JSON round-trip, especially that
+     * grammaticalFeatures stays an array (not an object).
+     *
+     * @group unit
+     */
+    public function testJsonRoundtrip_AddForm(): void
+    {
+        $data = "L123\tADD_FORM\ten:\"running\"\tQ1,Q2";
+        $result = $this->qs->exposedImportDataFromV1($data);
+        $cmd = $result['data']['commands'][0];
+
+        $json = json_encode($cmd);
+        $decoded = json_decode($json);
+
+        $this->assertSame('create', $decoded->action);
+        $this->assertSame('form', $decoded->type);
+        $this->assertSame('L123', $decoded->item);
+        // grammaticalFeatures must stay an array after decode
+        $this->assertIsArray($decoded->data->grammaticalFeatures);
+        $this->assertSame('Q1', $decoded->data->grammaticalFeatures[0]);
+        $this->assertSame('Q2', $decoded->data->grammaticalFeatures[1]);
+        // representations must be a keyed object
+        $this->assertSame('running', $decoded->data->representations->en->value);
+    }
+
+    /**
+     * Verify that ADD_SENSE commands survive JSON round-trip.
+     *
+     * @group unit
+     */
+    public function testJsonRoundtrip_AddSense(): void
+    {
+        $data = "L123\tADD_SENSE\ten:\"act of running\"\tfr:\"action de courir\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+        $cmd = $result['data']['commands'][0];
+
+        $json = json_encode($cmd);
+        $decoded = json_decode($json);
+
+        $this->assertSame('create', $decoded->action);
+        $this->assertSame('sense', $decoded->type);
+        $this->assertSame('act of running', $decoded->data->glosses->en->value);
+        $this->assertSame('action de courir', $decoded->data->glosses->fr->value);
+    }
+
+    /**
+     * Verify that GRAMMATICAL_FEATURE value (an array) survives JSON round-trip.
+     *
+     * @group unit
+     */
+    public function testJsonRoundtrip_GrammaticalFeature(): void
+    {
+        $data = "L123-F1\tGRAMMATICAL_FEATURE\tQ1,Q2,Q3";
+        $result = $this->qs->exposedImportDataFromV1($data);
+        $cmd = $result['data']['commands'][0];
+
+        $json = json_encode($cmd);
+        $decoded = json_decode($json);
+
+        $this->assertSame('add', $decoded->action);
+        $this->assertSame('grammatical_feature', $decoded->what);
+        $this->assertIsArray($decoded->value);
+        $this->assertCount(3, $decoded->value);
+        $this->assertSame(['Q1', 'Q2', 'Q3'], $decoded->value);
+    }
+
+    /**
+     * Verify that Lemma_ command survives JSON round-trip.
+     *
+     * @group unit
+     */
+    public function testJsonRoundtrip_SetLemma(): void
+    {
+        $data = "L123\tLemma_en\t\"water\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+        $cmd = $result['data']['commands'][0];
+
+        $json = json_encode($cmd);
+        $decoded = json_decode($json);
+
+        $this->assertSame('add', $decoded->action);
+        $this->assertSame('lemma', $decoded->what);
+        $this->assertSame('L123', $decoded->item);
+        $this->assertSame('en', $decoded->language);
+        $this->assertSame('water', $decoded->value);
+    }
+
+    // =========================================================================
+    //  Lexeme — compressCommands must not eat lexeme commands
+    // =========================================================================
+
+    /**
+     * When command compression is on, a CREATE (item) followed by Lxx on LAST
+     * gets merged into the CREATE's data block.  But CREATE_LEXEME (type=lexeme)
+     * must NOT be merged — the compressor should leave lexeme sequences alone.
+     *
+     * @group unit
+     */
+    public function testCompressCommands_LexemeCreateNotMerged(): void
+    {
+        $data = "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\"\nLAST\tLemma_fr\t\"eau\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+        $commands = $result['data']['commands'];
+
+        $compressed = $this->qs->exposedCompressCommands($commands);
+
+        // Both commands must survive — the compressor must NOT fold the lemma
+        // into the CREATE_LEXEME (it only folds into type==item).
+        $this->assertCount(2, $compressed);
+        $this->assertSame('create', $compressed[0]['action']);
+        $this->assertSame('lexeme', $compressed[0]['type']);
+        $this->assertSame('add', $compressed[1]['action']);
+        $this->assertSame('lemma', $compressed[1]['what']);
+    }
+
+    /**
+     * Compression must still work for regular CREATE (item) + label.
+     * This is a regression guard.
+     *
+     * @group unit
+     */
+    public function testCompressCommands_ItemCreateStillMerges(): void
+    {
+        $data = "CREATE\nLAST\tLen\t\"Test\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+        $commands = $result['data']['commands'];
+
+        $compressed = $this->qs->exposedCompressCommands($commands);
+
+        // Should be merged into a single CREATE with data.labels
+        $this->assertCount(1, $compressed);
+        $this->assertSame('create', $compressed[0]['action']);
+        $this->assertSame('item', $compressed[0]['type']);
+        $this->assertSame('Test', $compressed[0]['data']['labels']['en']['value']);
+    }
+
+    /**
+     * A CREATE_LEXEME followed by ADD_FORM on LAST must not be compressed
+     * together (they are separate API calls).
+     *
+     * @group unit
+     */
+    public function testCompressCommands_LexemeCreateThenFormNotMerged(): void
+    {
+        $data = "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\"\nLAST\tADD_FORM\ten:\"waters\"\tQ146786";
+        $result = $this->qs->exposedImportDataFromV1($data);
+        $commands = $result['data']['commands'];
+
+        $compressed = $this->qs->exposedCompressCommands($commands);
+
+        $this->assertCount(2, $compressed);
+        $this->assertSame('lexeme', $compressed[0]['type']);
+        $this->assertSame('form', $compressed[1]['type']);
+    }
+
+    // =========================================================================
+    //  Lexeme — remove-statement on forms and senses
+    // =========================================================================
+
+    /**
+     * Removing a statement from a form: the leading dash on the entity ID
+     * should produce action=remove.
+     *
+     * @group unit
+     */
+    public function testImportV1_RemoveStatementOnForm(): void
+    {
+        $data = "-L123-F1\tP31\tQ5";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('remove', $cmd['action']);
+        $this->assertSame('statement', $cmd['what']);
+        $this->assertSame('L123-F1', $cmd['item']);
+        $this->assertSame('P31', $cmd['property']);
+    }
+
+    /**
+     * Removing a statement from a sense.
+     *
+     * @group unit
+     */
+    public function testImportV1_RemoveStatementOnSense(): void
+    {
+        $data = "-L123-S1\tP31\tQ5";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('remove', $cmd['action']);
+        $this->assertSame('statement', $cmd['what']);
+        $this->assertSame('L123-S1', $cmd['item']);
+    }
+
+    /**
+     * Removing a statement from a lexeme.
+     *
+     * @group unit
+     */
+    public function testImportV1_RemoveStatementOnLexeme(): void
+    {
+        $data = "-L123\tP31\tQ5";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('remove', $cmd['action']);
+        $this->assertSame('statement', $cmd['what']);
+        $this->assertSame('L123', $cmd['item']);
+    }
+
+    // =========================================================================
+    //  Lexeme — mixed realistic batch
+    // =========================================================================
+
+    /**
+     * Parse a realistic multi-line batch that creates a lexeme, adds forms,
+     * senses, edits representations, and adds a statement with qualifiers.
+     *
+     * @group unit
+     */
+    public function testImportV1_FullLexemeBatch(): void
+    {
+        $data = implode("\n", [
+            "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\"",
+            "LAST\tLemma_fr\t\"eau\"",
+            "LAST\tADD_FORM\ten:\"water\"\tQ110786",
+            "LAST\tADD_FORM\ten:\"waters\"\tQ146786",
+            "LAST\tADD_SENSE\ten:\"transparent liquid\"",
+            "LAST\tP5137\tQ3024658",
+        ]);
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(6, $result['data']['commands']);
+
+        // 0: CREATE_LEXEME
+        $this->assertSame('create', $result['data']['commands'][0]['action']);
+        $this->assertSame('lexeme', $result['data']['commands'][0]['type']);
+        $this->assertSame('water', $result['data']['commands'][0]['data']['lemmas']['en']['value']);
+
+        // 1: Lemma_fr
+        $this->assertSame('lemma', $result['data']['commands'][1]['what']);
+        $this->assertSame('LAST', $result['data']['commands'][1]['item']);
+        $this->assertSame('fr', $result['data']['commands'][1]['language']);
+        $this->assertSame('eau', $result['data']['commands'][1]['value']);
+
+        // 2: ADD_FORM singular
+        $this->assertSame('create', $result['data']['commands'][2]['action']);
+        $this->assertSame('form', $result['data']['commands'][2]['type']);
+        $this->assertSame('LAST', $result['data']['commands'][2]['item']);
+        $this->assertSame(['Q110786'], $result['data']['commands'][2]['data']['grammaticalFeatures']);
+
+        // 3: ADD_FORM plural
+        $this->assertSame('form', $result['data']['commands'][3]['type']);
+        $this->assertSame(['Q146786'], $result['data']['commands'][3]['data']['grammaticalFeatures']);
+
+        // 4: ADD_SENSE
+        $this->assertSame('sense', $result['data']['commands'][4]['type']);
+        $this->assertSame('transparent liquid', $result['data']['commands'][4]['data']['glosses']['en']['value']);
+
+        // 5: statement
+        $this->assertSame('add', $result['data']['commands'][5]['action']);
+        $this->assertSame('statement', $result['data']['commands'][5]['what']);
+        $this->assertSame('LAST', $result['data']['commands'][5]['item']);
+        $this->assertSame('P5137', $result['data']['commands'][5]['property']);
+    }
+
+    // =========================================================================
+    //  Lexeme — pipe and double-pipe separators
+    // =========================================================================
+
+    /**
+     * V1 input without tabs falls back to pipe (|) separators.
+     * Lexeme commands must work with this fallback too.
+     *
+     * @group unit
+     */
+    public function testImportV1_PipeSeparatorCreateLexeme(): void
+    {
+        $data = "CREATE_LEXEME|Q7725|Q1084|en:\"water\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('create', $cmd['action']);
+        $this->assertSame('lexeme', $cmd['type']);
+        $this->assertSame('water', $cmd['data']['lemmas']['en']['value']);
+    }
+
+    /**
+     * Double-pipe (||) as line separator with pipe (|) column separator.
+     *
+     * @group unit
+     */
+    public function testImportV1_DoublePipeSeparatorLexemeBatch(): void
+    {
+        $data = "CREATE_LEXEME|Q7725|Q1084|en:\"water\"||LAST|Lemma_fr|\"eau\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(2, $result['data']['commands']);
+        $this->assertSame('lexeme', $result['data']['commands'][0]['type']);
+        $this->assertSame('lemma', $result['data']['commands'][1]['what']);
+        $this->assertSame('eau', $result['data']['commands'][1]['value']);
+    }
+
+    /**
+     * Pipe separator for ADD_FORM.
+     *
+     * @group unit
+     */
+    public function testImportV1_PipeSeparatorAddForm(): void
+    {
+        $data = "L123|ADD_FORM|en:\"running\"|Q1,Q2";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('form', $cmd['type']);
+        $this->assertSame('running', $cmd['data']['representations']['en']['value']);
+        $this->assertSame(['Q1', 'Q2'], $cmd['data']['grammaticalFeatures']);
+    }
+
+    // =========================================================================
+    //  Lexeme — single grammatical feature (edge case)
+    // =========================================================================
+
+    /**
+     * A single Q-ID for grammatical features (no comma) must produce an
+     * array with one element.
+     *
+     * @group unit
+     */
+    public function testImportV1_GrammaticalFeatureSingleItem(): void
+    {
+        $data = "L123-F1\tGRAMMATICAL_FEATURE\tQ1";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame(['Q1'], $cmd['value']);
+    }
+
+    // =========================================================================
+    //  Lexeme — case insensitivity of keywords
+    // =========================================================================
+
+    /**
+     * Keywords like ADD_FORM, ADD_SENSE, LEXICAL_CATEGORY, etc. should be
+     * case-insensitive.
+     *
+     * @group unit
+     */
+    public function testImportV1_KeywordsCaseInsensitive(): void
+    {
+        // add_form in lower case
+        $data = "L123\tadd_form\ten:\"running\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+        $this->assertCount(1, $result['data']['commands']);
+        $this->assertSame('form', $result['data']['commands'][0]['type']);
+
+        // add_sense mixed case
+        $data = "L123\tAdd_Sense\ten:\"act of running\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+        $this->assertCount(1, $result['data']['commands']);
+        $this->assertSame('sense', $result['data']['commands'][0]['type']);
+
+        // lexical_category lower
+        $data = "L123\tlexical_category\tQ1084";
+        $result = $this->qs->exposedImportDataFromV1($data);
+        $this->assertCount(1, $result['data']['commands']);
+        $this->assertSame('lexical_category', $result['data']['commands'][0]['what']);
+
+        // language mixed
+        $data = "L123\tLanguage\tQ7725";
+        $result = $this->qs->exposedImportDataFromV1($data);
+        $this->assertCount(1, $result['data']['commands']);
+        $this->assertSame('language', $result['data']['commands'][0]['what']);
+
+        // grammatical_feature lower
+        $data = "L123-F1\tgrammatical_feature\tQ1";
+        $result = $this->qs->exposedImportDataFromV1($data);
+        $this->assertCount(1, $result['data']['commands']);
+        $this->assertSame('grammatical_feature', $result['data']['commands'][0]['what']);
+    }
+
+    /**
+     * Lemma_, Rep_, Gloss_ prefixes are case-insensitive per the regex /i flag.
+     *
+     * @group unit
+     */
+    public function testImportV1_PrefixesCaseInsensitive(): void
+    {
+        $data = "L123\tLEMMA_en\t\"water\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+        $this->assertCount(1, $result['data']['commands']);
+        $this->assertSame('lemma', $result['data']['commands'][0]['what']);
+
+        $data = "L123-F1\tREP_en\t\"running\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+        $this->assertCount(1, $result['data']['commands']);
+        $this->assertSame('representation', $result['data']['commands'][0]['what']);
+
+        $data = "L123-S1\tGLOSS_en\t\"act of running\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+        $this->assertCount(1, $result['data']['commands']);
+        $this->assertSame('gloss', $result['data']['commands'][0]['what']);
+    }
+
+    // =========================================================================
+    //  Lexeme — existing CREATE and MERGE are not broken
+    // =========================================================================
+
+    /**
+     * Plain CREATE (item) must still work.
+     *
+     * @group unit
+     */
+    public function testImportV1_CreateItemStillWorks(): void
+    {
+        $data = "CREATE";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('create', $cmd['action']);
+        $this->assertSame('item', $cmd['type']);
+    }
+
+    /**
+     * MERGE must still work.
+     *
+     * @group unit
+     */
+    public function testImportV1_MergeStillWorks(): void
+    {
+        $data = "MERGE\tQ1\tQ2";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('merge', $cmd['action']);
+    }
+
+    /**
+     * CREATE_PROPERTY must still work.
+     *
+     * @group unit
+     */
+    public function testImportV1_CreatePropertyStillWorks(): void
+    {
+        $data = "CREATE_PROPERTY\tstring";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('create', $cmd['action']);
+        $this->assertSame('property', $cmd['type']);
+        $this->assertSame('string', $cmd['data']['datatype']);
+    }
+
+    // =========================================================================
+    //  Lexeme — ADD_FORM empty representation (error path)
+    // =========================================================================
+
+    /**
+     * ADD_FORM with no recognizable representation column should still produce
+     * a command (with empty representations), not crash.
+     *
+     * @group unit
+     */
+    public function testImportV1_AddFormNoRepresentation(): void
+    {
+        $data = "L123\tADD_FORM\tQ1";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('form', $cmd['type']);
+        $this->assertEmpty($cmd['data']['representations']);
+        $this->assertSame(['Q1'], $cmd['data']['grammaticalFeatures']);
+    }
+
+    // =========================================================================
+    //  Lexeme — statement with qualifier on a lexeme
+    // =========================================================================
+
+    /**
+     * Adding a statement WITH a qualifier to a lexeme entity.
+     *
+     * @group unit
+     */
+    public function testImportV1_LexemeStatementWithQualifier(): void
+    {
+        $data = "L123\tP31\tQ5\tP585\t+2024-01-01T00:00:00Z/11";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(2, $result['data']['commands']);
+
+        $stmt = $result['data']['commands'][0];
+        $this->assertSame('statement', $stmt['what']);
+        $this->assertSame('L123', $stmt['item']);
+
+        $qual = $result['data']['commands'][1];
+        $this->assertSame('qualifier', $qual['what']);
+        $this->assertSame('L123', $qual['item']);
+        $this->assertSame('P585', $qual['qualifier']['prop']);
+    }
+
+    // =========================================================================
+    //  Lexeme — create_lexeme in lower case
+    // =========================================================================
+
+    /**
+     * The first column is uppercased before comparison, so "create_lexeme"
+     * in lower case should work.
+     *
+     * @group unit
+     */
+    public function testImportV1_CreateLexemeLowerCase(): void
+    {
+        $data = "create_lexeme\tQ7725\tQ1084\ten:\"water\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('create', $cmd['action']);
+        $this->assertSame('lexeme', $cmd['type']);
     }
 }
