@@ -7,29 +7,45 @@ regular item/property commands continue to work exactly as before.
 Columns are separated by **tabs** (or `|` if there are no tabs in the input, as
 with existing V1 syntax). The `||` separator for multiple commands also still works.
 
-## How LAST works with lexemes
+## How LAST, LAST_FORM, and LAST_SENSE work
 
 With items, `CREATE` sets `LAST` to the newly created Q-ID. The same principle
 applies to lexemes: `CREATE_LEXEME` sets `LAST` to the new L-ID.
 
-The important thing to know is that **`ADD_FORM` and `ADD_SENSE` do not change
-`LAST`**. After adding a form or sense, `LAST` still points at the lexeme.
-This lets you build up a complete lexeme in one go:
+**`ADD_FORM` and `ADD_SENSE` do not change `LAST`** — it keeps pointing at
+the lexeme. Instead they set two separate keywords:
+
+- **`LAST_FORM`** — set by `ADD_FORM`, points at the most recently created form
+- **`LAST_SENSE`** — set by `ADD_SENSE`, points at the most recently created sense
+
+This lets you build up a complete lexeme in one batch, editing both the lexeme
+and its sub-entities:
 
 ```
 CREATE_LEXEME	Q7725	Q1084	en:"water"
 LAST	P12846	"w/water/"
 LAST	ADD_FORM	en:"water"	Q110786
+LAST_FORM	Rep_fr	"eau"
+LAST_FORM	P31	Q5
 LAST	ADD_FORM	en:"waters"	Q146786
+LAST_FORM	GRAMMATICAL_FEATURE	Q146786
 LAST	ADD_SENSE	en:"transparent liquid that forms rivers and rain"
+LAST_SENSE	Gloss_fr	"liquide transparent qui forme les rivières et la pluie"
+LAST_SENSE	P5137	Q202368
 LAST	P5137	Q3024658	S248	Q328
 ```
 
-Every `LAST` here refers to the lexeme. The forms and senses are attached to it,
-and the statements (P12846, P5137) are added to the lexeme as well.
+Here `LAST` always refers to the lexeme, `LAST_FORM` refers to whichever form
+was most recently created by `ADD_FORM`, and `LAST_SENSE` to the most recent
+sense from `ADD_SENSE`. The final statement (P5137) targets the lexeme because
+it uses `LAST`.
 
-If you need to add statements to a specific form or sense, use its full ID
-(e.g. `L1560547-F1`) instead of `LAST`.
+Each new `ADD_FORM` overwrites `LAST_FORM`, and each new `ADD_SENSE` overwrites
+`LAST_SENSE`. If you need to refer to an older form or sense, use its full ID
+(e.g. `L1560547-F1`).
+
+When a new `CREATE` or `CREATE_LEXEME` is executed, both `LAST_FORM` and
+`LAST_SENSE` are cleared.
 
 ## Creating Lexemes
 
@@ -65,14 +81,19 @@ L123	ADD_FORM	en:"color"	en-gb:"colour"	Q2,Q3
 Grammatical feature items and representations can be mixed in any order —
 the parser distinguishes them by format (`Q...` vs `lang:"text"`).
 
-`ADD_FORM` does **not** change `LAST` — it stays on the lexeme. This means
-you can add several forms in a row without repeating the lexeme ID:
+`ADD_FORM` does **not** change `LAST` — it stays on the lexeme. Instead it
+sets `LAST_FORM` to the newly created form ID:
 
 ```
 CREATE_LEXEME	Q7725	Q1084	en:"water"
 LAST	ADD_FORM	en:"water"	Q110786
+LAST_FORM	Rep_fr	"eau"
 LAST	ADD_FORM	en:"waters"	Q146786
+LAST_FORM	GRAMMATICAL_FEATURE	Q146786
 ```
+
+After each `ADD_FORM`, `LAST_FORM` points at the form that was just created.
+`LAST` still points at the lexeme throughout.
 
 ## Creating Senses
 
@@ -86,12 +107,16 @@ Multiple glosses in different languages:
 L123	ADD_SENSE	en:"transparent liquid"	fr:"liquide transparent"
 ```
 
-Like `ADD_FORM`, `ADD_SENSE` does **not** change `LAST`:
+Like `ADD_FORM`, `ADD_SENSE` does **not** change `LAST`. Instead it sets
+`LAST_SENSE`:
 
 ```
 CREATE_LEXEME	Q7725	Q1084	en:"water"
 LAST	ADD_SENSE	en:"transparent liquid that forms rivers and rain"
+LAST_SENSE	Gloss_fr	"liquide transparent"
+LAST_SENSE	P5137	Q202368
 LAST	ADD_SENSE	en:"the sea"
+LAST_SENSE	Gloss_fr	"la mer"
 LAST	P31	Q5		/* still targets the lexeme */
 ```
 
@@ -181,31 +206,42 @@ L123	Lemma_de	"Wasser" /* adding German lemma */
 
 ## Full Example
 
-A realistic batch that creates a Breton proper noun and populates it:
+A realistic batch that creates a Breton proper noun with forms, senses,
+and statements spread across all three levels:
 
 ```
 CREATE_LEXEME	Q12107	Q147276	br:"Montroulez"
 LAST	P12846	"m/montroulez/"
 LAST	ADD_FORM	br:"Montroulez"	Q110786
+LAST_FORM	Rep_fr	"Morlaix"
+LAST_FORM	P31	Q5
 LAST	ADD_SENSE	fr:"commune française"
+LAST_SENSE	Gloss_en	"commune in Brittany, France"
+LAST_SENSE	P5137	Q202368
 LAST	P5137	Q202368
 ```
 
 Line by line:
 1. Create a Breton (Q12107) proper noun (Q147276) lexeme with lemma "Montroulez"
 2. Add a pronunciation (P12846) statement to the lexeme
-3. Add a singular form — `LAST` still points at the lexeme
-4. Add a sense with a French gloss — `LAST` still points at the lexeme
-5. Add a "item for this sense" (P5137) statement — still targets the lexeme
+3. Add a singular form — `LAST_FORM` now points at this form
+4. Add a French representation to that form via `LAST_FORM`
+5. Add a statement to the form via `LAST_FORM`
+6. Add a sense with a French gloss — `LAST_SENSE` now points at this sense
+7. Add an English gloss to that sense via `LAST_SENSE`
+8. Add a statement to the sense via `LAST_SENSE`
+9. Add a statement to the lexeme via `LAST`
 
 ## Summary of LAST behavior
 
-| Command          | Changes LAST? | LAST after execution      |
-|------------------|---------------|---------------------------|
-| `CREATE`         | yes           | new Q-ID                  |
-| `CREATE_LEXEME`  | yes           | new L-ID                  |
-| `ADD_FORM`       | **no**        | stays on the lexeme       |
-| `ADD_SENSE`      | **no**        | stays on the lexeme       |
-| `Lemma_xx`       | no            | unchanged                 |
-| `LEXICAL_CATEGORY` | no          | unchanged                 |
-| `LANGUAGE`       | no            | unchanged                 |
+| Command          | Changes LAST? | Changes LAST_FORM? | Changes LAST_SENSE? |
+|------------------|---------------|---------------------|----------------------|
+| `CREATE`         | yes → Q-ID    | cleared             | cleared              |
+| `CREATE_LEXEME`  | yes → L-ID    | cleared             | cleared              |
+| `ADD_FORM`       | **no**        | yes → new F-ID      | no                   |
+| `ADD_SENSE`      | **no**        | no                  | yes → new S-ID       |
+| `Lemma_xx`       | no            | no                  | no                   |
+| `LEXICAL_CATEGORY` | no          | no                  | no                   |
+| `LANGUAGE`       | no            | no                  | no                   |
+| `Rep_xx`         | no            | no                  | no                   |
+| `Gloss_xx`       | no            | no                  | no                   |

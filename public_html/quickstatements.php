@@ -44,6 +44,8 @@ require_once ( __DIR__ . '/../vendor/autoload.php' ) ;
 class QuickStatements {
 
 	public string $last_item = '' ;
+	public string $last_form = '' ;
+	public string $last_sense = '' ;
 	public ?object $wd = null ;
 	public ?object $oa = null ;
 	public ?object $config = null ;
@@ -95,6 +97,53 @@ class QuickStatements {
 
 	protected function isBatchRun () {
 		return $this->is_batch_run ;
+	}
+
+	/**
+	 * Returns true for LAST, LAST_FORM, and LAST_SENSE keywords.
+	 */
+	public function isLastKeyword ( string $s ) : bool {
+		return in_array ( $s , [ 'LAST' , 'LAST_FORM' , 'LAST_SENSE' ] ) ;
+	}
+
+	/**
+	 * Resolve a LAST / LAST_FORM / LAST_SENSE keyword to the tracked entity ID.
+	 * Returns the empty string when the keyword has no corresponding entity yet.
+	 */
+	public function resolveLastKeyword ( string $keyword ) : string {
+		$keyword = strtoupper ( trim ( $keyword ) ) ;
+		if ( $keyword === 'LAST' ) return $this->last_item ;
+		if ( $keyword === 'LAST_FORM' ) return $this->last_form ;
+		if ( $keyword === 'LAST_SENSE' ) return $this->last_sense ;
+		return '' ;
+	}
+
+	/**
+	 * Encode last_item / last_form / last_sense into a single string for
+	 * storage in the batch table's last_item column.
+	 */
+	protected function encodeLastState () : string {
+		if ( $this->last_form === '' && $this->last_sense === '' ) {
+			return $this->last_item ; // Plain value — backward compatible
+		}
+		return $this->last_item . '|' . $this->last_form . '|' . $this->last_sense ;
+	}
+
+	/**
+	 * Decode a last_item value from the batch table, restoring last_form
+	 * and last_sense when present (pipe-delimited).
+	 */
+	protected function decodeLastState ( string $stored ) : void {
+		if ( str_contains ( $stored , '|' ) ) {
+			$parts = explode ( '|' , $stored , 3 ) ;
+			$this->last_item  = $parts[0] ?? '' ;
+			$this->last_form  = $parts[1] ?? '' ;
+			$this->last_sense = $parts[2] ?? '' ;
+		} else {
+			$this->last_item  = $stored ;
+			$this->last_form  = '' ;
+			$this->last_sense = '' ;
+		}
 	}
 
 	public function getOA() {
@@ -268,7 +317,7 @@ class QuickStatements {
 		$sql = "SELECT last_item,user.id AS user_id,user.name AS user_name FROM batch,{$this->auth_db}.user WHERE batch.id=$batch_id AND user.id=batch.user" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		$o = $result->fetch_object() ;
-		$this->last_item = $o->last_item ;
+		$this->decodeLastState ( $o->last_item ) ;
 		$this->user_id = $o->user_id ;
 		$this->user_name = $o->user_name ;
 		$ts = $this->getCurrentTimestamp() ;
@@ -321,7 +370,8 @@ class QuickStatements {
 		// Update batch status
 		$db = $this->getDB() ;
 		$ts = $this->getCurrentTimestamp() ;
-		$sql = "UPDATE batch SET status='RUN',ts_last_change='$ts',last_item='{$this->last_item}' WHERE id=$batch_id AND status IN ('INIT','RUN')" ;
+		$encoded_last = $db->real_escape_string($this->encodeLastState()) ;
+		$sql = "UPDATE batch SET status='RUN',ts_last_change='$ts',last_item='{$encoded_last}' WHERE id=$batch_id AND status IN ('INIT','RUN')" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 
 		// Update command status
@@ -547,9 +597,13 @@ class QuickStatements {
 		) , $command ) ;
 		if ( $command->status != 'done' ) {
 			$this->last_item = '' ; // Ensure subsequent commands will fail
+			$this->last_form = '' ;
+			$this->last_sense = '' ;
 			return $command ;
 		}
 		$this->last_item = $command->item ;
+		$this->last_form = '' ;
+		$this->last_sense = '' ;
 		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
 		return $command ;
 	}
@@ -1095,7 +1149,7 @@ class QuickStatements {
 
 	protected function createNewForm ( $command ) {
 		$q = trim($command->item) ;
-		if ( strtolower($q) == 'last' ) $q = $this->last_item ;
+		if ( $this->isLastKeyword(strtoupper($q)) ) $q = $this->resolveLastKeyword($q) ;
 		if ( $q == '' ) {
 			$this->last_item = '' ;
 			return $this->commandError ( $command , 'No last item available' ) ;
@@ -1114,15 +1168,15 @@ class QuickStatements {
 			$this->last_item = '' ;
 			return $command ;
 		}
-		// Keep LAST pointing at the lexeme, not the form — subsequent
-		// ADD_FORM / ADD_SENSE / statements should target the lexeme.
+		// Keep LAST pointing at the lexeme; record the form in last_form.
 		$this->last_item = $lexeme_id ;
+		$this->last_form = $command->item ;
 		return $command ;
 	}
 
 	protected function createNewSense ( $command ) {
 		$q = trim($command->item) ;
-		if ( strtolower($q) == 'last' ) $q = $this->last_item ;
+		if ( $this->isLastKeyword(strtoupper($q)) ) $q = $this->resolveLastKeyword($q) ;
 		if ( $q == '' ) {
 			$this->last_item = '' ;
 			return $this->commandError ( $command , 'No last item available' ) ;
@@ -1141,9 +1195,9 @@ class QuickStatements {
 			$this->last_item = '' ;
 			return $command ;
 		}
-		// Keep LAST pointing at the lexeme, not the sense — subsequent
-		// ADD_FORM / ADD_SENSE / statements should target the lexeme.
+		// Keep LAST pointing at the lexeme; record the sense in last_sense.
 		$this->last_item = $lexeme_id ;
+		$this->last_sense = $command->item ;
 		return $command ;
 	}
 
@@ -1279,8 +1333,8 @@ class QuickStatements {
 			// Prepare
 			if ( !isset($command->item) and isset($command->id) and $command->what == 'statement' ) $command->item = strtoupper ( preg_replace ( '/\$.+$/' , '' , $command->id ) ) ;
 			$q = trim($command->item) ;
-			if ( strtolower($q) == 'last' ) $q = $this->last_item ;
-			if ( $q == '' ) return $this->commandError ( $command , 'No last item available' ) ;
+			if ( $this->isLastKeyword(strtoupper($q)) ) $q = $this->resolveLastKeyword($q) ;
+			if ( $q == '' ) return $this->commandError ( $command , 'No last item available [' . $command->item . ']' ) ;
 			$command->item = $q ;
 
 			// Lexeme-specific operations that use the API directly
@@ -1350,11 +1404,12 @@ class QuickStatements {
 		}
 
 		foreach ( $values as $value ) {
-			if ( isset ( $value->type ) && $value->type === 'wikibase-entityid' && strtoupper( $value->value->id ) === 'LAST') {
-				if ( !$this->last_item ) {
+			if ( isset ( $value->type ) && $value->type === 'wikibase-entityid' && $this->isLastKeyword( strtoupper( $value->value->id ) ) ) {
+				$resolved = $this->resolveLastKeyword( $value->value->id ) ;
+				if ( !$resolved ) {
 					return false ;
 				}
-				$value->value->id = $this->last_item ;
+				$value->value->id = $resolved ;
 			}
 		}
 
@@ -1383,7 +1438,7 @@ class QuickStatements {
 				$cols[0] = $m[1] ;
 			}
 			$first = strtoupper(trim($cols[0])) ;
-			if ( count ( $cols ) >= 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and ( $this->isValidItemIdentifier($cols[1]) or preg_match ( '/^(!P)(\d+)$/i' , $cols[1] ) ) ) {
+			if ( count ( $cols ) >= 3 and ( $this->isValidItemIdentifier($first) or $this->isLastKeyword($first) ) and ( $this->isValidItemIdentifier($cols[1]) or preg_match ( '/^(!P)(\d+)$/i' , $cols[1] ) ) ) {
         			$prop = strtoupper(trim($cols[1])) ;
 	        		$is_new_statement = 0 ;
         			if ( $prop[0] == '!') {
@@ -1432,7 +1487,7 @@ class QuickStatements {
 				if ( count($cols) != 0 ) $cmd['error'] = 'Incomplete reference/qualifier list' ;
 
 			// Lexeme: set lemma
-			} else if ( count ( $cols ) >= 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and preg_match ( '/^Lemma_([a-z_-]+)$/i' , $cols[1] , $m ) ) {
+			} else if ( count ( $cols ) >= 3 and ( $this->isValidItemIdentifier($first) or $this->isLastKeyword($first) ) and preg_match ( '/^Lemma_([a-z_-]+)$/i' , $cols[1] , $m ) ) {
 				$lang = strtolower ( $m[1] ) ;
 				$cmd = array ( 'action'=>$action , 'what'=>'lemma' , 'item'=>$first , 'language'=>$lang ) ;
 				if ( $comment != '' ) $cmd['summary'] = $comment ;
@@ -1445,7 +1500,7 @@ class QuickStatements {
 				unset ( $cmd['datavalue'] ) ;
 
 			// Form: set representation
-			} else if ( count ( $cols ) >= 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and preg_match ( '/^Rep_([a-z_-]+)$/i' , $cols[1] , $m ) ) {
+			} else if ( count ( $cols ) >= 3 and ( $this->isValidItemIdentifier($first) or $this->isLastKeyword($first) ) and preg_match ( '/^Rep_([a-z_-]+)$/i' , $cols[1] , $m ) ) {
 				$lang = strtolower ( $m[1] ) ;
 				$cmd = array ( 'action'=>$action , 'what'=>'representation' , 'item'=>$first , 'language'=>$lang ) ;
 				if ( $comment != '' ) $cmd['summary'] = $comment ;
@@ -1458,7 +1513,7 @@ class QuickStatements {
 				unset ( $cmd['datavalue'] ) ;
 
 			// Sense: set gloss
-			} else if ( count ( $cols ) >= 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and preg_match ( '/^Gloss_([a-z_-]+)$/i' , $cols[1] , $m ) ) {
+			} else if ( count ( $cols ) >= 3 and ( $this->isValidItemIdentifier($first) or $this->isLastKeyword($first) ) and preg_match ( '/^Gloss_([a-z_-]+)$/i' , $cols[1] , $m ) ) {
 				$lang = strtolower ( $m[1] ) ;
 				$cmd = array ( 'action'=>$action , 'what'=>'gloss' , 'item'=>$first , 'language'=>$lang ) ;
 				if ( $comment != '' ) $cmd['summary'] = $comment ;
@@ -1471,23 +1526,23 @@ class QuickStatements {
 				unset ( $cmd['datavalue'] ) ;
 
 			// Lexeme: set lexical category
-			} else if ( count ( $cols ) === 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and strtoupper(trim($cols[1])) == 'LEXICAL_CATEGORY' ) {
+			} else if ( count ( $cols ) === 3 and ( $this->isValidItemIdentifier($first) or $this->isLastKeyword($first) ) and strtoupper(trim($cols[1])) == 'LEXICAL_CATEGORY' ) {
 				$cmd = array ( 'action'=>$action , 'what'=>'lexical_category' , 'item'=>$first , 'value'=>strtoupper(trim($cols[2])) ) ;
 				if ( $comment != '' ) $cmd['summary'] = $comment ;
 
 			// Lexeme: set language
-			} else if ( count ( $cols ) === 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and strtoupper(trim($cols[1])) == 'LANGUAGE' ) {
+			} else if ( count ( $cols ) === 3 and ( $this->isValidItemIdentifier($first) or $this->isLastKeyword($first) ) and strtoupper(trim($cols[1])) == 'LANGUAGE' ) {
 				$cmd = array ( 'action'=>$action , 'what'=>'language' , 'item'=>$first , 'value'=>strtoupper(trim($cols[2])) ) ;
 				if ( $comment != '' ) $cmd['summary'] = $comment ;
 
 			// Form: set grammatical features
-			} else if ( count ( $cols ) === 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and strtoupper(trim($cols[1])) == 'GRAMMATICAL_FEATURE' ) {
+			} else if ( count ( $cols ) === 3 and ( $this->isValidItemIdentifier($first) or $this->isLastKeyword($first) ) and strtoupper(trim($cols[1])) == 'GRAMMATICAL_FEATURE' ) {
 				$features = array_map ( function($f) { return strtoupper(trim($f)) ; } , explode ( ',' , trim($cols[2]) ) ) ;
 				$cmd = array ( 'action'=>$action , 'what'=>'grammatical_feature' , 'item'=>$first , 'value'=>$features ) ;
 				if ( $comment != '' ) $cmd['summary'] = $comment ;
 
 			// Lexeme: add form
-			} else if ( ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and count ( $cols ) >= 3 and strtoupper(trim($cols[1])) == 'ADD_FORM' ) {
+			} else if ( ( $this->isValidItemIdentifier($first) or $this->isLastKeyword($first) ) and count ( $cols ) >= 3 and strtoupper(trim($cols[1])) == 'ADD_FORM' ) {
 				$representations = [] ;
 				$features = [] ;
 				for ( $ci = 2 ; $ci < count($cols) ; $ci++ ) {
@@ -1504,7 +1559,7 @@ class QuickStatements {
 				if ( $comment != '' ) $cmd['summary'] = $comment ;
 
 			// Lexeme: add sense
-			} else if ( ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and count ( $cols ) >= 3 and strtoupper(trim($cols[1])) == 'ADD_SENSE' ) {
+			} else if ( ( $this->isValidItemIdentifier($first) or $this->isLastKeyword($first) ) and count ( $cols ) >= 3 and strtoupper(trim($cols[1])) == 'ADD_SENSE' ) {
 				$glosses = [] ;
 				for ( $ci = 2 ; $ci < count($cols) ; $ci++ ) {
 					$col = trim($cols[$ci]) ;
@@ -1517,7 +1572,7 @@ class QuickStatements {
 				$cmd['data'] = array ( 'glosses'=>$glosses ) ;
 				if ( $comment != '' ) $cmd['summary'] = $comment ;
 
-			} else if ( count ( $cols ) === 3 and ( $this->isValidItemIdentifier($first) or $first == 'LAST' ) and preg_match ( '/^([LADS])([a-z_-]+)$/i' , $cols[1] , $m ) ) {
+			} else if ( count ( $cols ) === 3 and ( $this->isValidItemIdentifier($first) or $this->isLastKeyword($first) ) and preg_match ( '/^([LADS])([a-z_-]+)$/i' , $cols[1] , $m ) ) {
 				$code = strtoupper ( $m[1] ) ;
 				$lang = strtolower ( trim ( $m[2] ) ) ;
 				$cmd = array ( 'action'=>$action , 'what'=>$this->actions_v1[$code] , 'item'=>$first ) ;
@@ -1761,8 +1816,8 @@ class QuickStatements {
 			return true ;
 		}
 
-		if ( $v == 'LAST' ) {
-			$cmd['datavalue'] = array ( "type"=>"wikibase-entityid" , "value"=>array("entity-type"=>"item", "id"=>"LAST") ) ;
+		if ( $v == 'LAST' || $v == 'LAST_FORM' || $v == 'LAST_SENSE' ) {
+			$cmd['datavalue'] = array ( "type"=>"wikibase-entityid" , "value"=>array("entity-type"=>"item", "id"=>strtoupper($v)) ) ;
 			return true ;
 		}
 

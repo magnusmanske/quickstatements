@@ -79,6 +79,21 @@ class TestableQuickStatements extends QuickStatements
         $this->use_command_compression = false;
         return $result;
     }
+
+    public function exposedIsLastKeyword(string $s): bool
+    {
+        return $this->isLastKeyword($s);
+    }
+
+    public function exposedEncodeLastState(): string
+    {
+        return $this->encodeLastState();
+    }
+
+    public function exposedDecodeLastState(string $stored): void
+    {
+        $this->decodeLastState($stored);
+    }
 }
 
 /**
@@ -174,6 +189,16 @@ class MockableQuickStatements extends TestableQuickStatements
     public function getLastItem(): string
     {
         return $this->last_item;
+    }
+
+    public function getLastForm(): string
+    {
+        return $this->last_form;
+    }
+
+    public function getLastSense(): string
+    {
+        return $this->last_sense;
     }
 }
 
@@ -2547,5 +2572,474 @@ class QuickStatementsTest extends TestCase
         $cmd = $result['data']['commands'][0];
         $this->assertSame('create', $cmd['action']);
         $this->assertSame('lexeme', $cmd['type']);
+    }
+
+    // =========================================================================
+    //  LAST_FORM / LAST_SENSE — V1 parsing
+    // =========================================================================
+
+    /**
+     * LAST_FORM in column 0 must be accepted by the parser and preserved
+     * in the command's item field.
+     *
+     * @group unit
+     */
+    public function testImportV1_LastFormRepresentation(): void
+    {
+        $data = "LAST_FORM\tRep_en\t\"running\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('add', $cmd['action']);
+        $this->assertSame('representation', $cmd['what']);
+        $this->assertSame('LAST_FORM', $cmd['item']);
+        $this->assertSame('en', $cmd['language']);
+        $this->assertSame('running', $cmd['value']);
+    }
+
+    /**
+     * LAST_FORM with GRAMMATICAL_FEATURE.
+     *
+     * @group unit
+     */
+    public function testImportV1_LastFormGrammaticalFeature(): void
+    {
+        $data = "LAST_FORM\tGRAMMATICAL_FEATURE\tQ1,Q2";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('grammatical_feature', $cmd['what']);
+        $this->assertSame('LAST_FORM', $cmd['item']);
+        $this->assertSame(['Q1', 'Q2'], $cmd['value']);
+    }
+
+    /**
+     * LAST_FORM with a statement (P31).
+     *
+     * @group unit
+     */
+    public function testImportV1_LastFormStatement(): void
+    {
+        $data = "LAST_FORM\tP31\tQ5";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('statement', $cmd['what']);
+        $this->assertSame('LAST_FORM', $cmd['item']);
+        $this->assertSame('P31', $cmd['property']);
+    }
+
+    /**
+     * LAST_SENSE in column 0 for a gloss edit.
+     *
+     * @group unit
+     */
+    public function testImportV1_LastSenseGloss(): void
+    {
+        $data = "LAST_SENSE\tGloss_en\t\"act of running\"";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('gloss', $cmd['what']);
+        $this->assertSame('LAST_SENSE', $cmd['item']);
+        $this->assertSame('en', $cmd['language']);
+    }
+
+    /**
+     * LAST_SENSE with a statement.
+     *
+     * @group unit
+     */
+    public function testImportV1_LastSenseStatement(): void
+    {
+        $data = "LAST_SENSE\tP31\tQ5";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertCount(1, $result['data']['commands']);
+        $cmd = $result['data']['commands'][0];
+        $this->assertSame('statement', $cmd['what']);
+        $this->assertSame('LAST_SENSE', $cmd['item']);
+    }
+
+    /**
+     * LAST_FORM / LAST_SENSE as values in a statement (column 2).
+     *
+     * @group unit
+     */
+    public function testParseValueV1_LastFormAndLastSense(): void
+    {
+        $cmd = [];
+        $result = $this->qs->exposedParseValueV1('LAST_FORM', $cmd);
+        $this->assertTrue($result);
+        $this->assertSame('wikibase-entityid', $cmd['datavalue']['type']);
+        $this->assertSame('LAST_FORM', $cmd['datavalue']['value']['id']);
+
+        $cmd = [];
+        $result = $this->qs->exposedParseValueV1('LAST_SENSE', $cmd);
+        $this->assertTrue($result);
+        $this->assertSame('wikibase-entityid', $cmd['datavalue']['type']);
+        $this->assertSame('LAST_SENSE', $cmd['datavalue']['value']['id']);
+    }
+
+    /**
+     * A realistic multi-line batch using LAST, LAST_FORM, and LAST_SENSE.
+     *
+     * @group unit
+     */
+    public function testImportV1_FullBatchWithLastFormAndSense(): void
+    {
+        $data = implode("\n", [
+            "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\"",
+            "LAST\tADD_FORM\ten:\"water\"\tQ110786",
+            "LAST_FORM\tRep_fr\t\"eau\"",
+            "LAST_FORM\tP31\tQ5",
+            "LAST\tADD_SENSE\ten:\"transparent liquid\"",
+            "LAST_SENSE\tGloss_fr\t\"liquide transparent\"",
+            "LAST_SENSE\tP5137\tQ202368",
+            "LAST\tP31\tQ5",
+        ]);
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(8, $result['data']['commands']);
+
+        // 0: CREATE_LEXEME
+        $this->assertSame('create', $result['data']['commands'][0]['action']);
+        $this->assertSame('lexeme', $result['data']['commands'][0]['type']);
+
+        // 1: ADD_FORM on LAST (lexeme)
+        $this->assertSame('LAST', $result['data']['commands'][1]['item']);
+        $this->assertSame('form', $result['data']['commands'][1]['type']);
+
+        // 2: Rep_fr on LAST_FORM
+        $this->assertSame('LAST_FORM', $result['data']['commands'][2]['item']);
+        $this->assertSame('representation', $result['data']['commands'][2]['what']);
+
+        // 3: statement on LAST_FORM
+        $this->assertSame('LAST_FORM', $result['data']['commands'][3]['item']);
+        $this->assertSame('statement', $result['data']['commands'][3]['what']);
+
+        // 4: ADD_SENSE on LAST (lexeme)
+        $this->assertSame('LAST', $result['data']['commands'][4]['item']);
+        $this->assertSame('sense', $result['data']['commands'][4]['type']);
+
+        // 5: Gloss_fr on LAST_SENSE
+        $this->assertSame('LAST_SENSE', $result['data']['commands'][5]['item']);
+        $this->assertSame('gloss', $result['data']['commands'][5]['what']);
+
+        // 6: statement on LAST_SENSE
+        $this->assertSame('LAST_SENSE', $result['data']['commands'][6]['item']);
+        $this->assertSame('statement', $result['data']['commands'][6]['what']);
+
+        // 7: statement on LAST (lexeme)
+        $this->assertSame('LAST', $result['data']['commands'][7]['item']);
+        $this->assertSame('statement', $result['data']['commands'][7]['what']);
+    }
+
+    // =========================================================================
+    //  LAST_FORM / LAST_SENSE — isLastKeyword helper
+    // =========================================================================
+
+    /**
+     * @group unit
+     */
+    public function testIsLastKeyword(): void
+    {
+        $this->assertTrue($this->qs->exposedIsLastKeyword('LAST'));
+        $this->assertTrue($this->qs->exposedIsLastKeyword('LAST_FORM'));
+        $this->assertTrue($this->qs->exposedIsLastKeyword('LAST_SENSE'));
+        $this->assertFalse($this->qs->exposedIsLastKeyword('Q42'));
+        $this->assertFalse($this->qs->exposedIsLastKeyword('LAST_PROPERTY'));
+        $this->assertFalse($this->qs->exposedIsLastKeyword(''));
+    }
+
+    // =========================================================================
+    //  LAST_FORM / LAST_SENSE — batch state encoding / decoding
+    // =========================================================================
+
+    /**
+     * When only last_item is set, encodeLastState returns a plain string
+     * (backward compatible with old batches).
+     *
+     * @group unit
+     */
+    public function testEncodeLastState_PlainItem(): void
+    {
+        $this->qs->last_item = 'Q42';
+        $this->qs->last_form = '';
+        $this->qs->last_sense = '';
+        $this->assertSame('Q42', $this->qs->exposedEncodeLastState());
+    }
+
+    /**
+     * When last_form or last_sense are set, the encoded value is pipe-delimited.
+     *
+     * @group unit
+     */
+    public function testEncodeLastState_WithFormAndSense(): void
+    {
+        $this->qs->last_item = 'L100';
+        $this->qs->last_form = 'L100-F1';
+        $this->qs->last_sense = 'L100-S1';
+        $this->assertSame('L100|L100-F1|L100-S1', $this->qs->exposedEncodeLastState());
+    }
+
+    /**
+     * When only last_form is set (no sense yet).
+     *
+     * @group unit
+     */
+    public function testEncodeLastState_FormOnly(): void
+    {
+        $this->qs->last_item = 'L100';
+        $this->qs->last_form = 'L100-F1';
+        $this->qs->last_sense = '';
+        $this->assertSame('L100|L100-F1|', $this->qs->exposedEncodeLastState());
+    }
+
+    /**
+     * Decoding a plain string (from old batches) sets last_item and
+     * clears last_form / last_sense.
+     *
+     * @group unit
+     */
+    public function testDecodeLastState_PlainItem(): void
+    {
+        $this->qs->exposedDecodeLastState('Q42');
+        $this->assertSame('Q42', $this->qs->last_item);
+        $this->assertSame('', $this->qs->last_form);
+        $this->assertSame('', $this->qs->last_sense);
+    }
+
+    /**
+     * Decoding a pipe-delimited string restores all three.
+     *
+     * @group unit
+     */
+    public function testDecodeLastState_WithFormAndSense(): void
+    {
+        $this->qs->exposedDecodeLastState('L100|L100-F1|L100-S1');
+        $this->assertSame('L100', $this->qs->last_item);
+        $this->assertSame('L100-F1', $this->qs->last_form);
+        $this->assertSame('L100-S1', $this->qs->last_sense);
+    }
+
+    /**
+     * Decoding with only form (empty sense part).
+     *
+     * @group unit
+     */
+    public function testDecodeLastState_FormOnly(): void
+    {
+        $this->qs->exposedDecodeLastState('L100|L100-F1|');
+        $this->assertSame('L100', $this->qs->last_item);
+        $this->assertSame('L100-F1', $this->qs->last_form);
+        $this->assertSame('', $this->qs->last_sense);
+    }
+
+    /**
+     * Round-trip: encode → decode must restore the same state.
+     *
+     * @group unit
+     */
+    public function testEncodeDecodeLastState_Roundtrip(): void
+    {
+        $this->qs->last_item = 'L200';
+        $this->qs->last_form = 'L200-F3';
+        $this->qs->last_sense = 'L200-S2';
+        $encoded = $this->qs->exposedEncodeLastState();
+
+        // Reset and decode
+        $this->qs->last_item = '';
+        $this->qs->last_form = '';
+        $this->qs->last_sense = '';
+        $this->qs->exposedDecodeLastState($encoded);
+
+        $this->assertSame('L200', $this->qs->last_item);
+        $this->assertSame('L200-F3', $this->qs->last_form);
+        $this->assertSame('L200-S2', $this->qs->last_sense);
+    }
+
+    // =========================================================================
+    //  LAST_FORM / LAST_SENSE — execution with MockableQuickStatements
+    // =========================================================================
+
+    /**
+     * Full realistic batch: CREATE_LEXEME, ADD_FORM, edit the form via
+     * LAST_FORM, ADD_SENSE, edit the sense via LAST_SENSE, then a final
+     * statement on LAST (the lexeme).
+     *
+     * @group unit
+     */
+    public function testLastFormSense_FullBatchExecution(): void
+    {
+        $mqs = new MockableQuickStatements();
+        $cmds = $mqs->importAndRun(implode("\n", [
+            "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\"",
+            "LAST\tADD_FORM\ten:\"water\"\tQ110786",
+            "LAST_FORM\tRep_fr\t\"eau\"",
+            "LAST_FORM\tGRAMMATICAL_FEATURE\tQ1,Q2",
+            "LAST\tADD_SENSE\ten:\"transparent liquid\"",
+            "LAST_SENSE\tGloss_fr\t\"liquide transparent\"",
+            "LAST_SENSE\tP5137\tQ202368",
+            "LAST\tP31\tQ5",
+        ]));
+
+        // All must succeed
+        foreach ($cmds as $i => $c) {
+            $this->assertSame('done', $c->status, "Command $i failed: " . ($c->message ?? ''));
+        }
+
+        $lexemeId = $cmds[0]->item;
+        $this->assertMatchesRegularExpression('/^L\d+$/', $lexemeId);
+
+        // 1: ADD_FORM → form was added to the lexeme
+        $formId = $cmds[1]->item;
+        $this->assertMatchesRegularExpression('/^L\d+-F\d+$/', $formId);
+        $this->assertSame('wbladdform', $mqs->actionLog[1]->action);
+        $this->assertSame($lexemeId, $mqs->actionLog[1]->lexemeId);
+
+        // 2: Rep_fr on LAST_FORM → wbleditformelements with the form ID
+        $this->assertSame('wbleditformelements', $mqs->actionLog[2]->action);
+        $this->assertSame($formId, $mqs->actionLog[2]->formId);
+
+        // 3: GRAMMATICAL_FEATURE on LAST_FORM
+        $this->assertSame('wbleditformelements', $mqs->actionLog[3]->action);
+        $this->assertSame($formId, $mqs->actionLog[3]->formId);
+
+        // 4: ADD_SENSE → sense was added to the lexeme (not the form)
+        $senseId = $cmds[4]->item;
+        $this->assertMatchesRegularExpression('/^L\d+-S\d+$/', $senseId);
+        $this->assertSame('wbladdsense', $mqs->actionLog[4]->action);
+        $this->assertSame($lexemeId, $mqs->actionLog[4]->lexemeId);
+
+        // 5: Gloss_fr on LAST_SENSE → wbleditsenseelements with the sense ID
+        $this->assertSame('wbleditsenseelements', $mqs->actionLog[5]->action);
+        $this->assertSame($senseId, $mqs->actionLog[5]->senseId);
+
+        // 6: statement on LAST_SENSE
+        $this->assertSame($senseId, $cmds[6]->item);
+
+        // 7: statement on LAST → must be the lexeme, not form or sense
+        $this->assertSame($lexemeId, $cmds[7]->item);
+
+        // last_item is the lexeme throughout
+        $this->assertSame($lexemeId, $mqs->getLastItem());
+    }
+
+    /**
+     * Multiple ADD_FORMs followed by LAST_FORM: LAST_FORM tracks the most
+     * recently created form.
+     *
+     * @group unit
+     */
+    public function testLastForm_TracksLatestForm(): void
+    {
+        $mqs = new MockableQuickStatements();
+        $cmds = $mqs->importAndRun(implode("\n", [
+            "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\"",
+            "LAST\tADD_FORM\ten:\"water\"\tQ110786",
+            "LAST\tADD_FORM\ten:\"waters\"\tQ146786",
+            "LAST_FORM\tRep_fr\t\"eaux\"",
+        ]));
+
+        foreach ($cmds as $i => $c) {
+            $this->assertSame('done', $c->status, "Command $i failed: " . ($c->message ?? ''));
+        }
+
+        $form1 = $cmds[1]->item;
+        $form2 = $cmds[2]->item;
+        $this->assertNotSame($form1, $form2);
+
+        // LAST_FORM should have resolved to the second form
+        $this->assertSame('wbleditformelements', $mqs->actionLog[3]->action);
+        $this->assertSame($form2, $mqs->actionLog[3]->formId);
+    }
+
+    /**
+     * Multiple ADD_SENSEs followed by LAST_SENSE: LAST_SENSE tracks the
+     * most recently created sense.
+     *
+     * @group unit
+     */
+    public function testLastSense_TracksLatestSense(): void
+    {
+        $mqs = new MockableQuickStatements();
+        $cmds = $mqs->importAndRun(implode("\n", [
+            "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\"",
+            "LAST\tADD_SENSE\ten:\"transparent liquid\"",
+            "LAST\tADD_SENSE\ten:\"body of water\"",
+            "LAST_SENSE\tGloss_fr\t\"étendue d'eau\"",
+        ]));
+
+        foreach ($cmds as $i => $c) {
+            $this->assertSame('done', $c->status, "Command $i failed: " . ($c->message ?? ''));
+        }
+
+        $sense1 = $cmds[1]->item;
+        $sense2 = $cmds[2]->item;
+        $this->assertNotSame($sense1, $sense2);
+
+        // LAST_SENSE should have resolved to the second sense
+        $this->assertSame('wbleditsenseelements', $mqs->actionLog[3]->action);
+        $this->assertSame($sense2, $mqs->actionLog[3]->senseId);
+    }
+
+    /**
+     * CREATE (plain item) must not interfere with LAST_FORM / LAST_SENSE.
+     * After CREATE, last_form and last_sense should be cleared.
+     *
+     * @group unit
+     */
+    public function testLastFormSense_ClearedAfterCreateItem(): void
+    {
+        $mqs = new MockableQuickStatements();
+
+        // First create a lexeme with form and sense
+        $cmds = $mqs->importAndRun(implode("\n", [
+            "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\"",
+            "LAST\tADD_FORM\ten:\"water\"\tQ110786",
+            "LAST\tADD_SENSE\ten:\"transparent liquid\"",
+        ]));
+        $this->assertNotSame('', $mqs->last_form);
+        $this->assertNotSame('', $mqs->last_sense);
+
+        // Now create a plain item — should clear form/sense
+        $cmds2 = $mqs->importAndRun("CREATE");
+        $this->assertSame('done', $cmds2[0]->status);
+        $this->assertSame('', $mqs->last_form);
+        $this->assertSame('', $mqs->last_sense);
+    }
+
+    /**
+     * LAST_FORM without a preceding ADD_FORM must produce an error,
+     * not crash.
+     *
+     * @group unit
+     */
+    public function testLastForm_ErrorWhenNoPrecedingForm(): void
+    {
+        $mqs = new MockableQuickStatements();
+        $cmds = $mqs->importAndRun("LAST_FORM\tRep_en\t\"test\"");
+
+        $this->assertSame('error', $cmds[0]->status);
+    }
+
+    /**
+     * LAST_SENSE without a preceding ADD_SENSE must produce an error.
+     *
+     * @group unit
+     */
+    public function testLastSense_ErrorWhenNoPrecedingSense(): void
+    {
+        $mqs = new MockableQuickStatements();
+        $cmds = $mqs->importAndRun("LAST_SENSE\tGloss_en\t\"test\"");
+
+        $this->assertSame('error', $cmds[0]->status);
     }
 }

@@ -237,6 +237,8 @@ if ( $action == 'import' ) {
 		$oa->delay_after_edit_s = 0 ;
 
 		$qs->last_item = get_request ( 'last_item' , '' ) ;
+		$qs->last_form = get_request ( 'last_form' , '' ) ;
+		$qs->last_sense = get_request ( 'last_sense' , '' ) ;
 		$command = json_decode ( get_request ( 'command' , '' ) ) ;
 		if ( $command == null ) {
 			$out['status'] = 'Bad command JSON' ;
@@ -244,6 +246,8 @@ if ( $action == 'import' ) {
 		} else {
 			$out['command'] = $qs->runSingleCommand ( $command ) ;
 			$out['last_item'] = $qs->last_item ;
+			$out['last_form'] = $qs->last_form ;
+			$out['last_sense'] = $qs->last_sense ;
 		}
 	}
 

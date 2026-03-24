@@ -299,6 +299,8 @@ var QuickStatements = {
 			me.run_state = {
 				running: true,
 				last_item: '',
+				last_form: '',
+				last_sense: '',
 				commands: { pending: 0, done: 0 },
 				batch_id: d.batch_id
 			};
@@ -320,6 +322,8 @@ var QuickStatements = {
 		me.run_state = {
 			running: true,
 			last_item: '',
+			last_form: '',
+			last_sense: '',
 			commands: { pending: 0, done: 0 }
 		}
 		$('#run_status').text('');
@@ -395,10 +399,14 @@ var QuickStatements = {
 		$.post(me.api, {
 			action: 'run_single_command',
 			command: JSON.stringify(cmd),
-			last_item: me.run_state.last_item
+			last_item: me.run_state.last_item,
+			last_form: me.run_state.last_form,
+			last_sense: me.run_state.last_sense
 		}, function (d) {
 			me.data.commands[cmdnum] = d.command;
 			if (typeof d.last_item != 'undefined') me.run_state.last_item = d.last_item;
+			if (typeof d.last_form != 'undefined') me.run_state.last_form = d.last_form;
+			if (typeof d.last_sense != 'undefined') me.run_state.last_sense = d.last_sense;
 			me.run_state.commands.pending--;
 			if (d.status == 'OK') {
 				me.run_state.commands.done++;
@@ -678,8 +686,8 @@ var QuickStatements = {
 	renderPQvalue: function (i) {
 		var me = this;
 		var html = '???';
-		if (i == 'LAST') {
-			html = '<i>LAST ITEM</i>';
+		if (i == 'LAST' || i == 'LAST_FORM' || i == 'LAST_SENSE') {
+			html = '<i>' + i.replace('_', ' ') + '</i>';
 		} else if (i.match(/^(?:[PQL]\d+|L\d+-[FS]\d+)$/i)) { // ENTITY
 			var letter = i.substr(0, 1).toUpperCase();
 			var title = me.types[letter].ns_prefix + i.replace('-', '#');

@@ -134,7 +134,10 @@
 					</a>
 				</span>
 				<span v-else>
-					<wd-link v-if='command.item!="LAST"' :item='command.item' smallq='1'></wd-link>
+					<wd-link v-if='command.item!="LAST" && command.item!="LAST_FORM" && command.item!="LAST_SENSE"'
+						:item='command.item' smallq='1'></wd-link>
+					<span v-else-if='command.item=="LAST_FORM"'><i>Last created form</i></span>
+					<span v-else-if='command.item=="LAST_SENSE"'><i>Last created sense</i></span>
 					<span v-else><i>Last created item</i></span>
 				</span>
 			</div>
