@@ -136,9 +136,21 @@ class MockableQuickStatements extends TestableQuickStatements
         };
     }
 
-    protected function runAction($params, &$command)
+    protected function runAction($params, &$command, $maxlag_retries_left = 10)
     {
         $params = (object) $params;
+
+        // Replicate the parent's parameter preparation so tests can verify
+        // that maxlag, bot, and summary are always present.
+        if ( !isset($params->summary) or $params->summary === '' ) {
+            $summary = '#quickstatements' ;
+            if ( isset($command->summary) and $command->summary != '' ) $summary .= "; " . $command->summary ;
+            if ( $this->toolname != '' ) $summary .= "; invoked by " . $this->toolname ;
+            $params->summary = $summary ;
+        }
+        $params->bot = 1 ;
+        $params->maxlag = $this->maxlag ;
+
         $this->actionLog[] = clone $params;
 
         // Simulate success
@@ -3041,5 +3053,88 @@ class QuickStatementsTest extends TestCase
         $cmds = $mqs->importAndRun("LAST_SENSE\tGloss_en\t\"test\"");
 
         $this->assertSame('error', $cmds[0]->status);
+    }
+
+    // =========================================================================
+    //  maxlag parameter — must be present in all API calls (T421642)
+    // =========================================================================
+
+    /**
+     * Every API action dispatched through MockableQuickStatements must
+     * include the maxlag parameter.  This verifies the fix for T421642
+     * where the OAuth path never sent maxlag, allowing QS to keep editing
+     * while the servers were lagging.
+     *
+     * @group unit
+     */
+    public function testMaxlag_PresentInAllApiCalls(): void
+    {
+        $mqs = new MockableQuickStatements();
+        $mqs->maxlag = 5;
+
+        $mqs->importAndRun(implode("\n", [
+            "CREATE_LEXEME\tQ7725\tQ1084\ten:\"water\"",
+            "LAST\tLemma_fr\t\"eau\"",
+            "LAST\tLEXICAL_CATEGORY\tQ1084",
+            "LAST\tLANGUAGE\tQ7725",
+            "LAST\tADD_FORM\ten:\"water\"\tQ110786",
+            "LAST_FORM\tRep_fr\t\"eau\"",
+            "LAST_FORM\tGRAMMATICAL_FEATURE\tQ1,Q2",
+            "LAST\tADD_SENSE\ten:\"transparent liquid\"",
+            "LAST_SENSE\tGloss_fr\t\"liquide transparent\"",
+        ]));
+
+        $this->assertGreaterThan(0, count($mqs->actionLog), 'Expected at least one API call');
+
+        foreach ($mqs->actionLog as $i => $params) {
+            $this->assertTrue(
+                isset($params->maxlag),
+                "API call $i ({$params->action}) is missing the maxlag parameter"
+            );
+            $this->assertSame(
+                5,
+                $params->maxlag,
+                "API call $i ({$params->action}) has wrong maxlag value"
+            );
+        }
+    }
+
+    /**
+     * Verify that a plain item CREATE also includes maxlag.
+     *
+     * @group unit
+     */
+    public function testMaxlag_PresentInCreateItem(): void
+    {
+        $mqs = new MockableQuickStatements();
+        $mqs->maxlag = 7;
+
+        $mqs->importAndRun("CREATE\nLAST\tLen\t\"Test\"");
+
+        foreach ($mqs->actionLog as $i => $params) {
+            $this->assertSame(
+                7,
+                $params->maxlag,
+                "API call $i ({$params->action}) has wrong maxlag value"
+            );
+        }
+    }
+
+    /**
+     * Verify that statement adds (which go through the loadItems path)
+     * also include maxlag.
+     *
+     * @group unit
+     */
+    public function testMaxlag_PresentInStatementAdd(): void
+    {
+        $mqs = new MockableQuickStatements();
+        $mqs->maxlag = 3;
+
+        $mqs->importAndRun("Q42\tP31\tQ5");
+
+        $this->assertCount(1, $mqs->actionLog);
+        $this->assertSame(3, $mqs->actionLog[0]->maxlag);
+        $this->assertSame('wbcreateclaim', $mqs->actionLog[0]->action);
     }
 }

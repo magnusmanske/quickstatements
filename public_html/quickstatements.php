@@ -875,14 +875,16 @@ class QuickStatements {
 		return true ;
 	}
 
-	protected function runAction ( $params , &$command ) {
+	protected function runAction ( $params , &$command , $maxlag_retries_left = 10 ) {
 		$params = (object) $params ;
-		$summary = '#quickstatements' ;
-		if ( isset($params->summary) and $params->summary != '' ) $summary .= '; ' . $params->summary ;
-		else if ( isset($command->summary) and $command->summary != '' ) $summary .= "; " . $command->summary ;
-		if ( $this->toolname != '' ) $summary .= "; invoked by " . $this->toolname ;
-		$params->summary = $summary ;
+		if ( !isset($params->summary) or $params->summary === '' ) {
+			$summary = '#quickstatements' ;
+			if ( isset($command->summary) and $command->summary != '' ) $summary .= "; " . $command->summary ;
+			if ( $this->toolname != '' ) $summary .= "; invoked by " . $this->toolname ;
+			$params->summary = $summary ;
+		}
 		$params->bot = 1 ;
+		$params->maxlag = $this->maxlag ;
 
 		$result = (object) array() ;
 		$status = false ;
@@ -891,6 +893,17 @@ class QuickStatements {
 			$status = $oa->genericAction ( $params ) ;
 			$this->log ( array ( $params , $status ) ) ;
 			if ( isset($oa->last_res) ) $result = $oa->last_res ;
+
+			// Retry on maxlag error (T421642)
+			if ( !$status and isset($result->error) and isset($result->error->code) and $result->error->code === 'maxlag' ) {
+				if ( $maxlag_retries_left > 0 ) {
+					$wait = isset($result->error->lag) ? intval($result->error->lag) + $this->maxlag : $this->maxlag ;
+					if ( $wait < 5 ) $wait = 5 ;
+					sleep ( $wait ) ;
+					return $this->runAction ( $params , $command , $maxlag_retries_left - 1 ) ;
+				}
+				// Out of retries — fall through to normal error handling
+			}
 		} else {
 			$status = $this->runBotAction ( $params ) ;
 			if ( isset($this->last_result) ) $result = $this->last_result ;
