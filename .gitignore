@@ -3,4 +3,7 @@
 /vendor
 /public_html/php
 /public_html/resources
+/public_html/config.json
+/public_html/local_auth.php
+/public_html/oauth.ini
 .phpunit.result.cache

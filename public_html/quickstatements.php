@@ -1363,7 +1363,7 @@ class QuickStatements {
 			$to_load = [ $q ] ;
 			if ( isset($command->property) and $this->isProperty($command->property) ) $to_load[] = $command->property ;
 			$this->wd->loadItems ( $to_load ) ;
-			if ( !$this->wd->hasItem($q) ) return $this->commandError ( $command , "Item $q is not available" ) ;
+			if ( !$this->wd->hasItem($q) ) return $this->commandError ( $command , "Could not load item $q" ) ;
 			$i = $this->wd->getItem ( $q ) ;
 
 			if ( $command->action == 'add' ) {

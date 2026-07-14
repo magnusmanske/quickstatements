@@ -1,34 +1,38 @@
 <template id='main-page-template'>
-	<div class='container'>
+	<div class='container qs-home'>
         <div>
-            <p tt='intro'></p>
-            <div class="alert alert-primary" role="alert">
-                This is a new interface for QuickStatements V2.
-                Just in case, the old interface is <a href="./index_old.html" class="alert-link">here</a>.
-            </div>
-            <ul class="list-group list-group-flush">
-                <li class="list-group-item">
-                    <router-link class='btn btn-outline-primary' to='/batch' tt='new_batch'></router-link>
-                </li>
-                <li class="list-group-item">
-                    <form class='form-inline'>
-                        <input class='form-control' type='text' id='batch_id' tt_placeholder='ph_batchnumber' style='width:10em' v-model='batch_id' />
-                        <input class='btn btn-outline-primary' type='submit' tt_value='batch_details' @click.prevent='showBatch' />
+			<div v-if='page_error' class='qs-message qs-message--error qs-action-message' role='alert'>
+				<span class='qs-message__icon' aria-hidden='true'><svg class='cdx-icon cdx-icon--bidi-neutral' xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><path d='M19.765 16.059 18 19H2L.235 16.059l8-15h3.53zM9 14v2h2v-2zm0-8v6h2V6z'></path></svg></span>
+				<span class='qs-message__content'><bdi dir='auto'>{{page_error}}</bdi></span>
+			</div>
+            <section class="qs-intro-card" aria-labelledby="qs-intro-title">
+                <div class="qs-intro-card__content">
+                    <h1 id="qs-intro-title">QuickStatements</h1>
+                    <p>QuickStatements lets you create and run batches of edits on Wikidata.</p>
+                    <p>Enter a set of commands, review the batch, and let the tool apply the statements for you.</p>
+                </div>
+                <router-link class="btn btn-primary qs-intro-card__action" to="/batch/new">New batch</router-link>
+            </section>
+            <section class="qs-manage" aria-labelledby="qs-manage-title">
+                <h2 id="qs-manage-title">Manage</h2>
+                <div class="qs-manage-grid">
+                    <form class="qs-manage-action">
+                        <label for="batch_id">Batch number</label>
+                        <input class="form-control" type="text" inputmode="numeric" id="batch_id" autocomplete="off" v-model="batch_id" />
+                        <button class="btn btn-primary" type="submit" @click.prevent="showBatch">See details</button>
                     </form>
-                </li>
-                <li class="list-group-item">
-                    <form class='form-inline'>
-                        <input class='form-control' type='text' id='user_name' tt_placeholder='ph_username' style='width:10em' v-model='username' />
-                        <input class='btn btn-outline-primary' type='submit' tt_value='batches_by_user' @click.prevent='showBatchesByUser' />
+                    <form class="qs-manage-action">
+                        <label for="user_name">User name</label>
+                        <input class="form-control" type="text" id="user_name" autocomplete="off" v-model="username" />
+                        <button class="btn btn-primary" type="submit" @click.prevent="showBatchesByUser">View batches</button>
                     </form>
-                </li>
-                <li class="list-group-item">
-                    <form class='form-inline'>
-                        <input class='form-control' type='text' tt_placeholder='ph_temp_batch_id' style='width:10em' v-model='temp_batch_id' />
-                        <input class='btn btn-outline-primary' type='submit' tt_value='temporary_batch_details' @click.prevent='showTemporaryBatch' />
+                    <form class="qs-manage-action">
+                        <label for="temp_batch_id">Temporary batch ID</label>
+                        <input class="form-control" type="text" inputmode="numeric" id="temp_batch_id" autocomplete="off" v-model="temp_batch_id" />
+                        <button class="btn btn-primary" type="submit" @click.prevent="showTemporaryBatch">Open</button>
                     </form>
-                </li>
-            </ul>
+                </div>
+            </section>
         </div>
 	</div>
 </template>
@@ -38,7 +42,7 @@
 
 let MainPage = Vue.extend ( {
         props : ['q','url_params'] ,
-        data : function () { return { batch_id:'',username:'',temp_batch_id:'' } } ,
+        data : function () { return { batch_id:'',username:'',temp_batch_id:'',page_error:'' } } ,
         created : function () {
             if ( typeof this.url_params != 'undefined' ) {
                 let m ;
@@ -70,6 +74,7 @@ let MainPage = Vue.extend ( {
             } ,
             createTemporaryBatch : function ( qs , format ) {
                 var me = this ;
+				me.page_error = '' ;
                 console.log ( qs ) ;
                 $.post ( './api.php' , {
                     action:'import',
@@ -79,7 +84,7 @@ let MainPage = Vue.extend ( {
                     format:format,
                 } , function ( d ) {
                     if ( d.status != 'OK' ) {
-                        alert ( "Error when trying to parse '+format.toUpperCase()+' URL data: "+d.status ) ;
+						me.page_error = 'The ' + format.toUpperCase() + ' commands in the URL could not be imported: ' + d.status ;
                         return ;
                     }
                     me.$router.push ( '/batch/?tempfile='+encodeURIComponent(d.data) );

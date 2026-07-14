@@ -1,12 +1,17 @@
 <?PHP
 
 error_reporting(E_ALL ^ E_DEPRECATED); //
-ini_set('display_errors', 'On');
+ini_set('display_errors', 'Off');
+ini_set('log_errors', 'On');
 
 if ( !isset($_REQUEST['openpage']) ) {
 	header('Content-type: application/json; charset=UTF-8');
 	header("Cache-Control: no-cache, must-revalidate");
 }
+
+// Optional, ignored development bridge for local OAuth testing.
+$local_auth = __DIR__ . '/local_auth.php';
+if ( is_file($local_auth) ) require $local_auth;
 
 require_once ( 'quickstatements.php' ) ;
 
@@ -28,6 +33,14 @@ function fin ( $status = '' ) {
 	}
 	exit ( 0 ) ;
 }
+
+set_exception_handler ( function ( Throwable $error ) {
+	error_log ( (string)$error ) ;
+	$message = ( $_REQUEST['action'] ?? '' ) == 'run_single_command'
+		? 'Could not complete the command.'
+		: 'Could not complete the request.' ;
+	fin ( $message ) ;
+} ) ;
 
 function get_origin() {
 	$origin = '' ;
@@ -126,6 +139,11 @@ if ( $action == 'import' ) {
 		}
 	}
 
+} else if ( $action == 'logout' ) {
+
+	$qs->getOA()->logout() ;
+	$out['data'] = (object) [ 'is_logged_in' => false ] ;
+
 } else if ( $action == 'oauth_redirect' ) {
 
 	$oa = $qs->getOA() ;
@@ -203,7 +221,9 @@ if ( $action == 'import' ) {
 
 	$db = $qs->getDB() ;
 	$sql = "SELECT * FROM command WHERE batch_id={$batch_id} AND num>={$start}" ; // num BETWEEN {$start} AND {$end}
-	if ( $filter != '' ) {
+	if ( strtoupper(trim($filter)) == 'UNCHANGED' ) {
+		$sql .= " AND `status`='DONE' AND (`message` LIKE '%already exists%' OR `message` LIKE '%already has%' OR `message` LIKE '%has already a qualifier%')" ;
+	} else if ( $filter != '' ) {
 		$filter = explode ( ',' , $filter ) ;
 		foreach ( $filter AS $k => $v ) {
 			$v = $db->real_escape_string ( trim ( strtoupper ( $v ) ) ) ;
