@@ -528,7 +528,7 @@
 		methods: {
 			isUnchangedSuccess: function () {
 				if ((this.command.meta.status || '').toUpperCase() != 'DONE') return false;
-				return /already exists|already has|has already a qualifier/i.test(this.command.meta.message || '');
+				return /already exists|already has|has already (?:a qualifier|a reference)/i.test(this.command.meta.message || '');
 			},
 			load_file_name_from_id: function (m) {
 				let me = this;
