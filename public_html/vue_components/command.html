@@ -521,7 +521,12 @@
 				return this.commandState == 'unknown' ? 'Unknown status' : this.commandState;
 			},
 			commandStateTitle: function () {
-				if (this.commandState == 'unchanged' && this.command.meta.message) return this.command.meta.message;
+				if (this.commandState == 'unchanged' && this.command.meta.message) {
+					return this.command.meta.message.replace(
+						/^The statement has already a reference with hash /i,
+						'The statement already has a reference with hash '
+					);
+				}
 				return this.commandStateLabel;
 			}
 		},
