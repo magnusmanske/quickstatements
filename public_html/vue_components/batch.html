@@ -279,11 +279,13 @@
 			importCSV: function () {
 				this.importCommands('csv');
 			},
-			importCommands: function (format, extraData) {
+			importCommands: function (format, extraData, isFormatFallback) {
 				var me = this;
-				if (me.importing) return;
-				me.import_error = '';
-				me.importing = true;
+				if (me.importing && !isFormatFallback) return;
+				if (!isFormatFallback) {
+					me.import_error = '';
+					me.importing = true;
+				}
 				let requestData = Object.assign({
 					action: 'import',
 					data: me.commands,
@@ -316,6 +318,11 @@
 				})
 				.then(function (d) {
 					if (!d.data || !d.data.commands || d.data.commands.length == 0) {
+						if (!isFormatFallback) {
+							let fallbackFormat = format == 'csv' ? 'v1' : 'csv';
+							let fallbackData = fallbackFormat == 'v1' ? {compress: 1} : {};
+							return me.importCommands(fallbackFormat, fallbackData, true);
+						}
 						me.import_error = "No valid commands were found.";
 						return;
 					}
