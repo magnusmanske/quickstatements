@@ -79,7 +79,7 @@
 					</div>
 				</div>
 				<div v-else-if='user.canCreateBatch()' class='create_batch_box'>
-					<form class='qs-new-batch-form' @submit.prevent='importV1'>
+					<form class='qs-new-batch-form' @submit.prevent='importSelectedFormat'>
 					<div class='qs-batch-setup'>
 						<fieldset class='qs-batch-project'>
 							<legend>Project</legend>
@@ -97,7 +97,7 @@
 						<div class='qs-batch-name'>
 							<label for='qs-batch-name'>Batch name</label>
 							<input id='qs-batch-name' type='text' class='form-control' v-model.trim='meta.batch.name'
-								@keydown.enter.prevent='importV1' />
+								@keydown.enter.prevent='importSelectedFormat' />
 						</div>
 					</div>
 
@@ -107,9 +107,21 @@
 							style='width:100%;'></textarea>
 					</div>
 					<div class='qs-import-actions'>
+						<fieldset class='qs-import-format'>
+							<legend>Format</legend>
+							<div class='qs-radio-buttons'>
+								<label>
+									<input type='radio' value='v1' v-model='import_format' />
+									<span>Commands</span>
+								</label>
+								<label>
+									<input type='radio' value='csv' v-model='import_format' />
+									<span>CSV</span>
+								</label>
+							</div>
+						</fieldset>
 						<div class='qs-import-actions__buttons'>
-							<button type='submit' class='btn btn-outline-primary' :disabled='importing'>Import commands</button>
-							<button type='button' class='btn btn-outline-primary' @click='importCSV' :disabled='importing'>Import CSV</button>
+							<button type='submit' class='btn btn-outline-primary' :disabled='importing'>Import</button>
 						</div>
 						<div v-if='importing' class='cdx-progress-bar cdx-progress-bar--inline qs-import-progress' role='progressbar'
 							aria-label='Importing commands' aria-busy='true'><div class='cdx-progress-bar__bar'></div></div>
@@ -159,7 +171,7 @@
 	let BatchPage = Vue.extend({
 		props: ['batch'],
 		mixins: [batch_access_mixin],
-		data: function () {return {api: './api.php', ready: false, commands: '', importing: false, import_error: '', action_error: '', run: {is_running_in_browser: false, last_item: '', last_form: '', last_sense: '', temp_id: '', start_ts: '', last_ts: ''}, direct_command_delay_ms: 1}},
+		data: function () {return {api: './api.php', ready: false, commands: '', import_format: 'v1', importing: false, import_error: '', action_error: '', run: {is_running_in_browser: false, last_item: '', last_form: '', last_sense: '', temp_id: '', start_ts: '', last_ts: ''}, direct_command_delay_ms: 1}},
 		created: function () {
 			var me = this;
 
@@ -213,6 +225,10 @@
 			}
 		},
 		methods: {
+			importSelectedFormat: function () {
+				if (this.import_format == 'csv') return this.importCSV();
+				return this.importV1();
+			},
 			updateWDforSite: function () {
 				var me = this;
 				let pb = config.sites[me.meta.batch.site].pageBase;
