@@ -1060,7 +1060,6 @@ body:has(.qs-route-loading) .qs-main {
 }
 
 .qs-batch-project legend,
-.qs-import-format legend,
 .qs-batch-name label,
 .qs-command-editor label {
 	display: block;
@@ -1155,10 +1154,6 @@ body:has(.qs-route-loading) .qs-main {
 .qs-import-actions {
 	margin-top: 8px;
 	text-align: start;
-}
-
-.qs-import-format {
-	margin: 0 0 8px;
 }
 
 .qs-import-progress {

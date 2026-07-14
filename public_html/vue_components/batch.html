@@ -107,19 +107,6 @@
 							style='width:100%;'></textarea>
 					</div>
 					<div class='qs-import-actions'>
-						<fieldset class='qs-import-format'>
-							<legend>Format</legend>
-							<div class='qs-radio-buttons'>
-								<label>
-									<input type='radio' value='v1' v-model='import_format' />
-									<span>Commands</span>
-								</label>
-								<label>
-									<input type='radio' value='csv' v-model='import_format' />
-									<span>CSV</span>
-								</label>
-							</div>
-						</fieldset>
 						<div class='qs-import-actions__buttons'>
 							<button type='submit' class='btn btn-outline-primary' :disabled='importing'>Import</button>
 						</div>
@@ -147,6 +134,7 @@
 						</section>
 						<section id="help-csv" aria-labelledby="help-csv-title">
 							<h3 id="help-csv-title">Import CSV</h3>
+							<p>You can also paste commands as CSV (comma-separated values), a table format in which commas separate columns and each new line is a row. QuickStatements recognizes CSV automatically when the first column is named <code>qid</code>.</p>
 							<p>See <a href="https://www.wikidata.org/wiki/Help:QuickStatements#CSV_file_syntax" target="_blank" rel="noopener">CSV file syntax on Help:QuickStatements</a> for the column format and examples.</p>
 						</section>
 					</div>
@@ -171,7 +159,7 @@
 	let BatchPage = Vue.extend({
 		props: ['batch'],
 		mixins: [batch_access_mixin],
-		data: function () {return {api: './api.php', ready: false, commands: '', import_format: 'v1', importing: false, import_error: '', action_error: '', run: {is_running_in_browser: false, last_item: '', last_form: '', last_sense: '', temp_id: '', start_ts: '', last_ts: ''}, direct_command_delay_ms: 1}},
+		data: function () {return {api: './api.php', ready: false, commands: '', importing: false, import_error: '', action_error: '', run: {is_running_in_browser: false, last_item: '', last_form: '', last_sense: '', temp_id: '', start_ts: '', last_ts: ''}, direct_command_delay_ms: 1}},
 		created: function () {
 			var me = this;
 
@@ -226,8 +214,9 @@
 		},
 		methods: {
 			importSelectedFormat: function () {
-				if (this.import_format == 'csv') return this.importCSV();
-				return this.importV1();
+				let firstLine = (this.commands || '').split(/\r?\n/, 1)[0];
+				if (/^(?:qid|"qid"),/.test(firstLine)) return this.importCommands('csv');
+				return this.importCommands('v1', {compress: 1});
 			},
 			updateWDforSite: function () {
 				var me = this;
@@ -272,12 +261,6 @@
 				me.meta.batch.data = d.data;
 				me.generateTemporaryBatchId();
 				me.updateWDforSite();
-			},
-			importV1: function () {
-				this.importCommands('v1', {compress: 1});
-			},
-			importCSV: function () {
-				this.importCommands('csv');
 			},
 			importCommands: function (format, extraData, isFormatFallback) {
 				var me = this;
