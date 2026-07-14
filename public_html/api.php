@@ -221,9 +221,7 @@ if ( $action == 'import' ) {
 
 	$db = $qs->getDB() ;
 	$sql = "SELECT * FROM command WHERE batch_id={$batch_id} AND num>={$start}" ; // num BETWEEN {$start} AND {$end}
-	if ( strtoupper(trim($filter)) == 'UNCHANGED' ) {
-		$sql .= " AND `status`='DONE' AND (`message` LIKE '%already exists%' OR `message` LIKE '%already has%' OR `message` LIKE '%has already a qualifier%')" ;
-	} else if ( $filter != '' ) {
+	if ( $filter != '' ) {
 		$filter = explode ( ',' , $filter ) ;
 		foreach ( $filter AS $k => $v ) {
 			$v = $db->real_escape_string ( trim ( strtoupper ( $v ) ) ) ;
