@@ -5,6 +5,7 @@
 	"valid_origin" : "https://quickstatements.toolforge.org" ,
 	"sites" : {
 		"wikidata" : {
+			"label" : "Wikidata" ,
 			"oauth" : { "language":"wikidata" , "project":"wikidata" , "ini_file":"/data/project/quickstatements/oauth.ini" , "mwOAuthUrl":"https://www.mediawiki.org/w/index.php?title=Special:OAuth" , "mwOAuthIW":"mw" } ,
 			"server" : "www.wikidata.org" ,
 			"api" : "https://www.wikidata.org/w/api.php" ,
@@ -15,6 +16,18 @@
 				"P" : { "type":"property" , "ns":120 , "ns_prefix":"Property:" } ,
 				"Q" : { "type":"item" , "ns":0 , "ns_prefix":"" },
 				"L" : { "type":"lexeme", "ns": 146, "ns_prefix":"Lexeme:" }
+			}
+		}  ,
+		"commons" : {
+			"label" : "Wikimedia Commons" ,
+			"oauth" : { "language":"commons" , "project":"wikimedia" , "ini_file":"/data/project/quickstatements/oauth.ini" , "mwOAuthUrl":"https://www.mediawiki.org/w/index.php?title=Special:OAuth" , "mwOAuthIW":"mw" } ,
+			"server" : "commons.wikimedia.org" ,
+			"api" : "https://commons.wikimedia.org/w/api.php" ,
+			"pageBase" : "https://commons.wikimedia.org/wiki/" ,
+			"entityBase" : "http://commons.wikimedia.org/entity/" ,
+			"toolBase" : "https://quickstatements.toolforge.org" ,
+			"types" : {
+				"M" : { "type":"mediainfo" , "ns":0 , "ns_prefix":"" }
 			}
 		}  ,
 		"factgrid" : {

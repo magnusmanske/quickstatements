@@ -2,27 +2,64 @@
 	div.command_row {
 		display: flex;
 		flex-direction: row;
+		flex-wrap: wrap;
 		flex: auto;
+		align-items: baseline;
+		padding-top: 0.5rem;
 	}
 
 	div.command_row:nth-child(even) {
-		background: #EEE;
+		background: var(--qs-background-neutral);
 	}
 
 	div.command_status {
 		display: flex;
-		width: 3em;
+		width: 14px;
+		height: var(--qs-line-height-small);
+		align-items: center;
+		justify-content: center;
 	}
+
+	.command_state {
+		display: inline-flex;
+		width: 12px;
+		height: 12px;
+		align-items: center;
+		justify-content: center;
+		transform: translateY(1px);
+	}
+
+	.command_state svg {
+		width: 12px;
+		height: 12px;
+		fill: currentColor;
+	}
+
+	.command_state--init { color: var(--qs-category-gray-400); }
+	.command_state--run { color: var(--qs-progressive-active); }
+	.command_state--done { color: var(--qs-content-added); }
+	.command_state--unchanged { color: var(--qs-icon-success); }
+	.command_state--error { color: var(--qs-destructive); }
+	.command_state--unknown { color: #72777d; }
 
 	div.command_action {
 		width: 4em;
 	}
 
+	div.command_action_cell {
+		padding: 1px 2px;
+	}
+
 	div.command_id {
 		display: flex;
-		width: 3em;
-		margin-right: 0.1rem;
-		font-family: monospace;
+		width: auto;
+		min-width: 4ch;
+		margin: 0;
+		padding-inline: 2px 8px;
+		font-family: var(--qs-font-monospace);
+		font-size: var(--qs-font-size-small);
+		line-height: var(--qs-line-height-small);
+		align-items: baseline;
 		justify-content: right;
 	}
 
@@ -34,6 +71,7 @@
 		display: flex;
 		flex-grow: 3;
 		flex-basis: 0;
+		align-items: baseline;
 	}
 
 	div.command_part {
@@ -57,6 +95,73 @@
 	div.qualifier_or_reference_column>div {
 		display: flex;
 		flex-direction: column;
+	}
+
+	div.command_message {
+		flex: 1 0 100%;
+		margin-block: 4px;
+		padding: 6px 8px;
+		border: 1px solid #c8ccd1;
+		border-inline-start: 3px solid #72777d;
+		background: #fff;
+		font-size: var(--qs-font-size-small);
+		line-height: var(--qs-line-height-small);
+		overflow-wrap: anywhere;
+	}
+
+	div.command_message--error {
+		border-inline-start-color: var(--qs-destructive);
+	}
+
+	div.command_message--unchanged {
+		border-inline-start-color: var(--qs-icon-success);
+	}
+
+	@media (max-width: 767px) {
+		div.command_row {
+			display: grid;
+			grid-template-columns: 14px max-content minmax(0, 1fr);
+			align-items: start;
+			row-gap: 4px;
+			width: 100%;
+		}
+
+		div.command_id,
+		div.command_status,
+		div.command_action {
+			width: auto;
+		}
+
+		div.command_item {
+			min-width: 0;
+			overflow-wrap: anywhere;
+		}
+
+		div.command_action_cell {
+			grid-column: 1 / 3;
+		}
+
+		div.command_details {
+			grid-column: 3;
+			min-width: 0;
+		}
+
+		div.command_message {
+			grid-column: 1 / -1;
+			margin-block: 2px 4px;
+		}
+
+		div.command_part {
+			flex-wrap: wrap;
+			min-width: 0;
+			overflow-wrap: anywhere;
+		}
+
+		div.command_what {
+			width: auto;
+			min-width: 0;
+			margin-inline-end: 4px;
+		}
 	}
 </style>
 
@@ -104,26 +209,22 @@
 
 <template id='command-template'>
 	<div class='command_row' :key='command.meta.id'>
+		<div class='command_status'>
+			<span class='command_state'
+				:class='"command_state--"+commandState'
+				:aria-label='commandStateLabel'
+				:title='commandStateTitle'
+				role='img'>
+				<svg v-if='commandState=="error"' viewBox='0 0 20 20' aria-hidden='true'><path d='M17.7575 6.04807c.3233-.32335.3233-.84759 0-1.17094l-2.6346-2.63462c-.3234-.32335-.8476-.32335-1.171 0L10.5855 5.609a.828.828 0 0 1-1.171 0L6.0481 2.2425c-.3234-.3233-.8476-.3233-1.171 0L2.2425 4.8771c-.3233.3234-.3233.8476 0 1.171L5.609 9.4145a.828.828 0 0 1 0 1.171l-3.3665 3.3664c-.3233.3234-.3233.8476 0 1.171l2.6346 2.6346c.3234.3233.8476.3233 1.171 0l3.3664-3.3665a.828.828 0 0 1 1.171 0l3.3664 3.3665c.3234.3233.8476.3233 1.171 0l2.6346-2.6346c.3233-.3234.3233-.8476 0-1.171l-3.3665-3.3664a.828.828 0 0 1 0-1.171z'/></svg>
+				<svg v-else-if='commandState=="unchanged"' viewBox='0 0 20 20' aria-hidden='true'><path d='M9.3572.5208c.194-.6944 1.0916-.6944 1.2856 0l1.325 4.7424c.1032.3696.4499.5888.7938.502l4.4123-1.1145c.6461-.1632 1.0949.6882.6428 1.2194l-3.0873 3.6279a.77.77 0 0 0 0 1.004l3.0873 3.6279c.4521.5312.0033 1.3826-.6428 1.2194l-4.4123-1.1144c-.3439-.0869-.6906.1323-.7938.502l-1.325 4.7423c-.194.6944-1.0916.6944-1.2856 0l-1.325-4.7423c-.1032-.3697-.4499-.5889-.7938-.502l-4.4123 1.1144c-.6461.1632-1.0949-.6882-.6428-1.2194l3.0873-3.6279a.77.77 0 0 0 0-1.004L2.1833 5.8701c-.4521-.5312-.0033-1.3826.6428-1.2194l4.4123 1.1145c.3439.0868.6906-.1324.7938-.502z'/></svg>
+				<svg v-else viewBox='0 0 20 20' aria-hidden='true'><path d='M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0'/></svg>
+			</span>
+		</div>
 		<div class='command_id'>
 			{{command.meta.id+1}}
 		</div>
-		<div class='command_status' :title='command.meta.message'>
-			<span v-if='typeof command.meta.status!="undefined"'>
-				<span v-if='command.meta.status=="INIT"'
-					class="badge badge-light">{{command.meta.status.toLowerCase()}}</span>
-				<span v-else-if='command.meta.status=="DONE"'
-					class="badge badge-success">{{command.meta.status.toLowerCase()}}</span>
-				<span v-else-if='command.meta.status=="ERROR"'
-					class="badge badge-danger">{{command.meta.status.toLowerCase()}}</span>
-				<span v-else class="badge badge-info">{{command.meta.status.toLowerCase()}}</span>
-			</span>
-			<span v-else>
-				TODO
-			</span>
-			<span v-if='typeof command.meta.message!="undefined" && command.meta.message!=""'>!</span>
-		</div>
 
-		<div class='command_auto_grow' style='flex-grow:1'>
+		<div class='command_auto_grow command_item' style='flex-grow:1'>
 			<div v-if='typeof command.item!="undefined"'>
 				<span v-if='site=="commons"'>
 					<span v-if='file_label==command.item'>
@@ -143,21 +244,21 @@
 			</div>
 		</div>
 
-		<div>
+		<div class='command_action_cell'>
 			<div v-if='typeof command.action!="undefined"' class='command_action'>
 				<span v-if='command.action.toUpperCase()=="ADD"'
-					class="badge badge-primary">{{command.action.toUpperCase()}}</span>
+					class="qs-action-badge qs-action-badge--add">{{command.action}}</span>
 				<span v-else-if='command.action.toUpperCase()=="CREATE"'
-					class="badge badge-success">{{command.action.toUpperCase()}}</span>
+					class="qs-action-badge qs-action-badge--create">{{command.action}}</span>
 				<span v-else-if='command.action.toUpperCase()=="MERGE"'
-					class="badge badge-warning">{{command.action.toUpperCase()}}</span>
+					class="qs-action-badge qs-action-badge--merge">{{command.action}}</span>
 				<span v-else-if='command.action.toUpperCase()=="REMOVE"'
-					class="badge badge-danger">{{command.action.toUpperCase()}}</span>
-				<span v-else class="badge badge-light">{{command.action.toUpperCase()}}</span>
+					class="qs-action-badge qs-action-badge--remove">{{command.action}}</span>
+				<span v-else class="qs-action-badge qs-action-badge--unknown">{{command.action}}</span>
 			</div>
 		</div>
 
-		<div v-if='command.action=="add"' class='command_auto_grow'>
+		<div v-if='command.action=="add"' class='command_auto_grow command_details'>
 
 			<div v-if='command.what=="statement"' class='command_part'>
 				<div class='command_what'>Statement</div>
@@ -249,7 +350,7 @@
 				{{command.summary}}
 			</div>
 		</div>
-		<div v-else-if='command.action=="merge" && command.type=="item"' class='command_auto_grow'>
+		<div v-else-if='command.action=="merge" && command.type=="item"' class='command_auto_grow command_details'>
 			<div class='command_what'>Item</div>
 			<div class='command_part'>
 				<div class='command_part2'><wd-link :item='command.item1' smallq='1'></wd-link></div>
@@ -261,7 +362,7 @@
 				{{command.summary}}
 			</div>
 		</div>
-		<div v-else-if='command.action=="create" && command.type=="item"' class='command_auto_grow'>
+		<div v-else-if='command.action=="create" && command.type=="item"' class='command_auto_grow command_details'>
 			<div class='command_what'>Item</div>
 			<div class='command_part' v-if='typeof command.data!="undefined"'>
 				<div style='display:flex;flex-direction:column;'>
@@ -306,7 +407,7 @@
 				</div>
 			</div>
 		</div>
-		<div v-else-if='command.action=="create" && command.type=="lexeme"' class='command_auto_grow'>
+		<div v-else-if='command.action=="create" && command.type=="lexeme"' class='command_auto_grow command_details'>
 			<div class='command_what'>Lexeme</div>
 			<div class='command_part' v-if='typeof command.data!="undefined"'>
 				<div style='display:flex;flex-direction:column;'>
@@ -328,7 +429,7 @@
 				{{command.summary}}
 			</div>
 		</div>
-		<div v-else-if='command.action=="create" && command.type=="form"' class='command_auto_grow'>
+		<div v-else-if='command.action=="create" && command.type=="form"' class='command_auto_grow command_details'>
 			<div class='command_what'>Form</div>
 			<div class='command_part' v-if='typeof command.data!="undefined"'>
 				<div style='display:flex;flex-direction:column;'>
@@ -350,7 +451,7 @@
 				{{command.summary}}
 			</div>
 		</div>
-		<div v-else-if='command.action=="create" && command.type=="sense"' class='command_auto_grow'>
+		<div v-else-if='command.action=="create" && command.type=="sense"' class='command_auto_grow command_details'>
 			<div class='command_what'>Sense</div>
 			<div class='command_part' v-if='typeof command.data!="undefined"'>
 				<div style='display:flex;flex-direction:column;'>
@@ -364,7 +465,7 @@
 				{{command.summary}}
 			</div>
 		</div>
-		<div v-else-if='command.action=="remove"' class='command_auto_grow'>
+		<div v-else-if='command.action=="remove"' class='command_auto_grow command_details'>
 			<div v-if='command.what=="statement"' class='command_part'>
 				<div class='command_what'>Statement</div>
 				<div class='command_part2'><wd-link :item='command.property' smallq='1'></wd-link></div>
@@ -372,9 +473,14 @@
 				<datavalue :dv='command.datavalue'></datavalue>
 			</div>
 		</div>
-		<div v-else class='command_auto_grow'>
+		<div v-else class='command_auto_grow command_details'>
 			<div>UNKNOWN COMMAND:</div>
 			{{command}}
+		</div>
+		<div v-if='typeof command.meta.message!="undefined" && command.meta.message!="" && commandState!="unchanged"' class='command_message'
+			:class='{"command_message--error":commandState=="error","command_message--unchanged":commandState=="unchanged"}'
+			:role='commandState=="error" ? "alert" : "status"'>
+			<bdi dir='auto'>{{command.meta.message}}</bdi>
 		</div>
 	</div>
 </template>
@@ -389,8 +495,7 @@
 		created: function () { },
 		updated: function () {tt.updateInterface(this.$el);},
 		mounted: function () {tt.updateInterface(this.$el);},
-		methods: {
-		},
+		methods: {},
 		template: '#datavalue-template'
 	});
 
@@ -406,7 +511,25 @@
 		},
 		updated: function () {tt.updateInterface(this.$el);},
 		mounted: function () {tt.updateInterface(this.$el);},
+		computed: {
+			commandState: function () {
+				if (this.isUnchangedSuccess()) return 'unchanged';
+				return (this.command.meta.status || 'unknown').toLowerCase();
+			},
+			commandStateLabel: function () {
+				if (this.commandState == 'unchanged') return 'Done; no change needed';
+				return this.commandState == 'unknown' ? 'Unknown status' : this.commandState;
+			},
+			commandStateTitle: function () {
+				if (this.commandState == 'unchanged' && this.command.meta.message) return this.command.meta.message;
+				return this.commandStateLabel;
+			}
+		},
 		methods: {
+			isUnchangedSuccess: function () {
+				if ((this.command.meta.status || '').toUpperCase() != 'DONE') return false;
+				return /already exists|already has|has already a qualifier/i.test(this.command.meta.message || '');
+			},
 			load_file_name_from_id: function (m) {
 				let me = this;
 				let page_id = m.replace(/\D/g, '');

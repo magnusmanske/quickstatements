@@ -2,10 +2,14 @@
 <html><head>
 <META NAME="ROBOTS" CONTENT="NOINDEX, NOFOLLOW">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="description" content="QuickStatements imports and runs batches of Wikidata statements.">
 <title tt="toolname"></title>
 <link rel="stylesheet" href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/4.0.0/css/bootstrap.min.css">
 <link rel="stylesheet" href="https://tools-static.wmflabs.org/magnustools/resources/html/wikimedia.css">
+<link rel="stylesheet" href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/oojs-ui/0.49.2/oojs-ui-wikimediaui.min.css">
 <link rel="stylesheet" href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/leaflet/1.3.1/leaflet.css">
+<link rel="stylesheet" href="quickstatements.css?v=20260714-85">
 <script src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 <script src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/4.0.0/js/bootstrap.bundle.min.js"></script>
 <script src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/vue/2.5.13/vue.min.js"></script>
@@ -13,49 +17,106 @@
 <script src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/leaflet/1.3.1/leaflet.js"></script>
 <script src="https://tools-static.wmflabs.org/tooltranslate/tt.js"></script>
 <script src="https://tools-static.wmflabs.org/magnustools/resources/js/wikidata.js"></script>
-<script src="https://tools-static.wmflabs.org/magnustools/resources/vue/shared.js"></script>
-
-<style>
-.navthing {
-	padding-top:0.3rem;
-	padding-left:0.2rem;
-}
-#working {
-	display:none;
-}
-</style>
+<script src="vue-component-loader.js?v=20260714-03"></script>
 
 </head>
 
-<body>
-	<div id='app' class='container-fluid'>
-		<tool-navbar>
-			<template slot='left'>
-				<li class="nav-item navthing">
-					<router-link class='btn btn-outline-primary' to='/batch/new' tt='new_batch'></router-link>
+<body class="qs-shell">
+	<div id='app' class='container-fluid qs-page' v-cloak>
+		<nav class="navbar navbar-expand-lg navbar-light qs-site-header" aria-label="Tool navigation">
+			<a href="#/" class="navbar-brand qs-wordmark">
+				<span class="qs-wordmark__text">
+					<strong>QuickStatements</strong>
+					<small>Wikidata batch editor</small>
+				</span>
+			</a>
+			<router-link v-show="authLoaded && isLoggedIn" class="btn qs-mobile-new-batch" to="/batch/new" aria-label="New batch">
+				<svg class="cdx-icon cdx-icon--bidi-neutral cdxIconArticleAdd" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><g><path d="M11 9h3v2h-3v3H9v-3H6V9h3V6h2z"></path><path d="M18 1v18H2V1zM4 3v14h12V3z"></path></g></svg>
+				<span class="qs-mobile-new-batch__full" aria-hidden="true">New batch</span>
+				<span class="qs-mobile-new-batch__short" aria-hidden="true">Batch</span>
+			</router-link>
+			<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#qsNavbar"
+				aria-controls="qsNavbar" aria-expanded="false" aria-label="Toggle navigation">
+				<svg class="cdx-icon cdx-icon--bidi-neutral cdxIconMenu" xmlns="http://www.w3.org/2000/svg"
+					width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><g><path d="M18 16H2v-2h16zm0-5H2V9h16zm0-5H2V4h16z"></path></g></svg>
+			</button>
+			<div class="collapse navbar-collapse" id="qsNavbar">
+				<ul class="navbar-nav qs-nav-menu">
+					<li class="nav-item qs-nav-language">
+						<span class="qs-language-icon" aria-hidden="true">
+							<svg class="cdx-icon cdx-icon--bidi-neutral cdxIconLanguage" width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="m17.835 19-1.248-3h-4.174l-1.248 3.001H9l4.577-11.005h1.846L20 19zm-4.59-5h2.51L14.5 10.982zM7.618 3H12v2H9.991a8.5 8.5 0 0 1-1.423 4.02q-.24.358-.528.707.634.367 1.379.711l.908.42-.839 1.816-.907-.42a18 18 0 0 1-2.026-1.09c-1.255.979-2.912 1.8-5.076 2.31l-.973.228-.458-1.946.973-.23c1.631-.383 2.885-.954 3.85-1.608C3.29 8.527 2.317 6.884 2.065 5H0V3h5.382l-.724-1.447 1.79-.895L7.617 3ZM4.094 5c.243 1.282.974 2.489 2.29 3.586A6.54 6.54 0 0 0 7.98 5z"/></svg>
+						</span>
+						<div id="tooltranslate_wrapper"></div>
+					</li>
+					<li class="nav-item qs-nav-user" v-show="authLoaded && isLoggedIn"><user></user></li>
+				<template v-if="authLoaded && isLoggedIn">
+					<li class="nav-item qs-nav-item qs-nav-new-batch">
+						<router-link class="qs-nav-link" to="/batch/new">
+							<svg class="cdx-icon cdx-icon--bidi-neutral cdxIconArticleAdd" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><g><path d="M11 9h3v2h-3v3H9v-3H6V9h3V6h2z"></path><path d="M18 1v18H2V1zM4 3v14h12V3z"></path></g></svg>
+							<span>New batch</span>
+						</router-link>
+					</li>
+					<li class="nav-item qs-nav-item">
+						<router-link class="qs-nav-link" :to="'/batches/'+userinfo.name">
+							<svg class="cdx-icon cdx-icon--flip-for-rtl cdxIconUserContributions" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><g><path d="M16.143 13.063c1.578 0 2.857 1.259 2.857 2.812V17h-8v-1.125c0-1.553 1.28-2.813 2.857-2.813h2.286ZM9 16H2v-2h7zm6-8c1.105 0 2 .881 2 1.969 0 1.087-.895 1.969-2 1.969s-2-.882-2-1.97C13 8.882 13.895 8 15 8m-4 3H2V9h9zm7-5H2V4h16z"></path></g></svg>
+							<span>Your batches</span>
+						</router-link>
+					</li>
+				</template>
+				<li class="nav-item qs-nav-item">
+					<router-link class="qs-nav-link" to="/batches">
+						<svg class="cdx-icon cdx-icon--bidi-neutral cdxIconClock" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><g><path d="M10.5 10h4v2h-6V5.5h2z"></path><path d="M10 1a9 9 0 110 18 9 9 0 010-18m0 2a7 7 0 100 14 7 7 0 000-14"></path></g></svg>
+						<span>Latest batches</span>
+					</router-link>
 				</li>
-				<li class="nav-item navthing">
-					<router-link class='btn btn-outline-secondary' to='/batches' tt="show_last_batches"></router-link>
+				<li class="nav-item qs-nav-item">
+					<a class="qs-nav-link" href="https://www.wikidata.org/wiki/Help:QuickStatements" target="_blank" rel="noopener">
+						<span class="cdx-icon cdx-icon--medium cdx-icon--flip-for-rtl cdxIconHelpNotice"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><g><path d="M11 15.5H9v-2h2zm-1-11c1.015 0 1.787.469 2.283 1.074.473.576.717 1.299.717 1.926 0 .68-.174 1.242-.467 1.706-.283.448-.646.753-.933.969-.136.101-.29.208-.385.276a3 3 0 00-.215.166v.883H9v-1c0-.645.346-1.08.637-1.347a4 4 0 01.414-.327c.139-.1.235-.165.35-.25.212-.16.349-.293.44-.438.083-.13.159-.319.159-.638 0-.152-.076-.43-.264-.658A.9.9 0 0010 6.5c-.282 0-.518.133-.714.375C9.066 7.146 9 7.43 9 7.5H7c0-.611.28-1.327.733-1.886C8.211 5.026 8.975 4.5 10 4.5"></path><path d="M10 1a9 9 0 110 18 9 9 0 010-18m0 2a7 7 0 100 14 7 7 0 000-14"></path></g></svg></span>
+						<span>Help</span>
+					</a>
 				</li>
-				<li class="nav-item navthing">
-					<a class='btn btn-outline-secondary' target='_blank' href='https://www.wikidata.org/wiki/User:Magnus_Manske/quick_statements2' tt='brainstorming'></a>
-				</li>
-				<li class="nav-item navthing">
-					<a class='btn btn-outline-secondary' target='_blank' href='https://github.com/magnusmanske/quickstatements' tt='git'></a>
-				</li>
-				<li class="nav-item navthing">
-					<a class='btn btn-outline-info' target='_blank' href='https://www.wikidata.org/wiki/Help:QuickStatements' tt='help'></a>
-				</li>
-				<li class="nav-item navthing" id='working'>
-					<img src='https://upload.wikimedia.org/wikipedia/commons/c/cd/Vector_Loading_fallback.gif' />
-				</li>
-			</template>
-			<template slot='right'><user></user></template>
-		</tool-navbar>
-		<router-view :key="$route.path"><i tt='loading'></i></router-view>
+				</ul>
+			</div>
+		</nav>
+
+		<main class="qs-main">
+			<div id="qs-startup-error" class="qs-notice qs-notice--warning" role="alert" hidden>
+				Could not finish loading. Please reload the page and try again.
+			</div>
+			<div v-if="!authLoaded" class="qs-loading" aria-live="polite" aria-busy="true">
+				<div class="cdx-progress-bar cdx-progress-bar--inline" role="progressbar" aria-label="Checking login"><div class="cdx-progress-bar__bar"></div></div>
+			</div>
+			<section v-else-if="!isLoggedIn" class="qs-login" aria-labelledby="qs-login-title">
+				<h1 id="qs-login-title">QuickStatements</h1>
+				<p>Import and run batches of QuickStatements</p>
+				<a href="./api.php?action=oauth_redirect"
+					class="oo-ui-buttonElement oo-ui-widget oo-ui-widget-enabled oo-ui-buttonElement-framed oo-ui-flaggedElement-primary oo-ui-flaggedElement-progressive qs-login-button">
+					<span class="oo-ui-buttonElement-button" role="button">
+						<span class="oo-ui-labelElement-label" lang="en">Log in</span>
+					</span>
+				</a>
+			</section>
+			<router-view v-else :key="$route.path"></router-view>
+		</main>
 	</div>
+	<div id="working" class="qs-global-working" aria-live="polite" aria-busy="true">
+		<div class="cdx-progress-bar cdx-progress-bar--inline" role="progressbar" aria-label="Loading…"><div class="cdx-progress-bar__bar"></div></div>
+	</div>
+
+	<footer class="qs-footer">
+		<hr>
+		<ul class="qs-footer-links">
+			<li><a href="https://www.wikidata.org/wiki/Help:QuickStatements">Help</a></li>
+			<li><a href="https://www.wikidata.org/wiki/User:Magnus_Manske/quick_statements2">Discuss</a></li>
+			<li><a href="https://tooltranslate.toolforge.org/#tool=24">Translate</a></li>
+			<li><a href="https://github.com/magnusmanske/quickstatements">Source</a></li>
+			<li><a href="https://github.com/magnusmanske/quickstatements/issues" aria-label="Report issues"><span class="qs-report-issues-full" aria-hidden="true">Report issues</span><span class="qs-report-issues-short" aria-hidden="true">Issues</span></a></li>
+		</ul>
+		<p><a href="https://toolsadmin.wikimedia.org/">Powered by Wikimedia Toolforge</a></p>
+		<p><bdi dir="ltr">Code licensed <a href="https://www.gnu.org/licenses/gpl-3.0.html" rel="license">GPLv3</a></bdi></p>
+	</footer>
 </body>
 
-<script src="vue.js"></script>
+<script src="vue.js?v=20260714-08"></script>
 
 </html>

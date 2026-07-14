@@ -1,11 +1,20 @@
 <template id='batches-template'>
-<div>
+<div class="qs-batches-page">
+	<div v-if="!loaded" class="qs-route-loading" aria-live="polite" aria-busy="true">
+		<div class="cdx-progress-bar cdx-progress-bar--inline" role="progressbar" aria-label="Loading latest batches"><div class="cdx-progress-bar__bar"></div></div>
+	</div>
+	<div v-else>
 	<h1>
-		<span tt='show_last_batches'></span>
+		<span v-if='typeof user_name=="undefined"'>Latest batches</span>
+		<span v-else>Latest batches</span>
 		<span v-if='typeof user_name!="undefined"'>
-			<span tt='for_user'></span> {{user_name}}
+			<span tt='for_user'></span> <bdi dir='auto'>{{user_name}}</bdi>
 		</span>
 	</h1>
+	<div v-if='load_error' class='qs-message qs-message--error qs-action-message' role='alert'>
+		<span class='qs-message__icon' aria-hidden='true'><svg class='cdx-icon cdx-icon--bidi-neutral' xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><path d='M19.765 16.059 18 19H2L.235 16.059l8-15h3.53zM9 14v2h2v-2zm0-8v6h2V6z'></path></svg></span>
+		<span class='qs-message__content'><bdi dir='auto'>{{load_error}}</bdi></span>
+	</div>
 
 	<div v-if='!user.is_logged_in'>
 		<span tt='admin_hint'></span> <a href='./api.php?action=oauth_redirect'><span tt='login'></span></a>!
@@ -35,8 +44,8 @@
 						<span v-else>{{b.batch.status}}</span>
 					</div>
 					<div>
-						<span v-for='(num,cmd) in b.commands' style='margin-right:0.5rem;'>
-							<span :class="'badge badge-'+status_class[cmd]" style='font-weight:normal;'>{{cmd}}:{{num}}</span>
+						<span v-for='(num,cmd) in b.commands' style='margin-inline-end:0.5rem;'>
+							<span :class="'badge badge-'+status_class[cmd]">{{cmd}}:{{num}}</span>
 						</span>
 					</div>
 				</td>
@@ -56,6 +65,7 @@
 	</table>
 	<div v-else-if='!working' tt='no_batches'></div>
 
+	</div>
 </div>
 </template>
 
@@ -70,7 +80,7 @@ let BatchesPage = Vue.extend ( {
     	DONE:'success',
     	ERROR:'danger',
     	RUN:'info'
-    } , working:false , interval:'' , update_interval_ms:5000 } } ,
+    } , working:false , loaded:false , load_error:'' , interval:'' , update_interval_ms:5000 } } ,
     created : function () {
     	var me = this ;
     	me.loadBatches () ;
@@ -104,14 +114,12 @@ let BatchesPage = Vue.extend ( {
         loadBatches : function () {
             var me = this ;
             me.working = true ;
-            $('#working').show() ;
+			me.load_error = '' ;
             let params = { action:'get_batches_info' } ;
             if ( typeof me.user_name != "undefined" ) params.user = me.user_name ;
             $.get ( './api.php' , params , function ( d ) {
-            	me.working = false ;
-            	$('#working').hide() ;
             	if ( d.status != 'OK' ) {
-            		alert ( d.status ) ;
+					me.load_error = 'The batches could not be loaded: ' + d.status ;
             		return ;
             	}
             	let data = Object.values ( d.data ) ;
@@ -120,7 +128,10 @@ let BatchesPage = Vue.extend ( {
             	} ) ;
             	//console.log(JSON.parse(JSON.stringify(data)));
             	me.batches = data ;
-            } , 'json' ) ;
+            } , 'json' ).always ( function () {
+                me.working = false ;
+                me.loaded = true ;
+            } ) ;
         }
     },
     template:'#batches-template'

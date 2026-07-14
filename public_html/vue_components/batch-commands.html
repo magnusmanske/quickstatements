@@ -9,49 +9,42 @@ div.position_button_bar > div {
 </style>
 
 <template id='batch-commands-template'>
-<div>
-<div v-if='typeof batch!="undefined" && typeof batch.data!="undefined" && typeof batch.data.commands!="undefined"'>
+<div class='qs-command-list'>
+	<div v-if='typeof batch!="undefined"' class='qs-command-filters qs-radio-buttons' role='radiogroup' aria-label='Command status'>
+		<label><input type='radio' v-model='view.filter' value='' @change='onFilterChange'><span>All</span></label>
+		<label><input type='radio' v-model='view.filter' value='INIT' @change='onFilterChange'><span>Open</span></label>
+		<label><input type='radio' v-model='view.filter' value='UNCHANGED' @change='onFilterChange'><span>Unchanged</span></label>
+		<label><input type='radio' v-model='view.filter' value='ERROR' @change='onFilterChange'><span>Errors</span></label>
+	</div>
+	<div class='qs-batch-commands-panel qs-command-list-shell'>
+	<div v-if='typeof batch!="undefined" && typeof batch.data!="undefined" && typeof batch.data.commands!="undefined"' class='qs-command-list-content'>
 	<div style='display:flex;flex-direction:column;'>
 		<command v-for='command_id in current_command_ids' :command='batch.data.commands[command_id]' :site='batch.site||""'></command>
 	</div>
-	<div style='display:flex;'>
+	<div v-if='showPagingControls' class='qs-command-toolbar'>
 		<div class='position_button_bar'>
-			<div class="btn-toolbar" role="toolbar" aria-label="Toolbar with button groups">
-				<div class="btn-group mr-2" role="group">
-					<button type="button" class="btn btn-outline-secondary" v-if='view.position>0' @click.prevent='setViewPosition(0)' tt='bc_start'></button>
-					<button type="button" class="btn btn-outline-secondary" disabled v-else tt='bc_start'></button>
-					<button type="button" class="btn btn-outline-secondary" v-if='view.position>0 && view.filter==""' @click.prevent='setViewPosition(view.position-view.batch_size)'  tt='bc_previous'></button>
+			<div class='btn-toolbar' role='toolbar' aria-label='Command pages'>
+				<div class='btn-group' role='group'>
+					<button type='button' class='btn btn-outline-secondary' :disabled='view.position<=0' @click.prevent='setViewPosition(0)' tt='bc_start'></button>
+					<button type='button' class='btn btn-outline-secondary' :disabled='view.position<=0 || view.filter!=""' @click.prevent='setViewPosition(view.position-view.batch_size)' tt='bc_previous'></button>
 				</div>
-				<div class="btn-group mr-1" role="group">
-					<span tt='page' style='margin-top:0.4rem;margin-right:0.2rem;'></span>
-					<input v-model='view.wanted_page' @keyup='onChangeWantedPage' class='form-control' type='number' style='width:5rem;' />
+				<div class='btn-group qs-command-toolbar__page' role='group'>
+					<label for='qs-command-page' tt='page'></label>
+					<input id='qs-command-page' v-model='view.wanted_page' @keyup='onChangeWantedPage' class='form-control' type='number' />
 				</div>
-				<div class="btn-group mr-2" role="group">
-					<button type="button" class="btn btn-outline-secondary" v-if='current_command_ids.length==view.batch_size' @click.prevent='setViewPosition(current_command_ids[view.batch_size-1]+1)' tt='bc_next'></button>
-					<button type="button" class="btn btn-outline-secondary" v-if='current_command_ids.length==view.batch_size' @click.prevent='setViewPosition(batch.total_commands-view.batch_size)' tt='bc_end'></button>
-					<button type="button" class="btn btn-outline-secondary" disabled v-else tt='bc_end'></button>
+				<div class='btn-group' role='group'>
+					<button type='button' class='btn btn-outline-secondary' :disabled='!canGoForward' @click.prevent='setViewPosition(current_command_ids[current_command_ids.length-1]+1)' tt='bc_next'></button>
+					<button type='button' class='btn btn-outline-secondary' :disabled='!canGoToEnd' @click.prevent='setViewPosition(lastPagePosition)' tt='bc_end'></button>
 				</div>
 			</div>
 		</div>
-		<div style='display:flex;flex-grow:1;'>
-		</div>
-		<div style='display:inherit'>
-			<div style='margin-top:0.3rem;margin-right:0.2rem'>
-				<label><input type='radio' v-model='view.filter' value='' @change='onFilterChange'> All</label>
-				<label><input type='radio' v-model='view.filter' value='ERROR' @change='onFilterChange'> <span tt='errors'></span></label>
-				<label><input type='radio' v-model='view.filter' value='INIT' @change='onFilterChange'> Init</label>
-			</div>
-		</div>
-		<div style='display:inherit'>
+		<div v-if='showPagingControls' class='qs-command-toolbar__size'>
 			<select class='form-control' v-model='view.batch_size' @change='setCurrentViewCommandIDs'>
-				<option value='10'>10</option>
-				<option value='25'>25</option>
-				<option value='50'>50</option>
-				<option value='100'>100</option>
-				<option value='500'>500</option>
+				<option value='25'>25</option><option value='50'>50</option><option value='100'>100</option><option value='500'>500</option>
 			</select>
 		</div>
 	</div>
+</div>
 </div>
 </div>
 </template>
@@ -62,17 +55,32 @@ div.position_button_bar > div {
 Vue.component ( 'batch-commands' , {
 	props : [ 'batch' ] ,
 	mixins : [ batch_helper_mixin ] ,
-	data : function () { return { current_command_ids:[] , view:{is_loaded:false,load_partially:false,position:0,batch_size:10,filter:'',wanted_page:1} , status:[] , working:false } } ,
+	data : function () { return { current_command_ids:[] , view:{is_loaded:false,load_partially:false,position:0,batch_size:25,filter:'',wanted_page:1} , status:[] , working:false } } ,
     created : function () {} ,
     updated : function () { tt.updateInterface(this.$el) ; } ,
     mounted : function () {
     	var me = this ;
     	me.reset() ;
     	if ( me.batch.id > 0 ) me.view.load_partially = true ;
-    	me.setCurrentViewCommandIDs() ;
-    	tt.updateInterface(this.$el) ;
-    } ,
-    methods : {
+		me.setCurrentViewCommandIDs() ;
+		tt.updateInterface(this.$el) ;
+	} ,
+	computed : {
+		showPagingControls : function () {
+			return this.view.position > 0 || (this.batch.total_commands || 0) > 10 ;
+		},
+		lastPagePosition : function () {
+			return Math.max(0, Number(this.batch.total_commands || 0) - Number(this.view.batch_size)) ;
+		},
+		canGoForward : function () {
+			if (this.current_command_ids.length < Number(this.view.batch_size)) return false ;
+			return Number(this.current_command_ids[this.current_command_ids.length - 1]) < Number(this.batch.total_commands || 0) - 1 ;
+		},
+		canGoToEnd : function () {
+			return Number(this.view.position) < this.lastPagePosition ;
+		}
+	} ,
+	methods : {
     	reset : function () {
     		var me = this ;
     		me.view.wanted_page = 1 ;
@@ -150,8 +158,13 @@ Vue.component ( 'batch-commands' , {
 			let me = this ;
 			if ( me.view.filter == '' ) return true ;
 			if ( typeof me.batch.data.commands[command_id] == 'undefined' ) return false ;
+			if ( me.view.filter == 'UNCHANGED' ) return me.isUnchangedCommand ( me.batch.data.commands[command_id] ) ;
 			if ( me.batch.data.commands[command_id].meta.status == me.view.filter ) return true ;
 			return false ;
+		} ,
+		isUnchangedCommand : function ( command ) {
+			if ( !command.meta || (command.meta.status || '').toUpperCase() != 'DONE' ) return false ;
+			return /already exists|already has|has already a qualifier/i.test(command.meta.message || '') ;
 		} ,
 		onFilterChange : function () {
 			this.view.position = 0 ;

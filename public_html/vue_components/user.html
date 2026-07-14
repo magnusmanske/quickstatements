@@ -1,13 +1,10 @@
 <template id='user-template'>
-	<div>
-		<span v-if='is_logged_in'>
-			<router-link class="btn btn-outline-dark" to='/user'>{{getUserName()}}</router-link>
-			<router-link class="btn btn-outline-dark" :to='"/batches/"+getUserName()'
-				tt="show_your_last_batches"></router-link>
-		</span>
-		<span v-else>
-			<a href='./api.php?action=oauth_redirect'><span tt='login'></span></a>
-		</span>
+	<div class='qs-user-session'>
+		<router-link v-if='loaded && is_logged_in' class="qs-nav-link qs-nav-link--authorized" to='/user'>
+			<svg class="cdx-icon cdx-icon--bidi-neutral cdxIconUserActive" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M12 11a6 6 0 0 1 6 6v2H2v-2a6 6 0 0 1 6-6zM10 1a4 4 0 1 1 0 8 4 4 0 0 1 0-8"/></svg>
+			<span class="qs-nav-user-name">{{getUserName()}}</span>
+		</router-link>
+		<button v-if='loaded && is_logged_in' type='button' class='qs-nav-logout' @click='logout'>Log out</button>
 	</div>
 </template>
 
@@ -17,6 +14,13 @@
 
 	let user;
 
+	function normalizeToolTranslateLabels() {
+		let options = document.querySelectorAll('#tooltranslate_wrapper select option');
+		for (let option of options) {
+			if (option.textContent.trim() == 'AR') option.textContent = 'العربية';
+		}
+	}
+
 	Vue.component('user', {
 		data: function () {return {userinfo: {}, loaded: false, is_logged_in: false}},
 		created: function () {
@@ -24,8 +28,17 @@
 			this.loadData();
 		},
 		updated: function () {tt.updateInterface(this.$el);},
-		mounted: function () {tt.updateInterface(this.$el);},
+		mounted: function () {
+			tt.updateInterface(this.$el);
+			tt.addILdropdown('#tooltranslate_wrapper');
+			normalizeToolTranslateLabels();
+		},
 		methods: {
+			logout: function () {
+				$.post('./api.php', {action: 'logout'}, function () {
+					window.location.reload();
+				}, 'json');
+			},
 			loadData: function () {
 				let me = this;
 				$.get('./api.php', {
@@ -38,8 +51,18 @@
 					} else {
 						me.is_logged_in = false;
 					}
+				}, 'json').fail(function () {
+					me.is_logged_in = false;
+				}).always(function () {
 					me.loaded = true;
-				}, 'json');
+					me.$root.authLoaded = true;
+					me.$root.isLoggedIn = me.is_logged_in;
+					me.$root.userinfo = me.userinfo;
+					me.$nextTick(function () {
+						tt.updateInterface(me.$root.$el);
+						normalizeToolTranslateLabels();
+					});
+				});
 			},
 			isLoggedIn: function () {
 				return this.is_logged_in;

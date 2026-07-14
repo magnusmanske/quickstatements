@@ -12,6 +12,10 @@ var QuickStatements = {
 	run_state: { running: false },
 	batch_update_interval: 5000,
 
+	showNotice: function (message) {
+		$('#qs_old_notice').text(message).show();
+	},
+
 	init: function () {
 		var me = this;
 
@@ -291,7 +295,7 @@ var QuickStatements = {
 		}, function (d) {
 
 			if (d.status != 'OK') {
-				alert(d.status);
+				me.showNotice(d.status);
 				console.log(d);
 				return;
 			}
@@ -316,7 +320,6 @@ var QuickStatements = {
 		if (typeof me.run_state.batch_watcher != 'undefined') clearInterval(me.run_state.batch_watcher);
 		if (in_background) {
 			me.runInBackground();
-			//			alert ( "Not implemented yet" ) ;
 			return;
 		}
 		me.run_state = {
@@ -346,7 +349,6 @@ var QuickStatements = {
 		$('#run_buttons button').prop('disabled', true);
 		$('#stop_buttons').show();
 		if (in_background) {
-			//			alert ( "Not implemented yet" ) ;
 		} else {
 			me.runNextCommand();
 		}
