@@ -415,7 +415,7 @@ body.qs-is-working .qs-main {
 .qs-page > nav .qs-nav-link .cdxIconUserTalk,
 .qs-page > nav .qs-nav-link .cdxIconUserActive,
 .qs-page > nav .qs-nav-link .cdxIconArticleAdd,
-.qs-page > nav .qs-nav-link .cdxIconClock,
+.qs-page > nav .qs-nav-link .cdxIconRecentChanges,
 .qs-page > nav .qs-nav-link .cdxIconUserContributions,
 .qs-page > nav .qs-nav-link .cdxIconHelpNotice {
 	flex-basis: 20px;
