@@ -25,7 +25,7 @@
 		<tbody>
 			<tr v-for='b in batches'>
 				<td>
-					<router-link :to='"/batch/"+b.batch.id'>#{{b.batch.id}}</router-link>
+					<router-link :to='{ path: "/batch/"+b.batch.id, query: { overview: "1" } }'>#{{b.batch.id}}</router-link>
 				</td>
 				<td>
 					<div>

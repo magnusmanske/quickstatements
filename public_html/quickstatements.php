@@ -1433,10 +1433,10 @@ class QuickStatements {
 	protected function importDataFromV1 ( $data , &$ret ) {
 		$ret['data']['commands'] = array() ;
 		if ( strpos ( $data , "\n" ) === false ) $data = str_replace ( '||' , "\n" , $data ) ;
-		if ( strpos ( $data , "\t" ) === false ) $data = str_replace ( '|' , "\t" , $data ) ;
 		$rows = explode ( "\n" , $data ) ;
 		foreach ( $rows as $row ) {
 			$row = trim ( $row ) ;
+			if ( strpos ( $row , "\t" ) === false ) $row = str_replace ( '|' , "\t" , $row ) ;
 			$comment = '' ;
 			if ( preg_match ( '/^(.*?) *\/\* *(.*?) *\*\/ *$/' , $row , $m ) ) { // Extract comment as summary
 				$comment = $m[2] ;
