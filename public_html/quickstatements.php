@@ -1025,6 +1025,60 @@ class QuickStatements {
 		return $command ;
 	}
 
+	protected function findMatchingReferenceHash ( $i , $statement_id , $snaks ) {
+		if ( !isset($i->j->claims) ) return null ;
+		foreach ( $i->j->claims AS $claims ) {
+			foreach ( $claims AS $claim ) {
+				if ( !isset($claim->id) or $claim->id != $statement_id ) continue ;
+				if ( !isset($claim->references) ) return null ;
+				foreach ( $claim->references AS $reference ) {
+					if ( !isset($reference->snaks) ) continue ;
+					if ( $this->referenceSnaksMatch($reference->snaks,$snaks) ) {
+						return isset($reference->hash) ? $reference->hash : '' ;
+					}
+				}
+				return null ;
+			}
+		}
+		return null ;
+	}
+
+	protected function referenceSnaksMatch ( $existing_snaks , $wanted_snaks ) {
+		$existing_snaks = (array) $existing_snaks ;
+		$wanted_snaks = (array) $wanted_snaks ;
+		$existing_properties = array_keys($existing_snaks) ;
+		$wanted_properties = array_keys($wanted_snaks) ;
+		sort($existing_properties) ;
+		sort($wanted_properties) ;
+		if ( $existing_properties != $wanted_properties ) return false ;
+
+		foreach ( $wanted_properties AS $property ) {
+			$existing = array_values((array) $existing_snaks[$property]) ;
+			$wanted = array_values((array) $wanted_snaks[$property]) ;
+			if ( count($existing) != count($wanted) ) return false ;
+			$used = array() ;
+			foreach ( $wanted AS $wanted_snak ) {
+				$wanted_snak = (object) $wanted_snak ;
+				$found = false ;
+				foreach ( $existing AS $index => $existing_snak ) {
+					if ( isset($used[$index]) ) continue ;
+					$existing_snak = (object) $existing_snak ;
+					if ( !isset($existing_snak->snaktype) or !isset($wanted_snak->snaktype) ) continue ;
+					if ( $existing_snak->snaktype != $wanted_snak->snaktype ) continue ;
+					if ( $wanted_snak->snaktype == 'value' ) {
+						if ( !isset($existing_snak->datavalue) or !isset($wanted_snak->datavalue) ) continue ;
+						if ( !$this->compareDatavalue($existing_snak->datavalue,$wanted_snak->datavalue) ) continue ;
+					}
+					$used[$index] = true ;
+					$found = true ;
+					break ;
+				}
+				if ( !$found ) return false ;
+			}
+		}
+		return true ;
+	}
+
 	protected function commandAddSources ( $command , $i , $statement_id ) {
 		// Paranoia
 		if ( !isset($command->sources) ) return $this->commandError ( $command , "Incomplete command parameters" ) ;
@@ -1041,6 +1095,10 @@ class QuickStatements {
 			) ;
 			if ( $s['snaktype'] != 'value' ) unset( $s['datavalue'] ) ;
 			$snaks[$source->prop][] = $s ;
+		}
+		$matching_reference_hash = $this->findMatchingReferenceHash ( $i , $statement_id , $snaks ) ;
+		if ( $matching_reference_hash !== null ) {
+			return $this->commandDone ( $command , "The statement already has a reference with hash $matching_reference_hash" ) ;
 		}
 
 		// Execute!
