@@ -37,7 +37,7 @@
 
 	.command_state--init { color: var(--qs-category-gray-400); }
 	.command_state--run { color: var(--qs-progressive-active); }
-	.command_state--done { color: var(--qs-content-added); }
+	.command_state--done { color: var(--qs-icon-success); }
 	.command_state--unchanged { color: var(--qs-icon-success); }
 	.command_state--error { color: var(--qs-destructive); }
 	.command_state--unknown { color: #72777d; }
@@ -521,14 +521,19 @@
 				return this.commandState == 'unknown' ? 'Unknown status' : this.commandState;
 			},
 			commandStateTitle: function () {
-				if (this.commandState == 'unchanged' && this.command.meta.message) return this.command.meta.message;
+				if (this.commandState == 'unchanged' && this.command.meta.message) {
+					return this.command.meta.message.replace(
+						/^The statement has already a reference with hash /i,
+						'The statement already has a reference with hash '
+					);
+				}
 				return this.commandStateLabel;
 			}
 		},
 		methods: {
 			isUnchangedSuccess: function () {
 				if ((this.command.meta.status || '').toUpperCase() != 'DONE') return false;
-				return /already exists|already has|has already a qualifier/i.test(this.command.meta.message || '');
+				return /already exists|already has|has already (?:a qualifier|a reference)/i.test(this.command.meta.message || '');
 			},
 			load_file_name_from_id: function (m) {
 				let me = this;

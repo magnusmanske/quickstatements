@@ -12,10 +12,12 @@
 	--qs-option-red: #bf3c2c;
 	--qs-option-lime: #1f7a39;
 	--qs-option-green: #177860;
+	--qs-option-blue: #36c;
 	--qs-option-purple: #6a60b0;
 	--qs-background-option-red: #ffe9e5;
 	--qs-background-option-lime: #e3f2e4;
 	--qs-background-option-green: #dff2eb;
+	--qs-background-option-blue: #e8eeff;
 	--qs-background-option-purple: #f0ecf6;
 	--qs-border: #a2a9b1;
 	--qs-border-subtle: #eaecf0;
@@ -52,7 +54,8 @@
 	--qs-font-weight-bold: 700;
 }
 
-.qs-action-badge {
+.qs-action-badge,
+.qs-info-chip {
 	display: inline-flex;
 	box-sizing: border-box;
 	min-height: 20px;
@@ -69,6 +72,36 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.qs-batch-status-counts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 4px;
+}
+
+.qs-info-chip {
+	text-transform: none;
+}
+
+.qs-info-chip--open,
+.qs-info-chip--running {
+	border-color: var(--qs-option-blue);
+	background: var(--qs-background-option-blue);
+	color: var(--qs-text);
+}
+
+.qs-info-chip--error {
+	border-color: var(--qs-option-red);
+	background: var(--qs-background-option-red);
+	color: var(--qs-text);
+}
+
+.qs-info-chip--done {
+	border-color: var(--qs-option-green);
+	background: var(--qs-background-option-green);
+	color: var(--qs-text);
 }
 
 .qs-action-badge--add {
@@ -594,6 +627,11 @@ html[dir="rtl"] #tooltranslate_wrapper select {
 	background: #fff;
 }
 
+.qs-home {
+	width: 100%;
+	max-width: none;
+}
+
 .qs-intro-card__content {
 	max-width: 75ch;
 	text-align: start;
@@ -978,6 +1016,20 @@ body:has(.qs-route-loading) .qs-main {
 
 .qs-main .table th {
 	font-weight: var(--qs-font-weight-semi-bold);
+}
+
+.qs-batches-page .table-striped tbody tr:nth-of-type(odd) {
+	background-color: var(--qs-background-neutral);
+}
+
+.qs-batches-page .table thead th {
+	border-top: 0;
+	border-bottom: 1px solid var(--qs-border);
+}
+
+.qs-batch-actions > div {
+	display: inline-flex;
+	margin-inline-end: 4px;
 }
 
 .qs-main .badge,
@@ -1432,6 +1484,17 @@ body:has(.qs-route-loading) .qs-main {
 	display: none;
 }
 
+@media (max-width: 900px) {
+	.qs-intro-card {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+
+	.qs-intro-card__action {
+		margin-inline-start: 0;
+	}
+}
+
 @media (max-width: 375px) {
 	.qs-import-actions__buttons {
 		display: flex;
@@ -1475,13 +1538,7 @@ body:has(.qs-route-loading) .qs-main {
 	}
 
 	.qs-intro-card {
-		align-items: flex-start;
-		flex-direction: column;
 		padding: 20px;
-	}
-
-	.qs-intro-card__action {
-		margin-inline-start: 0;
 	}
 
 	.qs-batch-setup {

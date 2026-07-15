@@ -1,5 +1,5 @@
 <template id='main-page-template'>
-	<div class='container qs-home'>
+	<div class='qs-home'>
         <div>
 			<div v-if='page_error' class='qs-message qs-message--error qs-action-message' role='alert'>
 				<span class='qs-message__icon' aria-hidden='true'><svg class='cdx-icon cdx-icon--bidi-neutral' xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><path d='M19.765 16.059 18 19H2L.235 16.059l8-15h3.53zM9 14v2h2v-2zm0-8v6h2V6z'></path></svg></span>
@@ -8,7 +8,7 @@
             <section class="qs-intro-card" aria-labelledby="qs-intro-title">
                 <div class="qs-intro-card__content">
                     <h1 id="qs-intro-title">QuickStatements</h1>
-                    <p>QuickStatements lets you create and run batches of edits on Wikidata.</p>
+                    <p>QuickStatements lets you create and run batches of edits on Wikidata and Wikimedia Commons.</p>
                     <p>Enter a set of commands, review the batch, and let the tool apply the statements for you.</p>
                 </div>
                 <router-link class="btn btn-primary qs-intro-card__action" to="/batch/new">New batch</router-link>

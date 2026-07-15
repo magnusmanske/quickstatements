@@ -79,7 +79,7 @@
 					</div>
 				</div>
 				<div v-else-if='user.canCreateBatch()' class='create_batch_box'>
-					<form class='qs-new-batch-form' @submit.prevent='importV1'>
+					<form class='qs-new-batch-form' @submit.prevent='importSelectedFormat'>
 					<div class='qs-batch-setup'>
 						<fieldset class='qs-batch-project'>
 							<legend>Project</legend>
@@ -97,7 +97,7 @@
 						<div class='qs-batch-name'>
 							<label for='qs-batch-name'>Batch name</label>
 							<input id='qs-batch-name' type='text' class='form-control' v-model.trim='meta.batch.name'
-								@keydown.enter.prevent='importV1' />
+								@keydown.enter.prevent='importSelectedFormat' />
 						</div>
 					</div>
 
@@ -108,8 +108,7 @@
 					</div>
 					<div class='qs-import-actions'>
 						<div class='qs-import-actions__buttons'>
-							<button type='submit' class='btn btn-outline-primary' :disabled='importing'>Import commands</button>
-							<button type='button' class='btn btn-outline-primary' @click='importCSV' :disabled='importing'>Import CSV</button>
+							<button type='submit' class='btn btn-outline-primary' :disabled='importing'>Import</button>
 						</div>
 						<div v-if='importing' class='cdx-progress-bar cdx-progress-bar--inline qs-import-progress' role='progressbar'
 							aria-label='Importing commands' aria-busy='true'><div class='cdx-progress-bar__bar'></div></div>
@@ -135,6 +134,7 @@
 						</section>
 						<section id="help-csv" aria-labelledby="help-csv-title">
 							<h3 id="help-csv-title">Import CSV</h3>
+							<p>You can also paste commands as CSV (comma-separated values), a table format in which commas separate columns and each new line is a row. QuickStatements recognizes CSV automatically when the first column is named <code>qid</code>.</p>
 							<p>See <a href="https://www.wikidata.org/wiki/Help:QuickStatements#CSV_file_syntax" target="_blank" rel="noopener">CSV file syntax on Help:QuickStatements</a> for the column format and examples.</p>
 						</section>
 					</div>
@@ -213,6 +213,11 @@
 			}
 		},
 		methods: {
+			importSelectedFormat: function () {
+				let firstLine = (this.commands || '').split(/\r?\n/, 1)[0];
+				if (/^(?:qid|"qid"),/.test(firstLine)) return this.importCommands('csv');
+				return this.importCommands('v1', {compress: 1});
+			},
 			updateWDforSite: function () {
 				var me = this;
 				let pb = config.sites[me.meta.batch.site].pageBase;
@@ -257,17 +262,13 @@
 				me.generateTemporaryBatchId();
 				me.updateWDforSite();
 			},
-			importV1: function () {
-				this.importCommands('v1', {compress: 1});
-			},
-			importCSV: function () {
-				this.importCommands('csv');
-			},
-			importCommands: function (format, extraData) {
+			importCommands: function (format, extraData, isFormatFallback) {
 				var me = this;
-				if (me.importing) return;
-				me.import_error = '';
-				me.importing = true;
+				if (me.importing && !isFormatFallback) return;
+				if (!isFormatFallback) {
+					me.import_error = '';
+					me.importing = true;
+				}
 				let requestData = Object.assign({
 					action: 'import',
 					data: me.commands,
@@ -300,6 +301,11 @@
 				})
 				.then(function (d) {
 					if (!d.data || !d.data.commands || d.data.commands.length == 0) {
+						if (!isFormatFallback) {
+							let fallbackFormat = format == 'csv' ? 'v1' : 'csv';
+							let fallbackData = fallbackFormat == 'v1' ? {compress: 1} : {};
+							return me.importCommands(fallbackFormat, fallbackData, true);
+						}
 						me.import_error = "No valid commands were found.";
 						return;
 					}

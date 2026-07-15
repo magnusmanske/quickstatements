@@ -43,16 +43,17 @@
 						<span v-if='b.batch.status=="RUN" || b.batch.status=="INIT"'><b tt='running'></b></span>
 						<span v-else>{{b.batch.status}}</span>
 					</div>
-					<div>
-						<span v-for='(num,cmd) in b.commands' style='margin-inline-end:0.5rem;'>
-							<span :class="'badge badge-'+status_class[cmd]">{{cmd}}:{{num}}</span>
-						</span>
+					<div class='qs-batch-status-counts'>
+						<span v-if='(b.commands.INIT||0)>0' class='qs-info-chip qs-info-chip--open'>{{b.commands.INIT}} open</span>
+						<span v-if='(b.commands.RUN||0)>0' class='qs-info-chip qs-info-chip--running'>{{b.commands.RUN}} running</span>
+						<span v-if='(b.commands.ERROR||0)>0' class='qs-info-chip qs-info-chip--error'>{{b.commands.ERROR}} error<span v-if='b.commands.ERROR!=1'>s</span></span>
+						<span v-if='(b.commands.DONE||0)>0' class='qs-info-chip qs-info-chip--done'>{{b.commands.DONE}} done</span>
 					</div>
 				</td>
 				<td>
 					{{formatDate(b.batch.ts_last_change)}}
 				</td>
-				<td style='display:flex;flex-direction:row'>
+				<td class='qs-batch-actions'>
 					<div>
 						<a target='_blank' class='btn btn-outline-dark' :href='"https://editgroups.toolforge.org/b/QSv2/"+b.batch.id' tt='revert_batch'></a>
 					</div>
@@ -75,12 +76,7 @@
 
 let BatchesPage = Vue.extend ( {
     props : ['user_name'] ,
-    data : function () { return { batches:{} , status_class:{
-    	INIT:'primary',
-    	DONE:'success',
-    	ERROR:'danger',
-    	RUN:'info'
-    } , working:false , loaded:false , load_error:'' , interval:'' , update_interval_ms:5000 } } ,
+	data : function () { return { batches:{} , working:false , loaded:false , load_error:'' , interval:'' , update_interval_ms:5000 } } ,
     created : function () {
     	var me = this ;
     	me.loadBatches () ;

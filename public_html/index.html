@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://tools-static.wmflabs.org/magnustools/resources/html/wikimedia.css">
 <link rel="stylesheet" href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/oojs-ui/0.49.2/oojs-ui-wikimediaui.min.css">
 <link rel="stylesheet" href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/leaflet/1.3.1/leaflet.css">
-<link rel="stylesheet" href="quickstatements.css?v=20260714-85">
+<link rel="stylesheet" href="quickstatements.css?v=20260714-91">
 <script src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 <script src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/4.0.0/js/bootstrap.bundle.min.js"></script>
 <script src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/vue/2.5.13/vue.min.js"></script>
@@ -86,9 +86,9 @@
 			<div v-if="!authLoaded" class="qs-loading" aria-live="polite" aria-busy="true">
 				<div class="cdx-progress-bar cdx-progress-bar--inline" role="progressbar" aria-label="Checking login"><div class="cdx-progress-bar__bar"></div></div>
 			</div>
-			<section v-else-if="!isLoggedIn" class="qs-login" aria-labelledby="qs-login-title">
+			<section v-else-if="!isLoggedIn && !isPublicRoute" class="qs-login" aria-labelledby="qs-login-title">
 				<h1 id="qs-login-title">QuickStatements</h1>
-				<p>Import and run batches of QuickStatements</p>
+				<p>QuickStatements lets you create and run batches of edits on Wikidata and Wikimedia Commons. Enter a set of commands, review the batch, and let the tool apply the statements for you.</p>
 				<a href="./api.php?action=oauth_redirect"
 					class="oo-ui-buttonElement oo-ui-widget oo-ui-widget-enabled oo-ui-buttonElement-framed oo-ui-flaggedElement-primary oo-ui-flaggedElement-progressive qs-login-button">
 					<span class="oo-ui-buttonElement-button" role="button">
@@ -117,6 +117,6 @@
 	</footer>
 </body>
 
-<script src="vue.js?v=20260714-08"></script>
+<script src="vue.js?v=20260714-09"></script>
 
 </html>

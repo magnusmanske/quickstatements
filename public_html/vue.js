@@ -95,6 +95,11 @@ $(document).ready ( function () {
                 authLoaded : false,
                 isLoggedIn : false,
                 userinfo : {}
+			},
+			computed : {
+				isPublicRoute : function () {
+					return /^\/batches(?:\/|$)/.test(this.$route.path) ;
+				}
             }
         } ) .$mount('#app') ;
     } ) .catch ( error => {

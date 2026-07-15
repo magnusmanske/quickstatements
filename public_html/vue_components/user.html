@@ -14,13 +14,6 @@
 
 	let user;
 
-	function normalizeToolTranslateLabels() {
-		let options = document.querySelectorAll('#tooltranslate_wrapper select option');
-		for (let option of options) {
-			if (option.textContent.trim() == 'AR') option.textContent = 'العربية';
-		}
-	}
-
 	Vue.component('user', {
 		data: function () {return {userinfo: {}, loaded: false, is_logged_in: false}},
 		created: function () {
@@ -31,7 +24,6 @@
 		mounted: function () {
 			tt.updateInterface(this.$el);
 			tt.addILdropdown('#tooltranslate_wrapper');
-			normalizeToolTranslateLabels();
 		},
 		methods: {
 			logout: function () {
@@ -60,7 +52,6 @@
 					me.$root.userinfo = me.userinfo;
 					me.$nextTick(function () {
 						tt.updateInterface(me.$root.$el);
-						normalizeToolTranslateLabels();
 					});
 				});
 			},
