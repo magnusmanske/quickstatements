@@ -22,6 +22,31 @@ Columns can be separated by tabs or pipes. Delimiters are detected per row, so c
 
 See [Help:QuickStatements](https://www.wikidata.org/wiki/Help:QuickStatements) for the complete command syntax and [LEXEME_SYNTAX.md](LEXEME_SYNTAX.md) for commands involving lexemes, forms, and senses.
 
+## Import commands through a URL
+
+Another tool can prepare a QuickStatements batch by linking to the `v1` route with URL-encoded commands:
+
+```text
+https://quickstatements.toolforge.org/#/v1=Q42%7CP31%7CQ5
+```
+
+Opening this URL imports `Q42|P31|Q5` and displays a temporary batch for review. It does not run or submit the batch automatically; the user must review the commands and choose how to run them.
+
+Encode the complete command string when constructing the URL. For example:
+
+```js
+const commands = 'CREATE\nLAST|Len|"Example item"';
+const url = 'https://quickstatements.toolforge.org/#/v1=' + encodeURIComponent(commands);
+```
+
+CSV data can be imported in the same way with `#/csv=` instead of `#/v1=`:
+
+```text
+https://quickstatements.toolforge.org/#/csv=qid%2CP31%0AQ42%2CQ5
+```
+
+Because the commands are stored in the URL fragment after `#`, they are processed by the QuickStatements application rather than sent as part of the initial HTTP request.
+
 ## Features
 
 - Create, update, and remove structured-data statements in batches.
