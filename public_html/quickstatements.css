@@ -1121,12 +1121,6 @@ body:has(.qs-route-loading) .qs-main {
 	background: #eaecf0;
 }
 
-.qs-command-filters input[value='INIT']:checked + span {
-	border-color: var(--qs-progressive-active);
-	background: var(--qs-progressive-active);
-	color: #fff;
-}
-
 .qs-radio-buttons input:focus + span {
 	position: relative;
 	z-index: 1;
