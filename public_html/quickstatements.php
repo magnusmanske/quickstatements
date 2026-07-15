@@ -647,6 +647,7 @@ class QuickStatements {
 	protected function compareDatavalue ( $d1 , $d2 ) {
 		if ( $d1->type != $d2->type ) return false ;
 		if ( $d1->type == 'string' ) {
+			if ( !function_exists('normalizer_normalize') ) return $d1->value == $d2->value ;
 			$value1 = normalizer_normalize($d1->value,Normalizer::FORM_D);
 			$value2 = normalizer_normalize($d2->value,Normalizer::FORM_D);
 			return $value1 == $value2;
@@ -1007,6 +1008,10 @@ class QuickStatements {
 		if ( !isset($command->qualifier->prop) ) return $this->commandError ( $command , "Incomplete command parameters" ) ;
 		if ( !preg_match ( '/^P\d+$/' , $command->qualifier->prop ) ) return $this->commandError ( $command , "Invalid qualifier property {$command->qualifier->prop}" ) ;
 		if ( !isset($command->qualifier->value->value) ) return $this->commandError ( $command, "Incomplete command parameters" ) ;
+		$matching_qualifier_hash = $this->findMatchingQualifierHash ( $i , $statement_id , $command->qualifier ) ;
+		if ( $matching_qualifier_hash !== null ) {
+			return $this->commandDone ( $command , "The statement already has a qualifier with hash $matching_qualifier_hash" ) ;
+		}
 
 		// Execute!
 		$action = array (
@@ -1023,6 +1028,27 @@ class QuickStatements {
 		if ( $command->status == 'error' and preg_match ( '/The statement has already a qualifier/' , $command->message ) ) $command->status = 'done' ;
 		if ( !$this->isBatchRun() ) $this->wd->updateItem ( $command->item ) ;
 		return $command ;
+	}
+
+	protected function findMatchingQualifierHash ( $i , $statement_id , $qualifier ) {
+		if ( !isset($i->j->claims) or !isset($qualifier->prop) or !isset($qualifier->value) ) return null ;
+		foreach ( $i->j->claims AS $claims ) {
+			foreach ( $claims AS $claim ) {
+				if ( !isset($claim->id) or $claim->id != $statement_id ) continue ;
+				if ( !isset($claim->qualifiers) or !isset($claim->qualifiers->{$qualifier->prop}) ) return null ;
+				foreach ( $claim->qualifiers->{$qualifier->prop} AS $existing_qualifier ) {
+					if ( !isset($existing_qualifier->snaktype) ) continue ;
+					if ( $existing_qualifier->snaktype != $this->getSnakType($qualifier->value) ) continue ;
+					if ( $existing_qualifier->snaktype == 'value' ) {
+						if ( !isset($existing_qualifier->datavalue) ) continue ;
+						if ( !$this->compareDatavalue($existing_qualifier->datavalue,$qualifier->value) ) continue ;
+					}
+					return isset($existing_qualifier->hash) ? $existing_qualifier->hash : '' ;
+				}
+				return null ;
+			}
+		}
+		return null ;
 	}
 
 	protected function findMatchingReferenceHash ( $i , $statement_id , $snaks ) {
