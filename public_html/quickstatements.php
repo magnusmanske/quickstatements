@@ -934,8 +934,9 @@ class QuickStatements {
 			}
 			*/
 			$command->status = 'error' ;
-			if ( !isset($result) or $result === null or $result == '' ) {
-				$command->message = 'No result received for ' . json_encode($params) ;
+			$encoded_result = isset($result) ? json_encode($result) : false ;
+			if ( !isset($result) or $result === null or $result == '' or $encoded_result === false or $encoded_result == '{}' or $encoded_result == '[]' ) {
+				$command->message = 'Could not complete the command. No error details were returned.' ;
 			} else if ( isset($result->error) and isset($result->error->info) ) {
 				if ( $this->retry_on_database_lock and $result->error->info == 'The database has been automatically locked while the slave database servers catch up to the master' ) {
 					$command->status = '' ;
@@ -949,7 +950,7 @@ class QuickStatements {
 					$this->bot_api = null ;
 					$this->getBotAPI ( true ) ;
 				}
-			} else $command->message = json_encode ( $result ) ;
+			} else $command->message = $encoded_result ;
 		}
 	}
 
