@@ -15,7 +15,7 @@ Use the tool at [quickstatements.toolforge.org](https://quickstatements.toolforg
 ## How it works
 
 1. Choose Wikidata or Wikimedia Commons as the target project.
-2. Paste or generate a set of QuickStatements commands.
+2. Paste a set of QuickStatements commands.
 3. Import and review the proposed batch.
 4. Run the batch in the browser or submit it for background processing.
 5. Review, discuss, or revert the resulting edits through EditGroups.
