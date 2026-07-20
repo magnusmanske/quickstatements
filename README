@@ -1,4 +1,107 @@
-Using addwiki:
-https://github.com/addwiki/mediawiki-api
+# QuickStatements
 
-Copy public_html/config.json.template to config.json and modify for your needs
+```text
+   ___        _      _     ____  _        _                            _
+  / _ \ _   _(_) ___| | __/ ___|| |_ __ _| |_ ___ _ __ ___   ___ _ __ | |_ ___
+ | | | | | | | |/ __| |/ /\___ \| __/ _` | __/ _ \ '_ ` _ \ / _ \ '_ \| __/ __|
+ | |_| | |_| | | (__|   <  ___) | || (_| | ||  __/ | | | | |  __/ | | | | |_\__ \
+  \__\_\\__,_|_|\___|_|\_\|____/ \__\__,_|\__\___|_| |_| |_|\___|_| |_|\__|___/
+```
+
+QuickStatements is a tool for batch processing structured data assertions. Generate a set of command lines, review the proposed batch, and this tool will propagate the data to Wikidata or Wikimedia Commons.
+
+Use the tool at [quickstatements.toolforge.org](https://quickstatements.toolforge.org/).
+
+## How it works
+
+1. Choose Wikidata or Wikimedia Commons as the target project.
+2. Paste a set of QuickStatements commands.
+3. Import and review the proposed batch.
+4. Run the batch in the browser or submit it for background processing.
+5. Review, discuss, or revert the resulting edits through EditGroups.
+
+For example, this command adds “instance of: human” to Douglas Adams:
+
+```text
+Q42	P31	Q5
+```
+
+Columns can be separated by tabs or pipes. Delimiters are detected per row, so commands copied from different sources can be combined in one batch. CSV import is also supported when the first column is named `qid`.
+
+See [Help:QuickStatements](https://www.wikidata.org/wiki/Help:QuickStatements) for the complete command syntax and [LEXEME_SYNTAX.md](LEXEME_SYNTAX.md) for commands involving lexemes, forms, and senses.
+
+## Import commands through a URL
+
+Another tool can prepare a QuickStatements batch by linking to the `v1` route with URL-encoded commands:
+
+```text
+https://quickstatements.toolforge.org/#/v1=Q42%7CP31%7CQ5
+```
+
+Opening this URL imports `Q42|P31|Q5` and displays a temporary batch for review. It does not run or submit the batch automatically; the user must review the commands and choose how to run them.
+
+Encode the complete command string when constructing the URL. For example:
+
+```js
+const commands = 'CREATE\nLAST|Len|"Example item"';
+const url = 'https://quickstatements.toolforge.org/#/v1=' + encodeURIComponent(commands);
+```
+
+CSV data can be imported in the same way with `#/csv=` instead of `#/v1=`:
+
+```text
+https://quickstatements.toolforge.org/#/csv=qid%2CP31%0AQ42%2CQ5
+```
+
+Because the commands are stored in the URL fragment after `#`, they are processed by the QuickStatements application rather than sent as part of the initial HTTP request.
+
+## Features
+
+- Create, update, and remove structured-data statements in batches.
+- Add labels, aliases, descriptions, sitelinks, qualifiers, and references.
+- Create new items and refer to them with `LAST` in subsequent commands.
+- Work with Wikidata items, properties, lexemes, forms, and senses.
+- Process Wikimedia Commons MediaInfo statements.
+- Review command status, errors, and unchanged results before and during execution.
+- Run small batches interactively or submit larger batches for background processing.
+
+## Development
+
+The active interface is a Vue 2 single-page application served directly from `public_html/`; there is no frontend build step. The PHP backend parses commands, manages batches and OAuth, and sends edits through the MediaWiki API using [addwiki/mediawiki-api](https://github.com/addwiki/mediawiki-api).
+
+Requirements:
+
+- PHP 8.1 or newer
+- Composer
+- A web server capable of serving PHP
+- MariaDB/MySQL for persistent batches
+- OAuth credentials for write operations
+
+Install PHP dependencies:
+
+```sh
+composer install
+```
+
+Copy `public_html/config.json.template` to `public_html/config.json` and adapt the site, paths, origins, and OAuth configuration for your environment. Do not commit credentials or local configuration.
+
+The database structure is documented in `schema.sql`. Toolforge database, job-runner, and OAuth behavior cannot be reproduced fully without corresponding local services and credentials.
+
+## Tests
+
+Run the PHPUnit test suite after installing development dependencies:
+
+```sh
+vendor/bin/phpunit
+```
+
+For frontend changes, also check JavaScript syntax and whitespace:
+
+```sh
+node --check public_html/vue.js
+git diff --check
+```
+
+## License
+
+QuickStatements is licensed under the [GNU General Public License v3.0](COPYING).

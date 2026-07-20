@@ -101,7 +101,7 @@ if ( $action == 'import' ) {
 		$handle = fopen($filename, "w");
 		fwrite($handle, json_encode($out) );
 		fclose($handle);
-		$out['data'] = preg_replace ( '|^.+/|' , '' , $filename ) ;
+		$out['data'] = basename ( $filename ) ;
 
 		if ( $openpage ) {
 			$url = "./#/batch/?tempfile=" . urlencode ( $out['data'] ) ;

@@ -415,7 +415,7 @@ body.qs-is-working .qs-main {
 .qs-page > nav .qs-nav-link .cdxIconUserTalk,
 .qs-page > nav .qs-nav-link .cdxIconUserActive,
 .qs-page > nav .qs-nav-link .cdxIconArticleAdd,
-.qs-page > nav .qs-nav-link .cdxIconClock,
+.qs-page > nav .qs-nav-link .cdxIconRecentChanges,
 .qs-page > nav .qs-nav-link .cdxIconUserContributions,
 .qs-page > nav .qs-nav-link .cdxIconHelpNotice {
 	flex-basis: 20px;
@@ -1119,12 +1119,6 @@ body:has(.qs-route-loading) .qs-main {
 	position: relative;
 	border-color: #72777d;
 	background: #eaecf0;
-}
-
-.qs-command-filters input[value='INIT']:checked + span {
-	border-color: var(--qs-progressive-active);
-	background: var(--qs-progressive-active);
-	color: #fff;
 }
 
 .qs-radio-buttons input:focus + span {

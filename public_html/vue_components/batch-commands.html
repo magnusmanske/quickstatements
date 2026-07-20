@@ -13,6 +13,7 @@ div.position_button_bar > div {
 	<div v-if='typeof batch!="undefined"' class='qs-command-filters qs-radio-buttons' role='radiogroup' aria-label='Command status'>
 		<label><input type='radio' v-model='view.filter' value='' @change='onFilterChange'><span>All</span></label>
 		<label><input type='radio' v-model='view.filter' value='INIT' @change='onFilterChange'><span>Open</span></label>
+		<label v-if='!isOverview'><input type='radio' v-model='view.filter' value='UNCHANGED' @change='onFilterChange'><span>Unchanged</span></label>
 		<label><input type='radio' v-model='view.filter' value='ERROR' @change='onFilterChange'><span>Errors</span></label>
 	</div>
 	<div class='qs-batch-commands-panel qs-command-list-shell'>
@@ -52,7 +53,7 @@ div.position_button_bar > div {
 'use strict';
 
 Vue.component ( 'batch-commands' , {
-	props : [ 'batch' ] ,
+	props : [ 'batch', 'isOverview' ] ,
 	mixins : [ batch_helper_mixin ] ,
 	data : function () { return { current_command_ids:[] , view:{is_loaded:false,load_partially:false,position:0,batch_size:25,filter:'',wanted_page:1} , status:[] , working:false } } ,
     created : function () {} ,
@@ -157,8 +158,13 @@ Vue.component ( 'batch-commands' , {
 			let me = this ;
 			if ( me.view.filter == '' ) return true ;
 			if ( typeof me.batch.data.commands[command_id] == 'undefined' ) return false ;
+			if ( me.view.filter == 'UNCHANGED' ) return me.isUnchangedCommand ( me.batch.data.commands[command_id] ) ;
 			if ( me.batch.data.commands[command_id].meta.status == me.view.filter ) return true ;
 			return false ;
+		} ,
+		isUnchangedCommand : function ( command ) {
+			if ( !command.meta || (command.meta.status || '').toUpperCase() != 'DONE' ) return false ;
+			return /already exists|already has|has already a qualifier/i.test(command.meta.message || '') ;
 		} ,
 		onFilterChange : function () {
 			this.view.position = 0 ;

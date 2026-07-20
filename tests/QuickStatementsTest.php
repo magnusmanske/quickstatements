@@ -2344,6 +2344,24 @@ class QuickStatementsTest extends TestCase
     }
 
     /**
+     * Pipe- and tab-delimited rows can be mixed in one V1 batch.
+     *
+     * @group unit
+     */
+    public function testImportV1_MixedPipeAndTabRows(): void
+    {
+        $data = "CREATE\nLAST|Lmul|\"Vera de Kok\"\nQ42\tP31\tQ5";
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+        $this->assertCount(3, $result['data']['commands']);
+        $this->assertSame('label', $result['data']['commands'][1]['what']);
+        $this->assertSame('mul', $result['data']['commands'][1]['language']);
+        $this->assertSame('Vera de Kok', $result['data']['commands'][1]['value']);
+        $this->assertSame('statement', $result['data']['commands'][2]['what']);
+    }
+
+    /**
      * Double-pipe (||) as line separator with pipe (|) column separator.
      *
      * @group unit

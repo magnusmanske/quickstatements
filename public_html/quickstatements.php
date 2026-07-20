@@ -647,6 +647,7 @@ class QuickStatements {
 	protected function compareDatavalue ( $d1 , $d2 ) {
 		if ( $d1->type != $d2->type ) return false ;
 		if ( $d1->type == 'string' ) {
+			if ( !function_exists('normalizer_normalize') ) return $d1->value == $d2->value ;
 			$value1 = normalizer_normalize($d1->value,Normalizer::FORM_D);
 			$value2 = normalizer_normalize($d2->value,Normalizer::FORM_D);
 			return $value1 == $value2;
@@ -933,8 +934,9 @@ class QuickStatements {
 			}
 			*/
 			$command->status = 'error' ;
-			if ( !isset($result) or $result === null or $result == '' ) {
-				$command->message = 'No result received for ' . json_encode($params) ;
+			$encoded_result = isset($result) ? json_encode($result) : false ;
+			if ( !isset($result) or $result === null or $result == '' or $encoded_result === false or $encoded_result == '{}' or $encoded_result == '[]' ) {
+				$command->message = 'Could not complete the command. No error details were returned.' ;
 			} else if ( isset($result->error) and isset($result->error->info) ) {
 				if ( $this->retry_on_database_lock and $result->error->info == 'The database has been automatically locked while the slave database servers catch up to the master' ) {
 					$command->status = '' ;
@@ -948,7 +950,7 @@ class QuickStatements {
 					$this->bot_api = null ;
 					$this->getBotAPI ( true ) ;
 				}
-			} else $command->message = json_encode ( $result ) ;
+			} else $command->message = $encoded_result ;
 		}
 	}
 
@@ -1007,6 +1009,10 @@ class QuickStatements {
 		if ( !isset($command->qualifier->prop) ) return $this->commandError ( $command , "Incomplete command parameters" ) ;
 		if ( !preg_match ( '/^P\d+$/' , $command->qualifier->prop ) ) return $this->commandError ( $command , "Invalid qualifier property {$command->qualifier->prop}" ) ;
 		if ( !isset($command->qualifier->value->value) ) return $this->commandError ( $command, "Incomplete command parameters" ) ;
+		$matching_qualifier_hash = $this->findMatchingQualifierHash ( $i , $statement_id , $command->qualifier ) ;
+		if ( $matching_qualifier_hash !== null ) {
+			return $this->commandDone ( $command , "The statement already has a qualifier with hash $matching_qualifier_hash" ) ;
+		}
 
 		// Execute!
 		$action = array (
@@ -1025,6 +1031,81 @@ class QuickStatements {
 		return $command ;
 	}
 
+	protected function findMatchingQualifierHash ( $i , $statement_id , $qualifier ) {
+		if ( !isset($i->j->claims) or !isset($qualifier->prop) or !isset($qualifier->value) ) return null ;
+		foreach ( $i->j->claims AS $claims ) {
+			foreach ( $claims AS $claim ) {
+				if ( !isset($claim->id) or $claim->id != $statement_id ) continue ;
+				if ( !isset($claim->qualifiers) or !isset($claim->qualifiers->{$qualifier->prop}) ) return null ;
+				foreach ( $claim->qualifiers->{$qualifier->prop} AS $existing_qualifier ) {
+					if ( !isset($existing_qualifier->snaktype) ) continue ;
+					if ( $existing_qualifier->snaktype != $this->getSnakType($qualifier->value) ) continue ;
+					if ( $existing_qualifier->snaktype == 'value' ) {
+						if ( !isset($existing_qualifier->datavalue) ) continue ;
+						if ( !$this->compareDatavalue($existing_qualifier->datavalue,$qualifier->value) ) continue ;
+					}
+					return isset($existing_qualifier->hash) ? $existing_qualifier->hash : '' ;
+				}
+				return null ;
+			}
+		}
+		return null ;
+	}
+
+	protected function findMatchingReferenceHash ( $i , $statement_id , $snaks ) {
+		if ( !isset($i->j->claims) ) return null ;
+		foreach ( $i->j->claims AS $claims ) {
+			foreach ( $claims AS $claim ) {
+				if ( !isset($claim->id) or $claim->id != $statement_id ) continue ;
+				if ( !isset($claim->references) ) return null ;
+				foreach ( $claim->references AS $reference ) {
+					if ( !isset($reference->snaks) ) continue ;
+					if ( $this->referenceSnaksMatch($reference->snaks,$snaks) ) {
+						return isset($reference->hash) ? $reference->hash : '' ;
+					}
+				}
+				return null ;
+			}
+		}
+		return null ;
+	}
+
+	protected function referenceSnaksMatch ( $existing_snaks , $wanted_snaks ) {
+		$existing_snaks = (array) $existing_snaks ;
+		$wanted_snaks = (array) $wanted_snaks ;
+		$existing_properties = array_keys($existing_snaks) ;
+		$wanted_properties = array_keys($wanted_snaks) ;
+		sort($existing_properties) ;
+		sort($wanted_properties) ;
+		if ( $existing_properties != $wanted_properties ) return false ;
+
+		foreach ( $wanted_properties AS $property ) {
+			$existing = array_values((array) $existing_snaks[$property]) ;
+			$wanted = array_values((array) $wanted_snaks[$property]) ;
+			if ( count($existing) != count($wanted) ) return false ;
+			$used = array() ;
+			foreach ( $wanted AS $wanted_snak ) {
+				$wanted_snak = (object) $wanted_snak ;
+				$found = false ;
+				foreach ( $existing AS $index => $existing_snak ) {
+					if ( isset($used[$index]) ) continue ;
+					$existing_snak = (object) $existing_snak ;
+					if ( !isset($existing_snak->snaktype) or !isset($wanted_snak->snaktype) ) continue ;
+					if ( $existing_snak->snaktype != $wanted_snak->snaktype ) continue ;
+					if ( $wanted_snak->snaktype == 'value' ) {
+						if ( !isset($existing_snak->datavalue) or !isset($wanted_snak->datavalue) ) continue ;
+						if ( !$this->compareDatavalue($existing_snak->datavalue,$wanted_snak->datavalue) ) continue ;
+					}
+					$used[$index] = true ;
+					$found = true ;
+					break ;
+				}
+				if ( !$found ) return false ;
+			}
+		}
+		return true ;
+	}
+
 	protected function commandAddSources ( $command , $i , $statement_id ) {
 		// Paranoia
 		if ( !isset($command->sources) ) return $this->commandError ( $command , "Incomplete command parameters" ) ;
@@ -1041,6 +1122,10 @@ class QuickStatements {
 			) ;
 			if ( $s['snaktype'] != 'value' ) unset( $s['datavalue'] ) ;
 			$snaks[$source->prop][] = $s ;
+		}
+		$matching_reference_hash = $this->findMatchingReferenceHash ( $i , $statement_id , $snaks ) ;
+		if ( $matching_reference_hash !== null ) {
+			return $this->commandDone ( $command , "The statement already has a reference with hash $matching_reference_hash" ) ;
 		}
 
 		// Execute!
@@ -1433,10 +1518,10 @@ class QuickStatements {
 	protected function importDataFromV1 ( $data , &$ret ) {
 		$ret['data']['commands'] = array() ;
 		if ( strpos ( $data , "\n" ) === false ) $data = str_replace ( '||' , "\n" , $data ) ;
-		if ( strpos ( $data , "\t" ) === false ) $data = str_replace ( '|' , "\t" , $data ) ;
 		$rows = explode ( "\n" , $data ) ;
 		foreach ( $rows as $row ) {
 			$row = trim ( $row ) ;
+			if ( strpos ( $row , "\t" ) === false ) $row = str_replace ( '|' , "\t" , $row ) ;
 			$comment = '' ;
 			if ( preg_match ( '/^(.*?) *\/\* *(.*?) *\*\/ *$/' , $row , $m ) ) { // Extract comment as summary
 				$comment = $m[2] ;

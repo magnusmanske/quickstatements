@@ -38,19 +38,18 @@
 						<span class='qs-message__content'><bdi dir='auto'>{{action_error}}</bdi></span>
 					</div>
 					<div class='qs-command-section'>
-						<batch-commands :batch='meta.batch' @load-command='loadCommand($event)'></batch-commands>
+						<batch-commands :batch='meta.batch' :is-overview='$route.query.overview=="1"' @load-command='loadCommand($event)'></batch-commands>
 					</div>
 					<div class='qs-run-bar'>
 						<div class='qs-run-bar__status'>
 							<span v-if='!runHasStarted'>{{meta.batch.total_commands}} command<span v-if='meta.batch.total_commands!=1'>s</span> ready</span>
 							<div v-else class='qs-run-bar__progress-wrap'>
 								<span class='qs-run-status'>
-									<span tt='status'></span>:
-									<template v-if='meta.batch.status=="DONE"'>
+									<template v-if='runIsComplete'>
 										<svg class='qs-run-status__icon' xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20' aria-hidden='true'><path d='M10 1a9 9 0 110 18 9 9 0 010-18M8.823 11.118 6.8 9.6l-1.2 1.6 2.8 2.1 1.381-.175 4.624-5.781-1.561-1.25z'></path></svg>
 										<span>Done</span>
 									</template>
-									<span v-else>{{meta.batch.status}}</span>
+									<template v-else><span tt='status'></span>: {{meta.batch.status}}</template>
 								</span>
 								<div class='cdx-progress-bar cdx-progress-bar--block cdx-progress-bar--determinate qs-run-bar__progress' role='progressbar' aria-label='Batch progress' :aria-valuenow='runProgressPercent' aria-valuemin='0' aria-valuemax='100'>
 									<div class='cdx-progress-bar__bar bg-success' :style="'width:'+runDonePercent+'%'" tt_title='done'></div>
@@ -58,7 +57,7 @@
 									<div class='cdx-progress-bar__bar qs-run-bar__waiting' :style="'width:'+runWaitingPercent+'%'" tt_title='waiting'></div>
 								</div>
 								<small>{{runCompletedCount}} / {{meta.batch.total_commands}}<span v-if='(meta.commands.ERROR||0)>0'> ({{meta.commands.ERROR}} <span tt='errors'></span>)</span></small>
-								<div class='qs-run-legend'>
+								<div v-if='$route.query.overview!="1"' class='qs-run-legend'>
 									<svg viewBox='0 0 20 20' aria-hidden='true'><path d='M9.3572.5208c.194-.6944 1.0916-.6944 1.2856 0l1.325 4.7424c.1032.3696.4499.5888.7938.502l4.4123-1.1145c.6461-.1632 1.0949.6882.6428 1.2194l-3.0873 3.6279a.77.77 0 0 0 0 1.004l3.0873 3.6279c.4521.5312.0033 1.3826-.6428 1.2194l-4.4123-1.1144c-.3439-.0869-.6906.1323-.7938.502l-1.325 4.7423c-.194.6944-1.0916.6944-1.2856 0l-1.325-4.7423c-.1032-.3697-.4499-.5889-.7938-.502l-4.4123 1.1144c-.6461.1632-1.0949-.6882-.6428-1.2194l3.0873-3.6279a.77.77 0 0 0 0-1.004L2.1833 5.8701c-.4521-.5312-.0033-1.3826.6428-1.2194l4.4123 1.1145c.3439.0868.6906-.1324.7938-.502z'/></svg>
 									<span>An asterisk means the command succeeded, but no change was needed because the value was already present.</span>
 								</div>
@@ -198,6 +197,10 @@
 			},
 			runCompletedCount: function () {
 				return (this.meta.commands.DONE || 0) * 1 + (this.meta.commands.ERROR || 0) * 1;
+			},
+			runIsComplete: function () {
+				return this.meta.batch.status == 'DONE' ||
+					(this.meta.batch.total_commands > 0 && this.runCompletedCount >= this.meta.batch.total_commands);
 			},
 			runProgressPercent: function () {
 				return this.meta.batch.total_commands ? 100 * this.runCompletedCount / this.meta.batch.total_commands : 0;
