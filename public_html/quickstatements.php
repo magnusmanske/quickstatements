@@ -1528,6 +1528,10 @@ class QuickStatements {
 				$row = $m[1] ;
 			}
 			$cols = explode ( "\t" , $row ) ;
+			// An empty label/description/alias/sitelink value (e.g. "LAST|Dcs|") produces a "|||" sequence when
+			// commands are joined with "||". The command separator replacement then mis-splits it and leaves a
+			// stray empty leading column on the following command, which would otherwise be silently dropped.
+			while ( count($cols) > 1 and trim($cols[0]) === '' ) array_shift ( $cols ) ;
 			$cmd = array() ;
 			$skip_add_command = false ;
 			$action = 'add' ;

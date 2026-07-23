@@ -3155,4 +3155,36 @@ class QuickStatementsTest extends TestCase
         $this->assertSame(3, $mqs->actionLog[0]->maxlag);
         $this->assertSame('wbcreateclaim', $mqs->actionLog[0]->action);
     }
+
+    // =========================================================================
+    //  Empty label/description/alias value must not drop the following command
+    //  (regression test for issue #70)
+    // =========================================================================
+
+    /**
+     * An empty description value (e.g. "LAST|Dcs|") joined with "||" produces a
+     * "|||" sequence. Previously this mis-split into a command with a stray
+     * empty leading column, silently dropping the following statement (P691).
+     *
+     * @group unit
+     */
+    public function testImportV1_EmptyDescriptionDoesNotDropNextStatement(): void
+    {
+        $data = 'CREATE||LAST|Lcs|"Microsoft Power BI (software)"||LAST|Dcs|||LAST|P691|"ph1302247"|P1810|"Microsoft Power BI (software)"|S248|Q13550863';
+        $result = $this->qs->exposedImportDataFromV1($data);
+
+        $this->assertSame('OK', $result['status']);
+
+        // The P691 statement must survive and be parsed correctly.
+        $statement = null;
+        foreach ($result['data']['commands'] as $cmd) {
+            if (isset($cmd['property']) and $cmd['property'] === 'P691' and ($cmd['what'] ?? '') === 'statement') {
+                $statement = $cmd;
+                break;
+            }
+        }
+        $this->assertNotNull($statement, 'P691 statement was dropped');
+        $this->assertSame('LAST', $statement['item']);
+        $this->assertSame('ph1302247', $statement['datavalue']['value']);
+    }
 }
