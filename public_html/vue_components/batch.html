@@ -69,7 +69,7 @@
 						</div>
 						<div class='qs-run-bar__actions'>
 							<template v-if='(meta.commands.INIT||0)>0 && meta.batch.status!="RUN"'>
-								<button key='run-batch' v-if='user.canRunBatch() && (meta.commands.INIT||0)>0 && meta.batch.id==0' class='btn btn-primary' tt='run' @click='runBatchDirectly'></button>
+								<button key='run-batch' v-if='user.canRunBatch() && (meta.commands.INIT||0)>0 && meta.batch.id==0' class='btn btn-primary' tt='run' title='⌘+Enter / Ctrl+Enter' @click='runBatchDirectly'></button>
 								<button key='run-batch-background' v-if='user.canSubmitBatch() && (meta.commands.INIT||0)>0' class='btn btn-outline-primary' tt='run_background' @click='runBatchInBackground'></button>
 							</template>
 							<button v-if='(meta.commands.ERROR||0)>0 && meta.batch.status=="DONE"' class='btn btn-outline-primary' @click='tryResetErrors'>Try to reset errors</button>
@@ -189,7 +189,13 @@
 			}
 		},
 		updated: function () {tt.updateInterface(this.$el);},
-		mounted: function () {tt.updateInterface(this.$el);},
+		mounted: function () {
+			tt.updateInterface(this.$el);
+			document.addEventListener('keydown', this.onGlobalKeydown);
+		},
+		beforeDestroy: function () {
+			document.removeEventListener('keydown', this.onGlobalKeydown);
+		},
 		computed: {
 			runHasStarted: function () {
 				return this.meta.batch.id > 0 || ['RUN', 'DONE', 'STOP'].indexOf(this.meta.batch.status) > -1 ||
@@ -216,6 +222,14 @@
 			}
 		},
 		methods: {
+			onGlobalKeydown: function (event) {
+				if (event.key != 'Enter' || !(event.metaKey || event.ctrlKey)) return;
+				if (!this.batch_exists) return;
+				if (this.meta.batch.id != 0 || this.meta.batch.status == 'RUN') return;
+				if ((this.meta.commands.INIT || 0) == 0 || !user.canRunBatch()) return;
+				event.preventDefault();
+				this.runBatchDirectly();
+			},
 			importSelectedFormat: function () {
 				let firstLine = (this.commands || '').split(/\r?\n/, 1)[0];
 				if (/^(?:qid|"qid"),/.test(firstLine)) return this.importCommands('csv');
