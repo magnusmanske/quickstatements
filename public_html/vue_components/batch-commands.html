@@ -55,7 +55,7 @@ div.position_button_bar > div {
 Vue.component ( 'batch-commands' , {
 	props : [ 'batch', 'isOverview' ] ,
 	mixins : [ batch_helper_mixin ] ,
-	data : function () { return { current_command_ids:[] , view:{is_loaded:false,load_partially:false,position:0,batch_size:25,filter:'',wanted_page:1} , status:[] , working:false } } ,
+	data : function () { return { current_command_ids:[] , view:{is_loaded:false,load_partially:false,position:0,batch_size:25,filter:'',wanted_page:1} , status:[] , working:false , pollInterval:null } } ,
     created : function () {} ,
     updated : function () { tt.updateInterface(this.$el) ; } ,
     mounted : function () {
@@ -64,6 +64,18 @@ Vue.component ( 'batch-commands' , {
     	if ( me.batch.id > 0 ) me.view.load_partially = true ;
 		me.setCurrentViewCommandIDs() ;
 		tt.updateInterface(this.$el) ;
+	} ,
+	watch : {
+		'batch.status' : function ( newVal , oldVal ) {
+			if ( newVal === 'RUN' ) {
+				this.startPolling() ;
+			} else {
+				this.stopPolling() ;
+			}
+		}
+	} ,
+	beforeDestroy : function () {
+		this.stopPolling() ;
 	} ,
 	computed : {
 		showPagingControls : function () {
@@ -173,7 +185,53 @@ Vue.component ( 'batch-commands' , {
 		setViewPosition : function ( new_position ) {
 			if ( new_position < 0 ) new_position = 0 ;
 			this.view.position = new_position ;
+			this.view.wanted_page = Math.floor( new_position / this.view.batch_size ) + 1 ;
 			this.setCurrentViewCommandIDs() ;
+		} ,
+		startPolling : function () {
+			var me = this ;
+			if ( me.pollInterval ) clearInterval( me.pollInterval ) ;
+			me.pollInterval = setInterval( function () {
+				me.pollDuringRun() ;
+			} , 2000 ) ;
+		} ,
+		stopPolling : function () {
+			if ( this.pollInterval ) {
+				clearInterval( this.pollInterval ) ;
+				this.pollInterval = null ;
+			}
+		} ,
+		pollDuringRun : function () {
+			var me = this ;
+			if ( me.view.load_partially ) {
+				me.setCurrentViewCommandIDs() ;
+				return ;
+			}
+			// With a filter active: auto-advance when the current page has no matches
+			if ( me.view.filter != '' ) {
+				var ids = me.getDirectCommandIDs() ;
+				if ( ids.length == 0 && me.view.position + me.view.batch_size < me.batch.total_commands ) {
+					me.setViewPosition( me.view.position + me.view.batch_size ) ;
+					return ;
+				}
+			}
+			// Without a filter: auto-advance when all commands on the current page have a final status
+			if ( me.view.filter == '' ) {
+				var all_done = true ;
+				var end = Math.min( me.view.position + me.view.batch_size , me.batch.total_commands ) ;
+				for ( var i = me.view.position ; i < end ; i++ ) {
+					var cmd = me.batch.data.commands[i] ;
+					if ( !cmd || !cmd.meta || ( cmd.meta.status != 'DONE' && cmd.meta.status != 'ERROR' ) ) {
+						all_done = false ;
+						break ;
+					}
+				}
+				if ( all_done && end < me.batch.total_commands ) {
+					me.setViewPosition( end ) ;
+					return ;
+				}
+			}
+			me.setCurrentViewCommandIDs() ;
 		}
     } ,
     template : '#batch-commands-template'
