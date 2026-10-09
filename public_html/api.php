@@ -240,6 +240,12 @@ if ( $action == 'import' ) {
 			$o->json = json_decode ( $o->json ) ;
 			$out['data'][] = $o ;
 		}
+		if ( count($out['data']) == 0 ) { // Archived batch?
+			foreach ( $qs->getArchivedCommandsPage ( $batch_id , $start , $limit , $filter == '' ? [] : $filter ) AS $o ) {
+				$o->json = json_decode ( $o->json ) ;
+				$out['data'][] = $o ;
+			}
+		}
 	}
 
 } else if ( $action == 'run_single_command' ) {
@@ -309,6 +315,7 @@ if ( $action == 'import' ) {
 
 	$batch_id = get_request ( 'batch_id' , 0 ) * 1 ;
 	if ( $batch_id <= 0 ) fin("Bad batch ID #{$batch_id}") ;
+	if ( !$qs->restoreArchivedBatch ( $batch_id ) ) fin ( $qs->last_error_message ) ;
 
 	$out['init'] = 0 ;
 	$db = $qs->getDB() ;

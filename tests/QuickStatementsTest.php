@@ -3187,4 +3187,80 @@ class QuickStatementsTest extends TestCase
         $this->assertSame('LAST', $statement['item']);
         $this->assertSame('ph1302247', $statement['datavalue']['value']);
     }
+
+    // =========================================================================
+    //  Command archive (files written by quickstatements_rs)
+    // =========================================================================
+
+    private function writeArchive(int $batch_id, array $lines): string
+    {
+        $dir = sys_get_temp_dir() . '/qs_archive_test_' . getmypid();
+        $this->qs->config->archive_dir = $dir;
+        @mkdir("{$dir}/" . intdiv($batch_id, 1000), 0777, true);
+        $file = "{$dir}/" . intdiv($batch_id, 1000) . "/{$batch_id}.jsonl.gz";
+        file_put_contents($file, gzencode(implode("\n", $lines) . "\n"));
+        return $file;
+    }
+
+    private function archivedCommand(int $id, int $num, string $status): string
+    {
+        return json_encode([
+            'id' => $id, 'batch_id' => 1234, 'num' => $num,
+            'json' => '{"action":"add","item":"Q42"}', 'status' => $status,
+            'message' => '', 'ts_change' => '20260101000000',
+        ]);
+    }
+
+    /** @group unit */
+    public function testArchive_ReadsCommandsLikeMysqliRows(): void
+    {
+        $file = $this->writeArchive(1234, [$this->archivedCommand(100, 0, 'DONE')]);
+        $rows = $this->qs->getArchivedCommands(1234);
+        unlink($file);
+
+        $this->assertCount(1, $rows);
+        $this->assertSame('100', $rows[0]->id);
+        $this->assertSame('0', $rows[0]->num);
+        $this->assertSame('DONE', $rows[0]->status);
+        $this->assertSame('Q42', json_decode($rows[0]->json)->item);
+    }
+
+    /** @group unit */
+    public function testArchive_PageFiltersSortsAndLimits(): void
+    {
+        $file = $this->writeArchive(1234, [
+            $this->archivedCommand(103, 3, 'DONE'),
+            $this->archivedCommand(100, 0, 'ERROR'),
+            $this->archivedCommand(102, 2, 'ERROR'),
+            $this->archivedCommand(101, 1, 'DONE'),
+        ]);
+        $nums = fn(array $rows) => array_map(fn($o) => $o->num, $rows);
+        $all = $nums($this->qs->getArchivedCommandsPage(1234, 0, 10, []));
+        $page = $nums($this->qs->getArchivedCommandsPage(1234, 1, 2, []));
+        $errors = $nums($this->qs->getArchivedCommandsPage(1234, 1, 10, ['ERROR']));
+        unlink($file);
+
+        $this->assertSame(['0', '1', '2', '3'], $all);
+        $this->assertSame(['1', '2'], $page);
+        $this->assertSame(['2'], $errors);
+    }
+
+    /** @group unit */
+    public function testArchive_MissingOrDisabledIsNull(): void
+    {
+        $this->assertNull($this->qs->getArchivedCommands(1234));
+        $this->qs->config->archive_dir = sys_get_temp_dir() . '/qs_archive_test_missing';
+        $this->assertNull($this->qs->getArchivedCommands(1234));
+        $this->assertSame([], $this->qs->getArchivedCommandsPage(1234, 0, 10, []));
+    }
+
+    /** @group unit */
+    public function testArchive_CorruptFileIsNotReadPartially(): void
+    {
+        $file = $this->writeArchive(1234, [$this->archivedCommand(100, 0, 'DONE'), '{"truncated":']);
+        $rows = $this->qs->getArchivedCommands(1234);
+        unlink($file);
+
+        $this->assertNull($rows);
+    }
 }

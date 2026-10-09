@@ -3,6 +3,7 @@
 	"bot_config_file" : "/data/project/quickstatements/bot.ini" ,
 	"logfile" : "/data/project/quickstatements/tool.log" ,
 	"valid_origin" : "https://quickstatements.toolforge.org" ,
+	"archive_dir" : "" ,
 	"sites" : {
 		"wikidata" : {
 			"label" : "Wikidata" ,

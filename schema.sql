@@ -44,3 +44,12 @@ CREATE TABLE `batch_oauth` (
   PRIMARY KEY (`id`),
   KEY `batch_id` (`batch_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Optional: only used if config.json sets "archive_dir" (see getArchivedCommands)
+CREATE TABLE `command_archive` (
+  `batch_id` int(11) NOT NULL,
+  `num_commands` int(11) unsigned NOT NULL,
+  `status_counts` varchar(255) NOT NULL,
+  `ts_archived` varchar(14) NOT NULL,
+  PRIMARY KEY (`batch_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

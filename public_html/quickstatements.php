@@ -178,7 +178,10 @@ class QuickStatements {
 		$db = $this->getDB() ;
 		$sql = "SELECT * FROM command WHERE batch_id=$id" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
-		while ( $o = $result->fetch_object() ) {
+		$rows = [] ;
+		while ( $o = $result->fetch_object() ) $rows[] = $o ;
+		if ( count($rows) == 0 ) $rows = $this->getArchivedCommands ( $id ) ?? [] ;
+		foreach ( $rows AS $o ) {
 			$j = json_decode ( $o->json ) ;
 			$j->_meta = $o ;
 			unset ( $j->_meta->json ) ;
@@ -499,7 +502,88 @@ class QuickStatements {
 			$ret["$batch_id"]['commands'][$status] = $o->cnt ;
 		}
 
+		$this->addArchivedStatusCounts ( $ret ) ;
 		return $ret ;
+	}
+
+	// ---- Command archive ----
+	// QuickStatements_rs can move the commands of old batches out of the `command` table,
+	// into one gzipped JSON-lines file per batch. Only used if config.json sets "archive_dir".
+	// Rows in `command` take precedence over an archive file.
+
+	protected function getArchiveFile ( int $batch_id ) : ?string {
+		$dir = $this->config->archive_dir ?? '' ;
+		if ( $dir == '' ) return null ;
+		$file = "{$dir}/" . intdiv ( $batch_id , 1000 ) . "/{$batch_id}.jsonl.gz" ;
+		return is_readable ( $file ) ? $file : null ;
+	}
+
+	// The archived commands of a batch as `command` table rows, or null if there is no (readable) archive
+	public function getArchivedCommands ( int $batch_id ) : ?array {
+		$file = $this->getArchiveFile ( $batch_id ) ;
+		if ( $file === null ) return null ;
+		$lines = gzfile ( $file ) ;
+		if ( $lines === false ) return null ;
+		$ret = [] ;
+		foreach ( $lines AS $line ) {
+			$o = json_decode ( $line ) ;
+			if ( !is_object($o) ) return null ; // Never return a partial batch
+			foreach ( ['id','batch_id','num'] AS $k ) $o->$k = (string) $o->$k ; // Like mysqli
+			$ret[] = $o ;
+		}
+		return $ret ;
+	}
+
+	// Archived commands, selected like the SQL query of the get_commands_from_batch API action
+	public function getArchivedCommandsPage ( int $batch_id , int $start , int $limit , array $statuses ) : array {
+		$rows = array_filter ( $this->getArchivedCommands ( $batch_id ) ?? [] , fn($o) =>
+			$o->num >= $start and ( count($statuses) == 0 or in_array ( $o->status , $statuses ) ) ) ;
+		usort ( $rows , fn($a,$b) => $a->num <=> $b->num ) ;
+		return array_slice ( $rows , 0 , $limit ) ;
+	}
+
+	// Moves an archived batch back into the `command` table, so its commands can be changed
+	public function restoreArchivedBatch ( int $batch_id ) : bool {
+		$rows = $this->getArchivedCommands ( $batch_id ) ;
+		if ( $rows === null ) return true ; // Not archived
+		if ( !$this->canCurrentUserChangeBatchStatus ( $batch_id ) ) return false ;
+		$db = $this->getDB() ;
+		try {
+			$result = $db->query ( "SELECT id FROM command WHERE batch_id={$batch_id} LIMIT 1" ) ;
+			if ( $result === false ) throw new Exception ( $db->error ) ;
+			if ( $result->num_rows > 0 ) return true ; // Live rows take precedence
+			$db->begin_transaction() ;
+			foreach ( array_chunk ( $rows , 500 ) AS $chunk ) {
+				$values = [] ;
+				foreach ( $chunk AS $o ) {
+					$strings = array_map ( [$db,'real_escape_string'] , [ $o->json , $o->status , $o->message , $o->ts_change ] ) ;
+					$values[] = "(" . ($o->id*1) . "," . ($o->batch_id*1) . "," . ($o->num*1) . ",'" . implode ( "','" , $strings ) . "')" ;
+				}
+				$sql = "INSERT INTO command (id,batch_id,num,json,status,message,ts_change) VALUES " . implode ( ',' , $values ) ;
+				if ( !$db->query ( $sql ) ) throw new Exception ( $db->error ) ;
+			}
+			$db->commit() ;
+		} catch ( Throwable $e ) {
+			$db->rollback() ;
+			return $this->setErrorMessage ( "Cannot restore archived batch #{$batch_id}: " . $e->getMessage() ) ;
+		}
+		return true ;
+	}
+
+	// Command counts of archived batches, which have no rows in `command`
+	protected function addArchivedStatusCounts ( array &$batches ) {
+		if ( ( $this->config->archive_dir ?? '' ) == '' ) return ;
+		$ids = [] ;
+		foreach ( $batches AS $batch_id => $b ) {
+			if ( count($b['commands']) == 0 ) $ids[] = $batch_id * 1 ;
+		}
+		if ( count($ids) == 0 ) return ;
+		$sql = "SELECT batch_id,status_counts FROM command_archive WHERE batch_id IN (" . implode ( ',' , $ids ) . ")" ;
+		if ( !$result = $this->getDB()->query($sql) ) return ;
+		while ( $o = $result->fetch_object() ) {
+			$counts = json_decode ( $o->status_counts , true ) ?? [] ;
+			$batches[$o->batch_id]['commands'] = array_map ( 'strval' , $counts ) ; // Like mysqli
+		}
 	}
 
 	public function userChangeBatchStatus ( $batch_id , $new_status ) {
