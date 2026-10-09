@@ -315,6 +315,7 @@ if ( $action == 'import' ) {
 
 	$batch_id = get_request ( 'batch_id' , 0 ) * 1 ;
 	if ( $batch_id <= 0 ) fin("Bad batch ID #{$batch_id}") ;
+	if ( !$qs->canCurrentUserChangeBatchStatus ( $batch_id ) ) fin ( $qs->last_error_message ?: 'Not allowed to change this batch' ) ;
 	if ( !$qs->restoreArchivedBatch ( $batch_id ) ) fin ( $qs->last_error_message ) ;
 
 	$out['init'] = 0 ;

@@ -614,13 +614,14 @@ class QuickStatements {
 		file_put_contents ( $this->config->logfile , $out , FILE_APPEND ) ;
 	}
 
-	protected function canCurrentUserChangeBatchStatus ( $batch_id ) {
+	public function canCurrentUserChangeBatchStatus ( $batch_id ) {
 		if ( false === $this->getCurrentUserID() ) return $this->setErrorMessage ( "Not logged in" ) ;
 
 		$db = $this->getDB() ;
 		$sql = "SELECT * FROM batch WHERE id=$batch_id" ;
 		if(!$result = $db->query($sql)) return $this->setErrorMessage ( 'There was an error running the query [' . $db->error . ']'."\n$sql" ) ;
 		$batch = $result->fetch_object() ;
+		if ( !$batch ) return $this->setErrorMessage ( "No batch #{$batch_id}" ) ;
 
 //		if ( !isset($this->user_id) ) $this->user_id = $this->getCurrentUserID() ;
 		if ( $batch->user == $this->user_id ) return true ; // User who submitted the batch
